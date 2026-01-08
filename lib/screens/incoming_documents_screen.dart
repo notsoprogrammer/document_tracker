@@ -64,50 +64,199 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     final transferredByController = TextEditingController();
     final notesController = TextEditingController();
 
+    final List<String> cpdcoStaff = [
+      'Arnie',
+      'Rex',
+      'Floro',
+      'Arlene',
+      'Sharmaine',
+      'Path',
+      'Jess',
+      'Emiliana',
+      'Pau',
+      'Chris',
+      'Wena',
+      'Arlyn',
+      'Dari',
+      'Other'
+    ];
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Transfer Document"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: newAssigneeController,
-                decoration: const InputDecoration(labelText: "New Assignee"),
+      barrierDismissible: true,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              TextField(
-                controller: transferredByController,
-                decoration: const InputDecoration(labelText: "Transferred By"),
+              title: Row(
+                children: [
+                  Icon(Icons.swap_horiz, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  const Text("Transfer Document", style: TextStyle(fontSize: 16)),
+                ],
               ),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(labelText: "Notes (Optional)"),
-                maxLines: 3,
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 16),
+                    RawAutocomplete<String>(
+                      textEditingController: newAssigneeController,
+                      focusNode: FocusNode(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return cpdcoStaff.where((String option) {
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() => newAssigneeController.text = selection);
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "New Assignee",
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              height: 200.0,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    RawAutocomplete<String>(
+                      textEditingController: transferredByController,
+                      focusNode: FocusNode(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return cpdcoStaff.where((String option) {
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() => transferredByController.text = selection);
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "Transferred By",
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              height: 200.0,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: notesController,
+                      decoration: InputDecoration(
+                        labelText: "Notes (Optional)",
+                        prefixIcon: const Icon(Icons.note),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            child: const Text("Transfer"),
-            onPressed: () {
-              if (newAssigneeController.text.isNotEmpty && transferredByController.text.isNotEmpty) {
-                widget.transferDocument(
-                  index,
-                  newAssigneeController.text,
-                  transferredByController.text,
-                  notes: notesController.text.isNotEmpty ? notesController.text : null,
-                );
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
-      ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.send),
+                  label: const Text("Transfer", style: TextStyle(fontSize: 10)),
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (newAssigneeController.text.isNotEmpty && transferredByController.text.isNotEmpty) {
+                      widget.transferDocument(
+                        index,
+                        newAssigneeController.text,
+                        transferredByController.text,
+                        notes: notesController.text.isNotEmpty ? notesController.text : null,
+                      );
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -128,27 +277,120 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Archived'
     ];
 
+    final List<String> cpdcoStaff = [
+      'Arnie',
+      'Rex',
+      'Floro',
+      'Arlene',
+      'Sharmaine',
+      'Path',
+      'Jess',
+      'Emiliana',
+      'Pau',
+      'Chris',
+      'Wena',
+      'Arlyn',
+      'Dari',
+      'Other'
+    ];
+
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (_) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text("Update Document Status"),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.edit_document, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text("Update Document Status", style: TextStyle(fontSize: 16)),
+            ],
+          ),
           content: SingleChildScrollView(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: selectedStatus,
-                  decoration: const InputDecoration(labelText: "New Status"),
+                  decoration: InputDecoration(
+                    labelText: "New Status",
+                    prefixIcon: const Icon(Icons.flag),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   items: statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
                   onChanged: (value) => setState(() => selectedStatus = value),
                 ),
-                TextField(
-                  controller: updatedByController,
-                  decoration: const InputDecoration(labelText: "Updated By"),
+                const SizedBox(height: 16),
+                RawAutocomplete<String>(
+                  textEditingController: updatedByController,
+                  focusNode: FocusNode(),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text == '') {
+                      return const Iterable<String>.empty();
+                    }
+                    return cpdcoStaff.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    setState(() => updatedByController.text = selection);
+                  },
+                  fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                    return TextField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        labelText: "Updated By",
+                        prefixIcon: const Icon(Icons.person),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                  optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        child: SizedBox(
+                          height: 200.0,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8.0),
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return GestureDetector(
+                                onTap: () {
+                                  onSelected(option);
+                                },
+                                child: ListTile(
+                                  title: Text(option),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: notesController,
-                  decoration: const InputDecoration(labelText: "Notes (Optional)"),
+                  decoration: InputDecoration(
+                    labelText: "Notes (Optional)",
+                    prefixIcon: const Icon(Icons.note),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   maxLines: 3,
                 ),
               ],
@@ -159,8 +401,14 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text("Cancel"),
             ),
-            ElevatedButton(
-              child: const Text("Update"),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.update),
+              label: const Text("Update", style: TextStyle(fontSize: 10)),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               onPressed: () {
                 if (selectedStatus != null && updatedByController.text.isNotEmpty) {
                   widget.updateDocumentStatus(
