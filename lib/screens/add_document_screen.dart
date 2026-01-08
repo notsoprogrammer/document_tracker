@@ -36,6 +36,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Report',
     'Endorsement',
     'Resolution',
+    'Voucher/OBR',
     'Others'
   ];
 

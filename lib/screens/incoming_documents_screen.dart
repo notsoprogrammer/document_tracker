@@ -266,10 +266,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     final notesController = TextEditingController();
 
     final List<String> statusOptions = [
-      'Pending',
       'Received',
       'In Progress',
       'Under Review',
+      'Pending',
       'Approved',
       'Rejected',
       'Returned',
@@ -285,7 +285,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Sharmaine',
       'Path',
       'Jess',
-      'Emiliana',
+      'Emie',
       'Pau',
       'Chris',
       'Wena',
