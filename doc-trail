@@ -1,0 +1,59 @@
+CPDCO DOCUMENT TRAIL 
+
+INCOMING DOCUMENTS LOG
+
+Document Code/tracking number/Control number: IDL2026-01-01-001 [year-month-date-doc count] 
+Note: pwede siguro continuous nala an document count in a year, pero pwede liwat ma restart to 1 every month.
+
+1.	From (Office/Agency/Person)
+2.	Document Title
+3.	Document Type
+[dropdown]
+a.	Memo
+b.	Executive Order
+c.	Letter
+d.	Report
+e.	Endorsement
+f.	Resolution
+g.	 Others _______
+
+4.	Mode of Receipt
+[dropdown]
+a.	Hand-carry / Hard copy
+b.	Email / Soft copy
+c.	Courier
+
+5.	Assigned / Addressed to
+6.	Upload [Incoming] Document (Image/PDF)
+7.	Remarks 
+8.	Received by
+
+OUTGOING DOCUMENTS LOG
+
+Document Code/tracking number: ODL2026-01-01-001 [year-month-date-doc count] 
+Note: pwede siguro continuous nala an document count in a year, pero pwede liwat ma restart to 1 every month.
+
+1.	Prepared by
+2.	Document title
+3.	Document Type
+[dropdown]
+a.	Memo
+b.	Executive Order
+c.	Letter
+d.	Report
+e.	Endorsement
+f.	Resolution
+g.	 Others _______
+
+4.	Recipient (Office/Agency/Person)
+5.	Mode of Release
+[dropdown]
+a.	Hand-carry / Hard copy
+b.	Email / Soft copy
+c.	Courier
+
+6.	Assigned / Addressed to
+7.	Upload [Outgoing] Document (Image/PDF)
+Note: upload evidence kun diin or hino nag receive han papel lol
+8.	Remarks 
+9.	Released / Delivered by
