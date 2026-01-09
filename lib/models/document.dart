@@ -38,7 +38,7 @@ class Document {
     required this.person,
     required this.incoming,
     List<HistoryEntry>? history,
-    this.status = 'Pending',
+    this.status = 'Received',
   }) : history = history ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes}) {
