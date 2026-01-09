@@ -269,7 +269,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
 
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
-    String? selectedCabinet;
+    final cabinetController = TextEditingController();
     final updatedByController = TextEditingController();
     final notesController = TextEditingController();
 
@@ -285,11 +285,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Urgent',
     ];
 
-    final List<String> cabinetOptions = [
-      'Cabinet 1',
-      'Cabinet 2',
-      'Cabinet 3',
-    ];
 
     final List<String> cpdcoStaff = [
       'Arnie',
@@ -346,24 +341,16 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 ),
                 if (selectedStatus == 'Filed') ...[
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedCabinet,
+                  TextField(
+                    controller: cabinetController,
                     decoration: InputDecoration(
-                      labelText: "Cabinet",
+                      labelText: "File Location",
+                      hintText: "Enter shelf info",
                       prefixIcon: const Icon(Icons.inventory),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    items: cabinetOptions.map((String option) {
-                      return DropdownMenuItem<String>(
-                        value: option,
-                        child: Text(option),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      setState(() => selectedCabinet = value);
-                    },
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -453,8 +440,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               onPressed: () {
                 if (selectedStatus != null && updatedByController.text.isNotEmpty) {
                   String? combinedNotes = notesController.text.isNotEmpty ? notesController.text : null;
-                  if (selectedStatus == 'Filed' && selectedCabinet != null) {
-                    combinedNotes = combinedNotes != null ? '$combinedNotes\nFiled in: $selectedCabinet' : 'Filed in: $selectedCabinet';
+                  if (selectedStatus == 'Filed' && cabinetController.text.isNotEmpty) {
+                    combinedNotes = combinedNotes != null ? '$combinedNotes\nFiled in: ${cabinetController.text}' : 'Filed in: ${cabinetController.text}';
                   }
                   widget.updateDocumentStatus(
                     index,
