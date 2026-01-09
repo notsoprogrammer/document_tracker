@@ -74,6 +74,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
+  DateTime? _specificDate;
   String? _selectedType;
   String? _selectedOffice;
 
@@ -394,7 +395,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  "Search by docs, staff, personnel, remarks",
+                  "Search by docs, staff, personnel, remarks, type, office, status",
                   style: const TextStyle(fontSize: 14),
                   overflow: TextOverflow.visible, // allow wrapping
                   softWrap: true,
@@ -487,6 +488,36 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
+                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Specific Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _specificDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {});
+                      this.setState(() {
+                        _specificDate = picked;
+                        _startDate = picked;
+                        _endDate = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
                     text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
@@ -505,7 +536,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     );
                     if (picked != null) {
                       setState(() {});
-                      this.setState(() => _startDate = picked);
+                      this.setState(() {
+                        _startDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
                     }
                   },
                 ),
@@ -531,7 +565,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     );
                     if (picked != null) {
                       setState(() {});
-                      this.setState(() => _endDate = picked);
+                      this.setState(() {
+                        _endDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
                     }
                   },
                 ),
@@ -574,6 +611,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               onPressed: () {
                 setState(() {});
                 this.setState(() {
+                  _specificDate = null;
                   _startDate = null;
                   _endDate = null;
                   _selectedType = null;
@@ -609,8 +647,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       searchQuery: _searchQuery,
       startDate: _startDate,
       endDate: _endDate,
-      type: _selectedType,
-      office: _selectedOffice,
     );
 
     return Scaffold(

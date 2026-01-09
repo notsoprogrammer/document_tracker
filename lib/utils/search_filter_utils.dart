@@ -1,7 +1,7 @@
 import '../models/document.dart';
 
 /// Filters documents based on search query.
-/// Searches in title, assignedTo (personnel), person (cpdco staff), remarks.
+/// Searches in title, assignedTo (personnel), person (cpdco staff), remarks, type, office (fromOrTo), status.
 List<Document> searchDocuments(List<Document> documents, String query) {
   if (query.isEmpty) return documents;
   final lowerQuery = query.toLowerCase();
@@ -9,32 +9,36 @@ List<Document> searchDocuments(List<Document> documents, String query) {
     return doc.title.toLowerCase().contains(lowerQuery) ||
            doc.assignedTo.toLowerCase().contains(lowerQuery) ||
            doc.person.toLowerCase().contains(lowerQuery) ||
-           doc.remarks.toLowerCase().contains(lowerQuery);
+           doc.remarks.toLowerCase().contains(lowerQuery) ||
+           doc.mode.toLowerCase().contains(lowerQuery) ||
+           doc.type.toLowerCase().contains(lowerQuery) ||
+           doc.fromOrTo.toLowerCase().contains(lowerQuery) ||
+           doc.status.toLowerCase().contains(lowerQuery);
   }).toList();
 }
 
 /// Filters documents based on selected criteria.
-/// Filters by date range (using creation date from history), type, office (fromOrTo).
+/// Filters by date range (using creation date from history).
 List<Document> filterDocuments(List<Document> documents, {
   DateTime? startDate,
   DateTime? endDate,
-  String? type,
-  String? office,
 }) {
   return documents.where((doc) {
     // Date filter: use the first history entry timestamp as creation date
     if (startDate != null || endDate != null) {
       if (doc.history.isEmpty) return false;
       final creationDate = doc.history.first.timestamp;
-      if (startDate != null && creationDate.isBefore(startDate)) return false;
-      if (endDate != null && creationDate.isAfter(endDate)) return false;
+      // Adjust startDate to start of day (00:00:00)
+      final adjustedStartDate = startDate != null
+          ? DateTime(startDate.year, startDate.month, startDate.day)
+          : null;
+      // Adjust endDate to end of day (23:59:59)
+      final adjustedEndDate = endDate != null
+          ? DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59)
+          : null;
+      if (adjustedStartDate != null && creationDate.isBefore(adjustedStartDate)) return false;
+      if (adjustedEndDate != null && creationDate.isAfter(adjustedEndDate)) return false;
     }
-
-    // Type filter
-    if (type != null && type.isNotEmpty && doc.type != type) return false;
-
-    // Office filter (fromOrTo)
-    if (office != null && office.isNotEmpty && !doc.fromOrTo.toLowerCase().contains(office.toLowerCase())) return false;
 
     return true;
   }).toList();
@@ -45,17 +49,13 @@ List<Document> searchAndFilterDocuments(List<Document> documents, {
   String? searchQuery,
   DateTime? startDate,
   DateTime? endDate,
-  String? type,
-  String? office,
 }) {
   // If any filter criteria are provided, apply filters-only (prioritize filters).
-  final hasFilter = startDate != null || endDate != null || (type != null && type.isNotEmpty) || (office != null && office.isNotEmpty);
+  final hasFilter = startDate != null || endDate != null;
   if (hasFilter) {
     return filterDocuments(documents,
       startDate: startDate,
       endDate: endDate,
-      type: type,
-      office: office,
     );
   }
 

@@ -22,8 +22,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
-  String? _selectedType;
-  String? _selectedOffice;
+  DateTime? _specificDate;
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -488,7 +487,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  "Search by docs, staff, personnel, remarks",
+                  "Search by docs, staff, personnel, remarks, type, office, status",
                   style: const TextStyle(fontSize: 14),
                   overflow: TextOverflow.visible, // allow wrapping
                   softWrap: true,
@@ -545,19 +544,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   }
 
   void _showFilterDialog(BuildContext context) {
-
-    final List<String> typeOptions = [    'Memo',
-    'Travel',
-    'Transmittal',
-    'Executive Order',
-    'Letter',
-    'Report',
-    'Endorsement',
-    'Resolution',
-    'Voucher/OBR',
-    'Others'];
-    final officeController = TextEditingController(text: _selectedOffice ?? '');
-
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -581,6 +567,36 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
+                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Specific Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _specificDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {});
+                      this.setState(() {
+                        _specificDate = picked;
+                        _startDate = picked;
+                        _endDate = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
                     text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
@@ -599,7 +615,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                     );
                     if (picked != null) {
                       setState(() {});
-                      this.setState(() => _startDate = picked);
+                      this.setState(() {
+                        _startDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
                     }
                   },
                 ),
@@ -629,37 +648,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedType,
-                  decoration: InputDecoration(
-                    labelText: "Document Type",
-                    prefixIcon: const Icon(Icons.description),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: typeOptions.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                  onChanged: (value) {
-                    setState(() {});
-                    this.setState(() => _selectedType = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: officeController,
-                  decoration: InputDecoration(
-                    labelText: "Office",
-                    prefixIcon: const Icon(Icons.business),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {});
-                    this.setState(() => _selectedOffice = value.isEmpty ? null : value);
-                  },
-                ),
               ],
             ),
           ),
@@ -668,10 +656,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               onPressed: () {
                 setState(() {});
                 this.setState(() {
+                  _specificDate = null;
                   _startDate = null;
                   _endDate = null;
-                  _selectedType = null;
-                  _selectedOffice = null;
                 });
                 Navigator.pop(context);
               },
@@ -702,8 +689,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       searchQuery: _searchQuery,
       startDate: _startDate,
       endDate: _endDate,
-      type: _selectedType,
-      office: _selectedOffice,
     );
 
     return Scaffold(
