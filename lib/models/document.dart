@@ -51,8 +51,7 @@ class Document {
   }
 
   void transferTo(String newAssignee, String transferredBy, {String? notes}) {
-    // Update assignee without adding a separate history entry.
-    // Status updates will record office/personnel in their history notes instead.
+    addHistoryEntry('Transferred to $newAssignee', transferredBy, notes: notes);
     assignedTo = newAssignee;
   }
 

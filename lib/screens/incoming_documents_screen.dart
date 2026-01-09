@@ -609,7 +609,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             ExpansionTile(
                               leading: const Icon(Icons.history),
                                 title: Text(
-                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).length.toString()) + ")",
+                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ') || me.value.action.startsWith('Transferred to ')).length.toString()) + ")",
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                                 ),
                                 children: (() {
@@ -621,7 +621,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                     )];
                                   }
 
-                                  final visible = entries.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).toList();
+                                  final visible = entries.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ') || me.value.action.startsWith('Transferred to ')).toList();
 
                                   return visible.map((mapEntry) {
                                     final entry = mapEntry.value;
