@@ -18,6 +18,61 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
+  final List<String> cpdcoStaff = [
+    'Arnie',
+    'Rex',
+    'Floro',
+    'Arlene',
+    'Sharmaine',
+    'Path',
+    'Jess',
+    'Emiliana',
+    'Pau',
+    'Chris',
+    'Wena',
+    'Arlyn',
+    'Dari',
+    'Other'
+  ];
+
+  final List<String> offices = [
+    'CMO - City Mayor\'s Office',
+    'CVMO - City Vice Mayor\'s Office',
+    'SP - Sangguniang Panlungsod Office',
+    'CTO - City Treasurer\'s Office',
+    'CAssO - City Assessor\'s Office',
+    'CAccO - City Accounting Office',
+    'CBO - City Budget Office',
+    'CPDCO - City Planning and Development Coordinator\'s Office',
+    'CHRMO - City Human Resource Management Office',
+    'CCRO - City Civil Registrar\'s Office',
+    'CAdmO - City Administrator\'s Office',
+    'CLO - City Legal Office',
+    'CICTO - City Information and Communications Technology Office',
+    'CGSO - City General Services Office',
+    'CDRRMO - City Disaster Risk Reduction and Management Office',
+    'CIASO - City Internal Audit Services Office',
+    'CPYDO - City Population and Youth Development Office',
+    'CBPLO - City Business Processing and Licensing Office',
+    'BCAO - Barangay And Community Affair\'s Office',
+    'CPO - City Procurement Office',
+    'CLEAO - Catbalogan Law Enforcement Auxiliary Office',
+    'CCCC - Catbalogan City Community College',
+    'CHO - City Health Office',
+    'CSWDO - City Social Welfare and Development Office',
+    'CPDAO - City Persons with Disability Affairs Office',
+    'CPESO - City Public Employment Services Office',
+    'CTCAO - City Tourism, Culture, Arts, and Information Office',
+    'CAgrO - City Agriculture Office',
+    'CENRO - City Environment & Natural Resources Office',
+    'CEO - City Engineering Office',
+    'CVetO - City Veterinary Office',
+    'CCDO - City Cooperatives Development Office',
+    'CAgBEO - City Agricultural and Biosystem Engineering Office',
+    'CEDIPO - City Economic Development and Investment Promotions Office',
+    'CEEPUO - City Economic Enterprise and Public Utility Office',
+  ];
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -59,61 +114,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
-  void _showTransferDialog(BuildContext context, int index) {
-    final newAssigneeController = TextEditingController();
-    final transferredByController = TextEditingController();
-    final notesController = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Transfer Document"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: newAssigneeController,
-                decoration: const InputDecoration(labelText: "New Assignee"),
-              ),
-              TextField(
-                controller: transferredByController,
-                decoration: const InputDecoration(labelText: "Transferred By"),
-              ),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(labelText: "Notes (Optional)"),
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            child: const Text("Transfer"),
-            onPressed: () {
-              if (newAssigneeController.text.isNotEmpty && transferredByController.text.isNotEmpty) {
-                widget.transferDocument(
-                  index,
-                  newAssigneeController.text,
-                  transferredByController.text,
-                  notes: notesController.text.isNotEmpty ? notesController.text : null,
-                );
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
     final updatedByController = TextEditingController();
+    final officeController = TextEditingController(text: widget.documents[index].fromOrTo);
+    final forwardedToController = TextEditingController();
     final notesController = TextEditingController();
 
     final List<String> statusOptions = [
@@ -130,52 +137,236 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
     showDialog(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text("Update Document Status"),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: const InputDecoration(labelText: "New Status"),
-                  items: statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
-                  onChanged: (value) => setState(() => selectedStatus = value),
+      barrierDismissible: true,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  const Text("Update Document Status", style: TextStyle(fontSize: 16)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: InputDecoration(
+                        labelText: "New Status",
+                        prefixIcon: const Icon(Icons.info),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedStatus = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    RawAutocomplete<String>(
+                      textEditingController: officeController,
+                      focusNode: FocusNode(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return offices.where((String option) {
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() {
+                          officeController.text = selection;
+                        });
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "Office",
+                            prefixIcon: const Icon(Icons.business),
+                            suffixIcon: textEditingController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      setState(() {
+                                        textEditingController.clear();
+                                      });
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              height: 200.0,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: forwardedToController,
+                      decoration: InputDecoration(
+                        labelText: "Personnel",
+                        prefixIcon: const Icon(Icons.assignment_ind),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    RawAutocomplete<String>(
+                      textEditingController: updatedByController,
+                      focusNode: FocusNode(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return cpdcoStaff.where((String option) {
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() {
+                          updatedByController.text = selection;
+                        });
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "Updated By",
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              height: 200.0,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: notesController,
+                      decoration: InputDecoration(
+                        labelText: "Notes (Optional)",
+                        prefixIcon: const Icon(Icons.note),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: updatedByController,
-                  decoration: const InputDecoration(labelText: "Updated By"),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
                 ),
-                TextField(
-                  controller: notesController,
-                  decoration: const InputDecoration(labelText: "Notes (Optional)"),
-                  maxLines: 3,
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.update),
+                  label: const Text("Update", style: TextStyle(fontSize: 10)),
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (selectedStatus != null && updatedByController.text.isNotEmpty && forwardedToController.text.isNotEmpty) {
+                      String combinedNotes = "${officeController.text} - ${forwardedToController.text}";
+                      if (notesController.text.isNotEmpty) {
+                        combinedNotes += " | ${notesController.text}";
+                      }
+                      // Always record the status change
+                      widget.updateDocumentStatus(
+                        index,
+                        selectedStatus!,
+                        updatedByController.text,
+                        notes: combinedNotes,
+                      );
+                      // Only record a transfer if the personnel actually changed
+                      if (forwardedToController.text != widget.documents[index].assignedTo) {
+                        widget.transferDocument(
+                          index,
+                          forwardedToController.text,
+                          updatedByController.text,
+                          notes: combinedNotes,
+                        );
+                      }
+                      Navigator.pop(context);
+                    }
+                  },
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              child: const Text("Update"),
-              onPressed: () {
-                if (selectedStatus != null && updatedByController.text.isNotEmpty) {
-                  widget.updateDocumentStatus(
-                    index,
-                    selectedStatus!,
-                    updatedByController.text,
-                    notes: notesController.text.isNotEmpty ? notesController.text : null,
-                  );
-                  Navigator.pop(context);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -278,18 +469,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             const SizedBox(height: 8),
                             _buildDetailRow(Icons.send, "Mode", doc.mode),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildDetailRow(Icons.assignment_ind, "Assigned To", doc.assignedTo),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.swap_horiz),
-                                  onPressed: () => _showTransferDialog(context, originalIndex),
-                                  tooltip: "Transfer Document",
-                                ),
-                              ],
-                            ),
+                            _buildDetailRow(Icons.assignment_ind, "Forwarded To", doc.assignedTo),
                             const SizedBox(height: 8),
                             Row(
                               children: [
@@ -313,59 +493,110 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             _buildDetailRow(Icons.send, "Released by", doc.person),
                             const SizedBox(height: 16),
                             ExpansionTile(
-                              title: Text(
-                                "Document History (${doc.history.length})",
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                              ),
                               leading: const Icon(Icons.history),
-                              children: doc.history.isEmpty
-                                  ? [const Padding(
+                                // compute visible entries (creation + status changes)
+                                title: Text(
+                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).length.toString()) + ")",
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                                children: (() {
+                                  final entries = doc.history;
+                                  if (entries.isEmpty) {
+                                    return [const Padding(
                                       padding: EdgeInsets.all(16),
                                       child: Text("No history available"),
-                                    )]
-                                  : doc.history.map((entry) => Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(
-                                            Icons.circle,
-                                            size: 12,
-                                            color: const Color(0xFF2196F3),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  entry.action,
-                                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                    )];
+                                  }
+
+                                  // Only include the creation entry (index 0) and status-change entries.
+                                  final visible = entries.asMap().entries.where((me) {
+                                    return me.key == 0 || me.value.action.startsWith('Status changed to ');
+                                  }).toList();
+
+                                  return visible.map((mapEntry) {
+                                  final originalIndex = mapEntry.key;
+                                  final entry = mapEntry.value;
+                                  String office = doc.fromOrTo;
+                                  String personnel = doc.assignedTo;
+                                  String? additionalNotes;
+
+                                  // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
+                                  if (entry.notes != null && entry.notes!.isNotEmpty) {
+                                    final parts = entry.notes!.split(' | ');
+                                    final officePersonnelStr = parts[0].trim();
+                                    final sepIndex = officePersonnelStr.lastIndexOf(' - ');
+                                    if (sepIndex != -1) {
+                                      office = officePersonnelStr.substring(0, sepIndex).trim();
+                                      personnel = officePersonnelStr.substring(sepIndex + 3).trim();
+                                    } else {
+                                      final officePersonnel = officePersonnelStr.split(' - ');
+                                      if (officePersonnel.length >= 2) {
+                                        office = officePersonnel[0].trim();
+                                        personnel = officePersonnel[1].trim();
+                                      }
+                                    }
+                                    if (parts.length > 1) {
+                                      additionalNotes = parts.sublist(1).join(' | ').trim();
+                                    }
+                                  }
+
+                                  String mainLine;
+                                  final byLine = "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
+                                  if (originalIndex == 0) {
+                                    // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
+                                    mainLine = "Created and forwarded c/o $office - $personnel";
+                                  } else {
+                                    // Status change: format as "(Status) c/o (office) - (personnel)"
+                                    final status = entry.action.replaceFirst('Status changed to ', '');
+                                    mainLine = "$status c/o $office - $personnel";
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.circle,
+                                          size: 12,
+                                          color: const Color(0xFF2196F3),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                mainLine,
+                                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                byLine,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                                                 ),
+                                              ),
+                                              if (additionalNotes != null && additionalNotes.isNotEmpty) ...[
+                                                const SizedBox(height: 6),
                                                 Text(
-                                                  "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
+                                                  "Notes: $additionalNotes",
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                                    fontStyle: FontStyle.italic,
+                                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                                   ),
                                                 ),
-                                                if (entry.notes != null && entry.notes!.isNotEmpty) ...[
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    "Notes: ${entry.notes}",
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontStyle: FontStyle.italic,
-                                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                                    ),
-                                                  ),
-                                                ],
                                               ],
-                                            ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                    )).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList();
+                              })(),
                             ),
                           ],
                         ),
