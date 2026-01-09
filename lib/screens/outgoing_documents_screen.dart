@@ -261,62 +261,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    RawAutocomplete<String>(
-                      textEditingController: updatedByController,
-                      focusNode: FocusNode(),
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text == '') {
-                          return const Iterable<String>.empty();
-                        }
-                        return cpdcoStaff.where((String option) {
-                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                        });
-                      },
-                      onSelected: (String selection) {
-                        setState(() {
-                          updatedByController.text = selection;
-                        });
-                      },
-                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                        return TextField(
-                          controller: textEditingController,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: "Updated By",
-                            prefixIcon: const Icon(Icons.person),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      },
-                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: Material(
-                            elevation: 4.0,
-                            child: SizedBox(
-                              width: 350,
-                              height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(8.0),
-                                itemCount: options.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final String option = options.elementAt(index);
-                                  return GestureDetector(
-                                    onTap: () {
-                                      onSelected(option);
-                                    },
-                                    child: ListTile(
-                                      title: Text(option),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                    TextField(
+                      controller: updatedByController,
+                      decoration: InputDecoration(
+                        labelText: "Updated By",
+                        prefixIcon: const Icon(Icons.person),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
