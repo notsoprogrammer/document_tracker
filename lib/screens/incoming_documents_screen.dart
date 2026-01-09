@@ -590,6 +590,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                         _startDate = picked;
                         _endDate = picked;
                       });
+                      Navigator.pop(context);
                     }
                   },
                 ),

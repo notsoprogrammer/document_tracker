@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       documents.add(doc);
       // Add initial history entry
       // Include office and personnel snapshot so creation history doesn't change later
-      doc.addHistoryEntry('Document Received', doc.person);
+      doc.addHistoryEntry('Document Received', doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
     });
   }
 

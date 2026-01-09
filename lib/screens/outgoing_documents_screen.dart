@@ -511,6 +511,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                         _startDate = picked;
                         _endDate = picked;
                       });
+                      Navigator.pop(context);
                     }
                   },
                 ),
@@ -788,26 +789,35 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   final originalIndex = mapEntry.key;
                                   final entry = mapEntry.value;
                                   String office = doc.fromOrTo;
-                                  String personnel = doc.assignedTo;
+                                  String personnel = originalIndex == 0 ? 'Original Assignee' : doc.assignedTo;
                                   String? additionalNotes;
 
                                   // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
                                   if (entry.notes != null && entry.notes!.isNotEmpty) {
-                                    final parts = entry.notes!.split(' | ');
-                                    final officePersonnelStr = parts[0].trim();
-                                    final sepIndex = officePersonnelStr.lastIndexOf(' - ');
-                                    if (sepIndex != -1) {
-                                      office = officePersonnelStr.substring(0, sepIndex).trim();
-                                      personnel = officePersonnelStr.substring(sepIndex + 3).trim();
-                                    } else {
-                                      final officePersonnel = officePersonnelStr.split(' - ');
-                                      if (officePersonnel.length >= 2) {
-                                        office = officePersonnel[0].trim();
-                                        personnel = officePersonnel[1].trim();
+                                    final parts = entry.notes!.split('|');
+                                    if (originalIndex == 0) {
+                                      // Creation: notes = "office|personnel"
+                                      if (parts.length >= 2) {
+                                        office = parts[0].trim();
+                                        personnel = parts[1].trim();
                                       }
-                                    }
-                                    if (parts.length > 1) {
-                                      additionalNotes = parts.sublist(1).join(' | ').trim();
+                                    } else {
+                                      // Status change: notes = "office - personnel|additional"
+                                      final officePersonnelStr = parts[0].trim();
+                                      final sepIndex = officePersonnelStr.lastIndexOf(' - ');
+                                      if (sepIndex != -1) {
+                                        office = officePersonnelStr.substring(0, sepIndex).trim();
+                                        personnel = officePersonnelStr.substring(sepIndex + 3).trim();
+                                      } else {
+                                        final officePersonnel = officePersonnelStr.split(' - ');
+                                        if (officePersonnel.length >= 2) {
+                                          office = officePersonnel[0].trim();
+                                          personnel = officePersonnel[1].trim();
+                                        }
+                                      }
+                                      if (parts.length > 1) {
+                                        additionalNotes = parts.sublist(1).join('|').trim();
+                                      }
                                     }
                                   }
 
@@ -815,11 +825,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   final byLine = "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
                                   if (originalIndex == 0) {
                                     // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
-                                    mainLine = "Created and forwarded c/o $office - $personnel";
+                                    mainLine = "Created and forwarded to $office c/o $personnel";
                                   } else {
                                     // Status change: format as "(Status) c/o (office) - (personnel)"
                                     final status = entry.action.replaceFirst('Status changed to ', '');
-                                    mainLine = "$status c/o $office - $personnel";
+                                    mainLine = "$status: $office - $personnel";
                                   }
 
                                   return Padding(
