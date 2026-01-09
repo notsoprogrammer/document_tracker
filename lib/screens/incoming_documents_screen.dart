@@ -78,7 +78,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Wena',
       'Arlyn',
       'Dari',
-      'Other'
     ];
 
     showDialog(
@@ -561,17 +560,25 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             _buildDetailRow(Icons.receipt, "Received by", doc.person),
                             const SizedBox(height: 16),
                             ExpansionTile(
-                              title: Text(
-                                "Document History (${doc.history.length})",
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                              ),
                               leading: const Icon(Icons.history),
-                              children: doc.history.isEmpty
-                                  ? [const Padding(
+                                title: Text(
+                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).length.toString()) + ")",
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                                children: (() {
+                                  final entries = doc.history;
+                                  if (entries.isEmpty) {
+                                    return [const Padding(
                                       padding: EdgeInsets.all(16),
                                       child: Text("No history available"),
-                                    )]
-                                  : doc.history.map((entry) => Padding(
+                                    )];
+                                  }
+
+                                  final visible = entries.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).toList();
+
+                                  return visible.map((mapEntry) {
+                                    final entry = mapEntry.value;
+                                    return Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                       child: Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,7 +620,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                           ),
                                         ],
                                       ),
-                                    )).toList(),
+                                    );
+                                  }).toList();
+                                })(),
                             ),
                           ],
                         ),
