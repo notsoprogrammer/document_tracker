@@ -110,6 +110,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _deleteDocument(int index) {
+    setState(() {
+      documents.removeAt(index);
+    });
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -175,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               documents: documents,
                               transferDocument: _transferDocument,
                               updateDocumentStatus: _updateDocumentStatus,
+                              deleteDocument: _deleteDocument,
                             ),
                           ),
                         );
@@ -202,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               documents: documents,
                               transferDocument: _transferDocument,
                               updateDocumentStatus: _updateDocumentStatus,
+                              deleteDocument: _deleteDocument,
                             ),
                           ),
                         );

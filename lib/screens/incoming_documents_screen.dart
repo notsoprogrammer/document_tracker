@@ -6,12 +6,16 @@ class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
   final Function(int, String, String, {String? notes}) transferDocument;
   final Function(int, String, String, {String? notes}) updateDocumentStatus;
+  // final Function(int, Document) editDocument;
+  final Function(int) deleteDocument;
 
   const IncomingDocumentsScreen({
     super.key,
     required this.documents,
     required this.transferDocument,
     required this.updateDocumentStatus,
+    // required this.editDocument,
+    required this.deleteDocument,
   });
 
   @override
@@ -670,6 +674,49 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     );
   }
 
+  void _showDeleteConfirmation(BuildContext context, int index) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.delete, color: Colors.red),
+            const SizedBox(width: 8),
+            const Text("Delete Document", style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          "Sure naaa??? This action cannot be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.delete),
+            label: const Text("Delete", style: TextStyle(fontSize: 10)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              widget.deleteDocument(index);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final incomingDocuments = searchAndFilterDocuments(
@@ -868,6 +915,24 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                     );
                                   }).toList();
                                 })(),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.delete),
+                                  label: const Text("Delete", style: TextStyle(fontSize: 10)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color.fromARGB(255, 218, 87, 78),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: () => _showDeleteConfirmation(context, originalIndex),
+                                ),
+                              ],
                             ),
                           ],
                         ),
