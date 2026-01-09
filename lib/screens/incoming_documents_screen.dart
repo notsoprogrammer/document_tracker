@@ -259,7 +259,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                         transferredByController.text,
                         notes: notesController.text.isNotEmpty ? notesController.text : null,
                       );
-                      Navigator.pop(context);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     }
                   },
                 ),
