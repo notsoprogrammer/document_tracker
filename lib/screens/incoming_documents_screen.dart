@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/document.dart';
+import '../utils/search_filter_utils.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -18,6 +19,12 @@ class IncomingDocumentsScreen extends StatefulWidget {
 }
 
 class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
+  String _searchQuery = '';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _selectedType;
+  String? _selectedOffice;
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -434,9 +441,240 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     );
   }
 
+  void _showSearchDialog(BuildContext context) {
+    final searchController = TextEditingController(text: _searchQuery);
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Search Documents", style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 16),
+              TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: "Search by title, staff, personnel, remarks",
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _searchQuery = '';
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Clear"),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.search),
+            label: const Text("Search"),
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                _searchQuery = searchController.text;
+              });
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    DateTime? tempStartDate = _startDate;
+    DateTime? tempEndDate = _endDate;
+    String? tempSelectedType = _selectedType;
+    String? tempSelectedOffice = _selectedOffice;
+
+    final List<String> typeOptions = [    'Memo',
+    'Travel',
+    'Transmittal',
+    'Executive Order',
+    'Letter',
+    'Report',
+    'Endorsement',
+    'Resolution',
+    'Voucher/OBR',
+    'Others'];
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text("Filter Documents", style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        readOnly: true,
+                        controller: TextEditingController(
+                          text: tempStartDate != null ? "${tempStartDate!.month}/${tempStartDate!.day}/${tempStartDate!.year}" : '',
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "Start Date",
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: tempStartDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() => tempStartDate = picked);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        readOnly: true,
+                        controller: TextEditingController(
+                          text: tempEndDate != null ? "${tempEndDate!.month}/${tempEndDate!.day}/${tempEndDate!.year}" : '',
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "End Date",
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: tempEndDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() => tempEndDate = picked);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: tempSelectedType,
+                  decoration: InputDecoration(
+                    labelText: "Document Type",
+                    prefixIcon: const Icon(Icons.description),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: typeOptions.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                  onChanged: (value) => setState(() => tempSelectedType = value),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: TextEditingController(text: tempSelectedOffice ?? ''),
+                  decoration: InputDecoration(
+                    labelText: "Office",
+                    prefixIcon: const Icon(Icons.business),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (value) => tempSelectedOffice = value.isEmpty ? null : value,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _startDate = null;
+                  _endDate = null;
+                  _selectedType = null;
+                  _selectedOffice = null;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Clear All"),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.filter_list),
+              label: const Text("Apply"),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                setState(() {
+                  _startDate = tempStartDate;
+                  _endDate = tempEndDate;
+                  _selectedType = tempSelectedType;
+                  _selectedOffice = tempSelectedOffice;
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final incomingDocuments = widget.documents.where((doc) => doc.incoming).toList();
+    final incomingDocuments = searchAndFilterDocuments(
+      widget.documents.where((doc) => doc.incoming).toList(),
+      searchQuery: _searchQuery,
+      startDate: _startDate,
+      endDate: _endDate,
+      type: _selectedType,
+      office: _selectedOffice,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -446,15 +684,11 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search functionality
-            },
+            onPressed: () => _showSearchDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              // TODO: Implement filter functionality
-            },
+            onPressed: () => _showFilterDialog(context),
           ),
         ],
       ),
