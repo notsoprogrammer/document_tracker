@@ -304,8 +304,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Pau',
       'Chris',
       'Wena',
-      'Arlyn',
-      'Dari',
     ];
 
     showDialog(
@@ -768,8 +766,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       ),
                     ),
                     title: Text(
-                      "${doc.code} - ${doc.title}",
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      "${doc.type} - ${doc.title}",
+                      style: const TextStyle(fontWeight: FontWeight.w400),
                     ),
                     subtitle: Row(
                       children: [
@@ -779,7 +777,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           color: const Color(0xFFFFB74D),
                         ),
                         const SizedBox(width: 4),
-                        Text("Incoming • ${doc.type}"),
+                        Text("${doc.code}  "),
                       ],
                     ),
                     children: [

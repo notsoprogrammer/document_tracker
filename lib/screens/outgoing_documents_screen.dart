@@ -31,9 +31,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     'Pau',
     'Chris',
     'Wena',
-    'Arlyn',
-    'Dari',
-    'Other'
   ];
 
   final List<String> offices = [
@@ -676,8 +673,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       ),
                     ),
                     title: Text(
-                      "${doc.code} - ${doc.title}",
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      "${doc.type} - ${doc.title}",
+                      style: const TextStyle(fontWeight: FontWeight.w400),
                     ),
                     subtitle: Row(
                       children: [
@@ -687,7 +684,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                           color: const Color(0xFF2196F3),
                         ),
                         const SizedBox(width: 4),
-                        Text("Outgoing • ${doc.type}"),
+                        Text("${doc.code} "),
                       ],
                     ),
                     children: [
