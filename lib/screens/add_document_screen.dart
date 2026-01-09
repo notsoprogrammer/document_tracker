@@ -117,9 +117,21 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final year = now.year;
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
-    // Note: This is a simplified version; in a real app, you'd need to track counts globally
-    return incoming ? 'IDL$year-$month-$day-001' : 'ODL$year-$month-$day-001';
+    // Simple per-session incremental sequence so codes increase from 001
+    // These counters are static so multiple AddDocumentScreen instances share the sequence during app runtime
+    if (incoming) {
+      _AddDocumentScreenState._incomingSeq++;
+      final seq = _AddDocumentScreenState._incomingSeq.toString().padLeft(3, '0');
+      return 'IDL$year-$month-$day-$seq';
+    } else {
+      _AddDocumentScreenState._outgoingSeq++;
+      final seq = _AddDocumentScreenState._outgoingSeq.toString().padLeft(3, '0');
+      return 'ODL$year-$month-$day-$seq';
+    }
   }
+
+  static int _incomingSeq = 0;
+  static int _outgoingSeq = 0;
 
 
   @override
