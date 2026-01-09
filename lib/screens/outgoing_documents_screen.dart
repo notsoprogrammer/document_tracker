@@ -400,7 +400,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                           notes: combinedNotes,
                         );
                       }
-                      Navigator.pop(context);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     }
                   },
                 ),
@@ -550,7 +550,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     )];
                                   }
 
-                                  // Only include the creation entry (index 0) and status-change entries.
+                                  // Only include the creation entry (index 0), status-change entries, and transfer entries.
                                   final visible = entries.asMap().entries.where((me) {
                                     return me.key == 0 || me.value.action.startsWith('Status changed to ');
                                   }).toList();
