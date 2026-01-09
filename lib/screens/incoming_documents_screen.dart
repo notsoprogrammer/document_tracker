@@ -270,6 +270,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
 
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
+    String? selectedCabinet;
     final updatedByController = TextEditingController();
     final notesController = TextEditingController();
 
@@ -281,7 +282,14 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Action Required',
       'Returned',
       'Completed',
-      'Archived'
+      'Filed',
+      'Urgent',
+    ];
+
+    final List<String> cabinetOptions = [
+      'Cabinet 1',
+      'Cabinet 2',
+      'Cabinet 3',
     ];
 
     final List<String> cpdcoStaff = [
@@ -339,6 +347,28 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                     setState(() => selectedStatus = value);
                   },
                 ),
+                if (selectedStatus == 'Filed') ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedCabinet,
+                    decoration: InputDecoration(
+                      labelText: "Cabinet",
+                      prefixIcon: const Icon(Icons.inventory),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: cabinetOptions.map((String option) {
+                      return DropdownMenuItem<String>(
+                        value: option,
+                        child: Text(option),
+                      );
+                    }).toList(),
+                    onChanged: (String? value) {
+                      setState(() => selectedCabinet = value);
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 RawAutocomplete<String>(
                   textEditingController: updatedByController,
@@ -425,13 +455,17 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               ),
               onPressed: () {
                 if (selectedStatus != null && updatedByController.text.isNotEmpty) {
+                  String? combinedNotes = notesController.text.isNotEmpty ? notesController.text : null;
+                  if (selectedStatus == 'Filed' && selectedCabinet != null) {
+                    combinedNotes = combinedNotes != null ? '$combinedNotes\nFiled in: $selectedCabinet' : 'Filed in: $selectedCabinet';
+                  }
                   widget.updateDocumentStatus(
                     index,
                     selectedStatus!,
                     updatedByController.text,
-                    notes: notesController.text.isNotEmpty ? notesController.text : null,
+                    notes: combinedNotes,
                   );
-                  Navigator.pop(context);
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 }
               },
             ),
