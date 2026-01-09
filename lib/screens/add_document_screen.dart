@@ -21,6 +21,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   bool isCustomFrom = false;
   String? selectedMode;
   final assignedToController = TextEditingController();
+  String? selectedStatus;
   String? selectedFilePath;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
@@ -101,7 +102,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Wena',
     'Arlyn',
     'Dari',
-    'Other'
+  ];
+  final List<String> statusOptions = [
+    'Received','Action Required', 'Returned', 'Completed', 'Filed'
   ];
 
   @override
@@ -319,6 +322,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          decoration: InputDecoration(
+                            labelText: "Status",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          items: statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                          onChanged: (value) => setState(() => selectedStatus = value),
+                        ),
+                        const SizedBox(height: 12),
                         ElevatedButton.icon(
                           onPressed: () async {
                             FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -415,7 +430,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         remarks: remarksController.text,
                         person: personController.text,
                         incoming: widget.incoming,
-                        status: widget.incoming ? 'Received' : 'Pending',
+                        status: selectedStatus ?? (widget.incoming ? 'Received' : 'Pending'),
                       );
                       Navigator.pop(context, doc); // Return the document
                     }
