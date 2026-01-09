@@ -392,13 +392,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        title: Row(
-          children: [
-            Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
-            const Text("Search Documents", style: TextStyle(fontSize: 16)),
-          ],
-        ),
+          title: Row(
+            children: [
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  "Search by docs, staff, personnel, remarks",
+                  style: const TextStyle(fontSize: 14),
+                  overflow: TextOverflow.visible, // allow wrapping
+                  softWrap: true,
+                ),
+              ),
+            ],
+          ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -407,7 +413,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               TextField(
                 controller: searchController,
                 decoration: InputDecoration(
-                  labelText: "Search by title, staff, personnel, remarks",
+                  labelText: "Type here to search",
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -484,62 +490,54 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        readOnly: true,
-                        controller: TextEditingController(
-                          text: tempStartDate != null ? "${tempStartDate!.month}/${tempStartDate!.day}/${tempStartDate!.year}" : '',
-                        ),
-                        decoration: InputDecoration(
-                          labelText: "Start Date",
-                          prefixIcon: const Icon(Icons.calendar_today),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: tempStartDate ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() => tempStartDate = picked);
-                          }
-                        },
-                      ),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: tempStartDate != null ? "${tempStartDate!.month}/${tempStartDate!.day}/${tempStartDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Start Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        readOnly: true,
-                        controller: TextEditingController(
-                          text: tempEndDate != null ? "${tempEndDate!.month}/${tempEndDate!.day}/${tempEndDate!.year}" : '',
-                        ),
-                        decoration: InputDecoration(
-                          labelText: "End Date",
-                          prefixIcon: const Icon(Icons.calendar_today),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: tempEndDate ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() => tempEndDate = picked);
-                          }
-                        },
-                      ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: tempStartDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => tempStartDate = picked);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: tempEndDate != null ? "${tempEndDate!.month}/${tempEndDate!.day}/${tempEndDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "End Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: tempEndDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => tempEndDate = picked);
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -572,7 +570,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                setState(() {
+                this.setState(() {
                   _startDate = null;
                   _endDate = null;
                   _selectedType = null;
