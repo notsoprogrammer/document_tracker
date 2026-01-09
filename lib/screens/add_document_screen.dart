@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/document.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class AddDocumentScreen extends StatefulWidget {
 }
 
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
+  final ImagePicker _picker = ImagePicker();
   final codeController = TextEditingController();
   final titleController = TextEditingController();
   String? selectedType;
@@ -345,22 +347,51 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           onChanged: (value) => setState(() => selectedStatus = value),
                         ),
                         const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            FilePickerResult? result = await FilePicker.platform.pickFiles(
-                              type: FileType.custom,
-                              allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-                            );
-                            if (result != null) {
-                              setState(() => selectedFilePath = result.files.single.path);
-                            }
-                          },
-                          icon: const Icon(Icons.attach_file),
-                          label: Text(selectedFilePath != null ? "File Selected: ${selectedFilePath!.split('/').last}" : "Upload ${widget.incoming ? 'Incoming' : 'Outgoing'} Document (Image/PDF)"),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+                                  if (image != null) {
+                                    setState(() => selectedFilePath = image.path);
+                                  }
+                                },
+                                icon: const Icon(Icons.camera_alt),
+                                label: const Text("Take Picture"),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  FilePickerResult? result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                                  );
+                                  if (result != null) {
+                                    setState(() => selectedFilePath = result.files.single.path);
+                                  }
+                                },
+                                icon: const Icon(Icons.attach_file),
+                                label: const Text("Pick File"),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (selectedFilePath != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            "File Selected: ${selectedFilePath!.split('/').last}",
+                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
