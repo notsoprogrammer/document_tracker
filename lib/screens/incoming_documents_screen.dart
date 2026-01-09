@@ -135,7 +135,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           child: Material(
                             elevation: 4.0,
                             child: SizedBox(
-                              height: 200.0,
+                              width: 350,
+                              height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
                               child: ListView.builder(
                                 padding: const EdgeInsets.all(8.0),
                                 itemCount: options.length,
@@ -190,7 +191,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           child: Material(
                             elevation: 4.0,
                             child: SizedBox(
-                              height: 200.0,
+                              width: 350,
+                              height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
                               child: ListView.builder(
                                 padding: const EdgeInsets.all(8.0),
                                 itemCount: options.length,
@@ -313,17 +315,61 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: InputDecoration(
-                    labelText: "New Status",
-                    prefixIcon: const Icon(Icons.flag),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
-                  onChanged: (value) => setState(() => selectedStatus = value),
+                RawAutocomplete<String>(
+                  textEditingController: TextEditingController(text: selectedStatus),
+                  focusNode: FocusNode(),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text == '') {
+                      return const Iterable<String>.empty();
+                    }
+                    return statusOptions.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    setState(() => selectedStatus = selection);
+                  },
+                  fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                    return TextField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        labelText: "New Status",
+                        prefixIcon: const Icon(Icons.flag),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() => selectedStatus = value),
+                    );
+                  },
+                  optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        child: SizedBox(
+                          width: 350,
+                          height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8.0),
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return GestureDetector(
+                                onTap: () {
+                                  onSelected(option);
+                                },
+                                child: ListTile(
+                                  title: Text(option),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 RawAutocomplete<String>(
@@ -359,7 +405,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       child: Material(
                         elevation: 4.0,
                         child: SizedBox(
-                          height: 200.0,
+                          width: 350,
+                          height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
                           child: ListView.builder(
                             padding: const EdgeInsets.all(8.0),
                             itemCount: options.length,
