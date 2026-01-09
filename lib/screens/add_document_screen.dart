@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../models/document.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -104,7 +103,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Dari',
   ];
   final List<String> statusOptions = [
-    'Received','Action Required', 'Returned', 'Completed', 'Filed'
+    'Received','Action Required', 'Returned', 'Completed', 'Urgent','Filed'
   ];
 
   @override
@@ -121,7 +120,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     // Note: This is a simplified version; in a real app, you'd need to track counts globally
     return incoming ? 'IDL$year-$month-$day-001' : 'ODL$year-$month-$day-001';
   }
-
 
 
   @override
@@ -312,14 +310,35 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextField(
-                          controller: assignedToController,
-                          decoration: InputDecoration(
-                            labelText: "Assigned / Addressed to",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                          ),
+                        Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text == '') {
+                              return const Iterable<String>.empty();
+                            }
+                            return cpdcoStaff.where((String option) {
+                              return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                            });
+                          },
+                          onSelected: (String selection) {
+                            assignedToController.text = selection;
+                          },
+                          fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                            fieldTextEditingController.text = assignedToController.text;
+                            return TextField(
+                              controller: fieldTextEditingController,
+                              focusNode: fieldFocusNode,
+                              decoration: InputDecoration(
+                                labelText: "Assigned / Addressed to",
+                                hintText: "Start typing to see suggestions",
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                              ),
+                              onChanged: (value) {
+                                assignedToController.text = value;
+                              },
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
