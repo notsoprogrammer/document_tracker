@@ -454,10 +454,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   }
 
   void _showFilterDialog(BuildContext context) {
-    DateTime? tempStartDate = _startDate;
-    DateTime? tempEndDate = _endDate;
-    String? tempSelectedType = _selectedType;
-    String? tempSelectedOffice = _selectedOffice;
 
     final List<String> typeOptions = [    'Memo',
     'Travel',
@@ -469,6 +465,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     'Resolution',
     'Voucher/OBR',
     'Others'];
+    final officeController = TextEditingController(text: _selectedOffice ?? '');
 
     showDialog(
       context: context,
@@ -493,7 +490,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: tempStartDate != null ? "${tempStartDate!.month}/${tempStartDate!.day}/${tempStartDate!.year}" : '',
+                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Start Date",
@@ -503,14 +500,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     ),
                   ),
                   onTap: () async {
-                    final picked = await showDatePicker(
+                      final picked = await showDatePicker(
                       context: context,
-                      initialDate: tempStartDate ?? DateTime.now(),
+                      initialDate: _startDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                     );
                     if (picked != null) {
-                      setState(() => tempStartDate = picked);
+                      setState(() {});
+                      this.setState(() => _startDate = picked);
                     }
                   },
                 ),
@@ -518,7 +516,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: tempEndDate != null ? "${tempEndDate!.month}/${tempEndDate!.day}/${tempEndDate!.year}" : '',
+                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "End Date",
@@ -530,18 +528,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: tempEndDate ?? DateTime.now(),
+                      initialDate: _endDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                     );
                     if (picked != null) {
-                      setState(() => tempEndDate = picked);
+                      setState(() {});
+                      this.setState(() => _endDate = picked);
                     }
                   },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: tempSelectedType,
+                  value: _selectedType,
                   decoration: InputDecoration(
                     labelText: "Document Type",
                     prefixIcon: const Icon(Icons.description),
@@ -550,11 +549,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     ),
                   ),
                   items: typeOptions.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                  onChanged: (value) => setState(() => tempSelectedType = value),
+                  onChanged: (value) {
+                    setState(() {});
+                    this.setState(() => _selectedType = value);
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: TextEditingController(text: tempSelectedOffice ?? ''),
+                  controller: officeController,
                   decoration: InputDecoration(
                     labelText: "Office",
                     prefixIcon: const Icon(Icons.business),
@@ -562,7 +564,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onChanged: (value) => tempSelectedOffice = value.isEmpty ? null : value,
+                  onChanged: (value) {
+                    setState(() {});
+                    this.setState(() => _selectedOffice = value.isEmpty ? null : value);
+                  },
                 ),
               ],
             ),
@@ -570,6 +575,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           actions: [
             TextButton(
               onPressed: () {
+                setState(() {});
                 this.setState(() {
                   _startDate = null;
                   _endDate = null;
@@ -589,12 +595,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 ),
               ),
               onPressed: () {
-                setState(() {
-                  _startDate = tempStartDate;
-                  _endDate = tempEndDate;
-                  _selectedType = tempSelectedType;
-                  _selectedOffice = tempSelectedOffice;
-                });
                 Navigator.pop(context);
               },
             ),

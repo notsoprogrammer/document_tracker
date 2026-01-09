@@ -48,20 +48,22 @@ List<Document> searchAndFilterDocuments(List<Document> documents, {
   String? type,
   String? office,
 }) {
-  List<Document> result = documents;
-
-  // Apply search first
-  if (searchQuery != null && searchQuery.isNotEmpty) {
-    result = searchDocuments(result, searchQuery);
+  // If any filter criteria are provided, apply filters-only (prioritize filters).
+  final hasFilter = startDate != null || endDate != null || (type != null && type.isNotEmpty) || (office != null && office.isNotEmpty);
+  if (hasFilter) {
+    return filterDocuments(documents,
+      startDate: startDate,
+      endDate: endDate,
+      type: type,
+      office: office,
+    );
   }
 
-  // Then apply filters
-  result = filterDocuments(result,
-    startDate: startDate,
-    endDate: endDate,
-    type: type,
-    office: office,
-  );
+  // If a search query is provided (and no filters), perform search-only.
+  if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+    return searchDocuments(documents, searchQuery);
+  }
 
-  return result;
+  // No search or filters — return original list
+  return documents;
 }
