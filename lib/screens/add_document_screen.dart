@@ -106,7 +106,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Dari',
   ];
   final List<String> statusOptions = [
-    'Received','Delivered','Action Required', 'Returned', 'Completed', 'Urgent', 'For Follow-up', 'Pending'
+    'Received','Delivered','Action Required', 'Returned', 'Completed', 'Urgent', 'For Follow-up'
   ];
 
   @override
@@ -464,7 +464,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         remarks: remarksController.text,
                         person: personController.text,
                         incoming: widget.incoming,
-                        status: selectedStatus ?? (widget.incoming ? 'Received' : 'Pending'),
+                        status: selectedStatus ?? (widget.incoming ? 'Received' : 'Delivered'),
                       );
 
                       Navigator.pop(context, doc); // Return the document
