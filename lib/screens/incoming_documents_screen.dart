@@ -709,7 +709,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
             ),
             onPressed: () {
               widget.deleteDocument(index);
-              Navigator.pop(context);
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
           ),
         ],
