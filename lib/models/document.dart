@@ -3,12 +3,14 @@ class HistoryEntry {
   final String person;
   final DateTime timestamp;
   final String? notes;
+  final String? personnel;
 
   HistoryEntry({
     required this.action,
     required this.person,
     required this.timestamp,
     this.notes,
+    this.personnel,
   });
 
   factory HistoryEntry.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class HistoryEntry {
       person: json['person'],
       timestamp: DateTime.parse(json['timestamp']),
       notes: json['notes'],
+      personnel: json['personnel'],
     );
   }
 
@@ -26,6 +29,7 @@ class HistoryEntry {
       'person': person,
       'timestamp': timestamp.toIso8601String(),
       'notes': notes,
+      'personnel': personnel,
     };
   }
 }
@@ -59,12 +63,13 @@ class Document {
     this.status = 'Received',
   }) : history = history ?? [];
 
-  void addHistoryEntry(String action, String person, {String? notes}) {
+  void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
     history.add(HistoryEntry(
       action: action,
       person: person,
       timestamp: DateTime.now(),
       notes: notes,
+      personnel: personnel,
     ));
   }
 
@@ -85,7 +90,7 @@ class Document {
       type: json['type'],
       fromOrTo: json['from_or_to'],
       mode: json['mode'],
-      assignedTo: json['assigned_to'],
+      assignedTo: json['addressed_to'],
       filePath: json['file_path'],
       remarks: json['remarks'],
       person: json['person'],
@@ -104,7 +109,7 @@ class Document {
       'type': type,
       'from_or_to': fromOrTo,
       'mode': mode,
-      'assigned_to': assignedTo,
+      'addressed_to': assignedTo,
       'file_path': filePath,
       'remarks': remarks,
       'person': person,
