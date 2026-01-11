@@ -30,6 +30,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String? selectedPerson;
   bool isCustomPerson = false;
 
+  // Validation flags
+  bool _showValidationErrors = false;
+
   final List<String> documentTypes = [
     'Memo',
     'Travel',
@@ -187,6 +190,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Document title is required" : null,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -197,6 +201,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && selectedType == null ? "Document type is required" : null,
                           ),
                           items: documentTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
                           onChanged: (value) => setState(() => selectedType = value),
@@ -245,6 +250,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   border: OutlineInputBorder(),
                                   filled: true,
                                   fillColor: Theme.of(context).colorScheme.surface,
+                                  errorText: _showValidationErrors && fromToController.text.trim().isEmpty ? "This field is required" : null,
                                 ),
                                 onChanged: (value) {
                                   fromToController.text = value;
@@ -276,6 +282,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   border: OutlineInputBorder(),
                                   filled: true,
                                   fillColor: Theme.of(context).colorScheme.surface,
+                                  errorText: _showValidationErrors && fromToController.text.trim().isEmpty ? "This field is required" : null,
                                 ),
                                 onChanged: (value) {
                                   fromToController.text = value;
@@ -292,6 +299,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && selectedMode == null ? "Mode is required" : null,
                           ),
                           items: modeOptions.map((mode) => DropdownMenuItem(value: mode, child: Text(mode))).toList(),
                           onChanged: (value) => setState(() => selectedMode = value),
@@ -438,6 +446,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 border: OutlineInputBorder(),
                                 filled: true,
                                 fillColor: Theme.of(context).colorScheme.surface,
+                                errorText: _showValidationErrors && personController.text.trim().isEmpty ? "This field is required" : null,
                               ),
                               onChanged: (value) {
                                 personController.text = value;
@@ -452,7 +461,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
-                    if (selectedType != null && selectedMode != null) {
+                    setState(() {
+                      _showValidationErrors = true;
+                    });
+
+                    if (titleController.text.trim().isNotEmpty &&
+                        selectedType != null &&
+                        selectedMode != null &&
+                        personController.text.trim().isNotEmpty &&
+                        fromToController.text.trim().isNotEmpty) {
                       final doc = Document(
                         code: codeController.text,
                         title: titleController.text,
