@@ -719,8 +719,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final allIncoming = widget.documents.where((doc) => doc.incoming).toList();
+    print('Incoming screen: Total documents: ${widget.documents.length}, Incoming documents: ${allIncoming.length}');
     final incomingDocuments = searchAndFilterDocuments(
-      widget.documents.where((doc) => doc.incoming).toList(),
+      allIncoming,
       searchQuery: _searchQuery,
       startDate: _startDate,
       endDate: _endDate,

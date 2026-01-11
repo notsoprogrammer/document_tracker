@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDocuments() async {
     try {
       final loadedDocuments = await _supabaseService.fetchDocuments();
+      print('Loaded documents: ${loadedDocuments.map((d) => '${d.code}: incoming=${d.incoming}').toList()}');
       setState(() {
         documents = loadedDocuments;
         _isLoading = false;
@@ -95,7 +96,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'Wena',
     'Arlyn',
     'Dari',
-    'Other'
   ];
 
   String _generateCode(bool incoming) {
@@ -111,7 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _addDocument(Document doc) async {
     try {
       // Add initial history entry
-      doc.addHistoryEntry('Document Received', doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
+      final historyAction = doc.incoming ? 'Document Received' : 'Created and forwarded to ${doc.assignedTo}';
+      doc.addHistoryEntry(historyAction, doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
 
       // Save to Supabase
       final savedDoc = await _supabaseService.createDocument(doc);
@@ -128,20 +129,45 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _transferDocument(int index, String newAssignee, String transferredBy, {String? notes}) async {
     try {
       // Update local document
-      documents[index].transferTo(newAssignee, transferredBy, notes: notes);
+      if (!documents[index].incoming) {
+        documents[index].addHistoryEntry(newAssignee, transferredBy, notes: notes);
+      } else {
+        documents[index].transferTo(newAssignee, transferredBy, notes: notes);
+      }
 
       // Update in Supabase
-      await _supabaseService.updateDocument(documents[index].code, {
-        'assigned_to': documents[index].assignedTo,
-      });
+      Map<String, dynamic> updates = {'addressed_to': documents[index].assignedTo};
 
-      // Add history entry
-      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
-        action: 'Transferred to $newAssignee',
-        person: transferredBy,
-        timestamp: DateTime.now(),
-        notes: notes,
-      ));
+      if (!documents[index].incoming) {
+        // Reconstruct history TEXT for outgoing
+        final historyText = documents[index].history.map((entry) {
+          if (entry.action.startsWith('Created and forwarded to')) {
+            final office = documents[index].fromOrTo;
+            final personnel = documents[index].assignedTo;
+            final timeStr = _formatDateTimeForStorage(entry.timestamp);
+            return "Created and forwarded to $office c/o $personnel|by: ${entry.person} | Time: $timeStr";
+          } else {
+            final timeStr = _formatDateTimeForStorage(entry.timestamp);
+            String line = "${entry.action}|by: ${entry.person} | Time: $timeStr";
+            if (entry.notes != null && entry.notes!.isNotEmpty) {
+              line += " | ${entry.notes}";
+            }
+            return line;
+          }
+        }).join('\n');
+        updates['history'] = historyText;
+      } else {
+        // Add history entry for incoming
+        await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+          action: 'Transferred to $newAssignee',
+          person: transferredBy,
+          timestamp: DateTime.now(),
+          notes: notes,
+        ), personnel: transferredBy);
+      }
+
+      // Update the document
+      await _supabaseService.updateDocument(documents[index].code, updates);
 
       setState(() {});
     } catch (e) {
@@ -155,18 +181,13 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update local document
       documents[index].updateStatus(newStatus, updatedBy, notes: notes);
 
-      // Update in Supabase
-      await _supabaseService.updateDocument(documents[index].code, {
-        'status': documents[index].status,
-      });
-
-      // Add history entry
+      // Add history entry (don't update documents table status)
       await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Status changed to $newStatus',
         person: updatedBy,
         timestamp: DateTime.now(),
         notes: notes,
-      ));
+      ), personnel: updatedBy);
 
       setState(() {});
     } catch (e) {
@@ -193,6 +214,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays == 1) {
+      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays < 7) {
+      return "${difference.inDays} days ago";
+    } else {
+      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
+    }
+  }
+
+  String _formatDateTimeForStorage(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 

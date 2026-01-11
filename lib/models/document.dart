@@ -84,6 +84,92 @@ class Document {
   }
 
   factory Document.fromJson(Map<String, dynamic> json) {
+    List<HistoryEntry> history = [];
+
+    if (json['incoming'] == true) {
+      // For incoming documents, create a simple history entry
+      history.add(HistoryEntry(
+        action: 'Document Received',
+        person: json['person'],
+        timestamp: DateTime.parse(json['created_at']),
+      ));
+    } else {
+      // For outgoing documents, parse the history from the TEXT field
+      final historyRaw = json['history'];
+      String? historyText;
+      if (historyRaw is String) {
+        historyText = historyRaw;
+      } else if (historyRaw is List) {
+        // Handle case where history might be stored as list (legacy data)
+        historyText = (historyRaw as List).join('\n');
+      } else {
+        historyText = null;
+      }
+      if (historyText != null && historyText.isNotEmpty) {
+        // Parse the formatted history text back into HistoryEntry
+        // Format: "Created and forwarded to OFFICE c/o PERSONNEL|by: PERSON | Time: TIMESTAMP"
+        final lines = historyText.split('\n');
+        for (final line in lines) {
+          if (line.trim().isEmpty) continue;
+
+          final parts = line.split('|');
+          if (parts.length >= 2) {
+            final action = parts[0].trim();
+            final byLine = parts[1].trim();
+            final timePart = parts.length > 2 ? parts[2].trim() : '';
+
+            // Extract person from "by: PERSON"
+            final personMatch = RegExp(r'by:\s*(.+)').firstMatch(byLine);
+            final person = personMatch?.group(1) ?? json['person'];
+
+            // Extract timestamp from "Time: TIMESTAMP"
+            DateTime timestamp = DateTime.parse(json['created_at']);
+            if (timePart.startsWith('Time:')) {
+              final timeStr = timePart.replaceFirst('Time:', '').trim();
+              // Try to parse the formatted time, fallback to created_at
+              try {
+                // Assuming format like "Today 14:30" or "Yesterday 14:30" or "1 days ago" or "12/25/2023"
+                if (timeStr.startsWith('Today') || timeStr.startsWith('Yesterday')) {
+                  final time = timeStr.split(' ')[1];
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+                  if (timeStr.startsWith('Yesterday')) {
+                    timestamp = today.subtract(const Duration(days: 1));
+                  } else {
+                    timestamp = today;
+                  }
+                  final timeParts = time.split(':');
+                  timestamp = timestamp.add(Duration(
+                    hours: int.parse(timeParts[0]),
+                    minutes: int.parse(timeParts[1]),
+                  ));
+                } else if (timeStr.contains('days ago')) {
+                  final days = int.parse(timeStr.split(' ')[0]);
+                  timestamp = DateTime.now().subtract(Duration(days: days));
+                } else if (timeStr.contains('/')) {
+                  // Assume MM/DD/YYYY format
+                  final dateParts = timeStr.split('/');
+                  timestamp = DateTime(
+                    int.parse(dateParts[2]),
+                    int.parse(dateParts[0]),
+                    int.parse(dateParts[1]),
+                  );
+                }
+              } catch (e) {
+                // Keep created_at timestamp
+              }
+            }
+
+            history.add(HistoryEntry(
+              action: action,
+              person: person,
+              timestamp: timestamp,
+            ));
+          }
+        }
+      }
+    }
+
     return Document(
       code: json['code'],
       title: json['title'],
@@ -96,9 +182,7 @@ class Document {
       person: json['person'],
       incoming: json['incoming'],
       status: json['status'],
-      history: (json['history'] as List<dynamic>?)
-          ?.map((entry) => HistoryEntry.fromJson(entry))
-          .toList() ?? [],
+      history: history,
     );
   }
 

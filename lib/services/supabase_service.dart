@@ -40,6 +40,7 @@ class SupabaseService {
       await _client.from('history_entries').insert(
         document.history.map((entry) => {
           'document_code': response['code'],
+          'personnel': entry.person, // Set personnel to the person who performed the action
           ...entry.toJson(),
         }).toList()
       );
@@ -57,11 +58,19 @@ class SupabaseService {
   }
 
   // History operations
-  Future<void> addHistoryEntry(String documentCode, HistoryEntry entry) async {
-    await _client.from('history_entries').insert({
-      'document_code': documentCode,
-      ...entry.toJson(),
-    });
+  Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
+    try {
+      print('Adding history entry for document $documentCode: ${entry.action}');
+      await _client.from('history_entries').insert({
+        'document_code': documentCode,
+        'personnel': personnel,
+        ...entry.toJson(),
+      });
+      print('History entry added successfully');
+    } catch (e) {
+      print('Error adding history entry: $e');
+      rethrow;
+    }
   }
 
   Future<List<HistoryEntry>> fetchHistory(String documentCode) async {

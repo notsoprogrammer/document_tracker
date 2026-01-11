@@ -119,21 +119,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final year = now.year;
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
-    // Simple per-session incremental sequence so codes increase from 001
-    // These counters are static so multiple AddDocumentScreen instances share the sequence during app runtime
-    if (incoming) {
-      _AddDocumentScreenState._incomingSeq++;
-      final seq = _AddDocumentScreenState._incomingSeq.toString().padLeft(3, '0');
-      return 'IDL$year-$month-$day-$seq';
-    } else {
-      _AddDocumentScreenState._outgoingSeq++;
-      final seq = _AddDocumentScreenState._outgoingSeq.toString().padLeft(3, '0');
-      return 'ODL$year-$month-$day-$seq';
-    }
+    final timestamp = now.millisecondsSinceEpoch.toString().substring(6); // Last 6 digits for better uniqueness
+    final prefix = incoming ? 'IDL' : 'ODL';
+    return '$prefix$year-$month-$day-$timestamp';
   }
-
-  static int _incomingSeq = 0;
-  static int _outgoingSeq = 0;
 
 
   @override
