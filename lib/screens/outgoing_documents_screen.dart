@@ -31,7 +31,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     'Sharmaine',
     'Path',
     'Jess',
-    'Emiliana',
+    'Emie',
     'Pau',
     'Chris',
     'Wena',

@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Sharmaine',
     'Path',
     'Jess',
-    'Emiliana',
+    'Emie',
     'Pau',
     'Chris',
     'Wena',

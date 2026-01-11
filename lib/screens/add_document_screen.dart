@@ -101,7 +101,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Sharmaine',
     'Path',
     'Jess',
-    'Emiliana',
+    'Emie',
     'Pau',
     'Chris',
     'Wena',
