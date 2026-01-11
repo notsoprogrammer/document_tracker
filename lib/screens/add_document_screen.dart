@@ -324,16 +324,76 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextField(
-                          controller: assignedToController,
-                          decoration: InputDecoration(
-                            labelText: "Delivered / Addressed to",
-                            hintText: widget.incoming ? "Enter assigned personnel" : "Enter recipient personnel",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
+                        if (widget.incoming) ...[
+                          RawAutocomplete<String>(
+                            optionsBuilder: (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text == '') {
+                                return const Iterable<String>.empty();
+                              }
+                              return cpdcoStaff.where((String option) {
+                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                              });
+                            },
+                            onSelected: (String selection) {
+                              assignedToController.text = selection;
+                            },
+                            fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                              fieldTextEditingController.text = assignedToController.text;
+                              return TextField(
+                                controller: fieldTextEditingController,
+                                focusNode: fieldFocusNode,
+                                decoration: InputDecoration(
+                                  labelText: "Delivered / Addressed to",
+                                  hintText: "Enter assigned personnel",
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Theme.of(context).colorScheme.surface,
+                                ),
+                                onChanged: (value) {
+                                  assignedToController.text = value;
+                                },
+                              );
+                            },
+                            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4.0,
+                                  child: SizedBox(
+                                    width: 350,
+                                    height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(8.0),
+                                      itemCount: options.length,
+                                      itemBuilder: (BuildContext context, int index) {
+                                        final String option = options.elementAt(index);
+                                        return GestureDetector(
+                                          onTap: () {
+                                            onSelected(option);
+                                          },
+                                          child: ListTile(
+                                            title: Text(option),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        ),
+                        ] else ...[
+                          TextField(
+                            controller: assignedToController,
+                            decoration: InputDecoration(
+                              labelText: "Delivered / Addressed to",
+                              hintText: "Enter recipient personnel",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: selectedStatus,
