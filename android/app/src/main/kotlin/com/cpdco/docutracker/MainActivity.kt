@@ -1,4 +1,4 @@
-package com.example.document_tracker
+package com.cpdco.docutracker
 
 import io.flutter.embedding.android.FlutterActivity
 
