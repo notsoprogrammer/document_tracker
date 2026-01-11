@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/document.dart';
+import '../services/supabase_service.dart';
 
 class AddDocumentScreen extends StatefulWidget {
   final bool incoming;
@@ -119,9 +120,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final year = now.year;
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
-    final timestamp = now.millisecondsSinceEpoch.toString().substring(6); // Last 6 digits for better uniqueness
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
     final prefix = incoming ? 'IDL' : 'ODL';
-    return '$prefix$year-$month-$day-$timestamp';
+
+    return '$prefix$year-$month-$day-$hour$minute';
   }
 
 
@@ -463,6 +466,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         incoming: widget.incoming,
                         status: selectedStatus ?? (widget.incoming ? 'Received' : 'Pending'),
                       );
+
                       Navigator.pop(context, doc); // Return the document
                     }
                   },

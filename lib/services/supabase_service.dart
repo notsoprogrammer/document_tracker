@@ -46,7 +46,7 @@ class SupabaseService {
       );
     }
 
-    return Document.fromJson(response);
+    return Document.fromJson(response)..history.addAll(document.history);
   }
 
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {

@@ -111,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _addDocument(Document doc) async {
     try {
       // Add initial history entry
-      final historyAction = doc.incoming ? 'Document Received' : 'Created and forwarded to ${doc.assignedTo}';
+      final historyAction = doc.incoming ? 'Document Received' : 'Created and forwarded to ${doc.fromOrTo} c/o ${doc.assignedTo}';
       doc.addHistoryEntry(historyAction, doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
 
       // Save to Supabase
