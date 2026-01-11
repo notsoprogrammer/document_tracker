@@ -70,3 +70,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Supabase configuration (contains sensitive API keys)
+lib/config/supabase_config.dart

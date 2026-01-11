@@ -10,6 +10,24 @@ class HistoryEntry {
     required this.timestamp,
     this.notes,
   });
+
+  factory HistoryEntry.fromJson(Map<String, dynamic> json) {
+    return HistoryEntry(
+      action: json['action'],
+      person: json['person'],
+      timestamp: DateTime.parse(json['timestamp']),
+      notes: json['notes'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'action': action,
+      'person': person,
+      'timestamp': timestamp.toIso8601String(),
+      'notes': notes,
+    };
+  }
 }
 
 class Document {
@@ -58,5 +76,40 @@ class Document {
   void updateStatus(String newStatus, String updatedBy, {String? notes}) {
     addHistoryEntry('Status changed to $newStatus', updatedBy, notes: notes);
     status = newStatus;
+  }
+
+  factory Document.fromJson(Map<String, dynamic> json) {
+    return Document(
+      code: json['code'],
+      title: json['title'],
+      type: json['type'],
+      fromOrTo: json['from_or_to'],
+      mode: json['mode'],
+      assignedTo: json['assigned_to'],
+      filePath: json['file_path'],
+      remarks: json['remarks'],
+      person: json['person'],
+      incoming: json['incoming'],
+      status: json['status'],
+      history: (json['history'] as List<dynamic>?)
+          ?.map((entry) => HistoryEntry.fromJson(entry))
+          .toList() ?? [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'title': title,
+      'type': type,
+      'from_or_to': fromOrTo,
+      'mode': mode,
+      'assigned_to': assignedTo,
+      'file_path': filePath,
+      'remarks': remarks,
+      'person': person,
+      'incoming': incoming,
+      'status': status,
+    };
   }
 }

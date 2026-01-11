@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../models/document.dart';
+import '../services/supabase_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -14,9 +15,31 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<Document> documents = [];
-  int incomingCount = 0;
-  int outgoingCount = 0;
+  final SupabaseService _supabaseService = SupabaseService();
+  List<Document> documents = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDocuments();
+  }
+
+  Future<void> _loadDocuments() async {
+    try {
+      final loadedDocuments = await _supabaseService.fetchDocuments();
+      setState(() {
+        documents = loadedDocuments;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // Handle error - could show a snackbar
+      print('Error loading documents: $e');
+    }
+  }
 
   // Lists for dropdowns
   final List<String> offices = [
@@ -80,40 +103,93 @@ class _HomeScreenState extends State<HomeScreen> {
     final year = now.year;
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
-    if (incoming) {
-      incomingCount++;
-      return 'IDL$year-$month-$day-${incomingCount.toString().padLeft(3, '0')}';
-    } else {
-      outgoingCount++;
-      return 'ODL$year-$month-$day-${outgoingCount.toString().padLeft(3, '0')}';
+    final timestamp = now.millisecondsSinceEpoch.toString().substring(8); // Last 4 digits
+    final prefix = incoming ? 'IDL' : 'ODL';
+    return '$prefix$year-$month-$day-$timestamp';
+  }
+
+  Future<void> _addDocument(Document doc) async {
+    try {
+      // Add initial history entry
+      doc.addHistoryEntry('Document Received', doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
+
+      // Save to Supabase
+      final savedDoc = await _supabaseService.createDocument(doc);
+
+      setState(() {
+        documents.add(savedDoc);
+      });
+    } catch (e) {
+      print('Error adding document: $e');
+      // Could show error snackbar here
     }
   }
 
-  void _addDocument(Document doc) {
-    setState(() {
-      documents.add(doc);
-      // Add initial history entry
-      // Include office and personnel snapshot so creation history doesn't change later
-      doc.addHistoryEntry('Document Received', doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
-    });
-  }
-
-  void _transferDocument(int index, String newAssignee, String transferredBy, {String? notes}) {
-    setState(() {
+  Future<void> _transferDocument(int index, String newAssignee, String transferredBy, {String? notes}) async {
+    try {
+      // Update local document
       documents[index].transferTo(newAssignee, transferredBy, notes: notes);
-    });
+
+      // Update in Supabase
+      await _supabaseService.updateDocument(documents[index].code, {
+        'assigned_to': documents[index].assignedTo,
+      });
+
+      // Add history entry
+      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+        action: 'Transferred to $newAssignee',
+        person: transferredBy,
+        timestamp: DateTime.now(),
+        notes: notes,
+      ));
+
+      setState(() {});
+    } catch (e) {
+      print('Error transferring document: $e');
+      // Could show error snackbar here
+    }
   }
 
-  void _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes}) {
-    setState(() {
+  Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes}) async {
+    try {
+      // Update local document
       documents[index].updateStatus(newStatus, updatedBy, notes: notes);
-    });
+
+      // Update in Supabase
+      await _supabaseService.updateDocument(documents[index].code, {
+        'status': documents[index].status,
+      });
+
+      // Add history entry
+      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+        action: 'Status changed to $newStatus',
+        person: updatedBy,
+        timestamp: DateTime.now(),
+        notes: notes,
+      ));
+
+      setState(() {});
+    } catch (e) {
+      print('Error updating document status: $e');
+      // Could show error snackbar here
+    }
   }
 
-  void _deleteDocument(int index) {
-    setState(() {
-      documents.removeAt(index);
-    });
+  Future<void> _deleteDocument(int index) async {
+    try {
+      final documentCode = documents[index].code;
+
+      // Delete from Supabase
+      await _supabaseService.deleteDocument(documentCode);
+
+      // Remove from local list
+      setState(() {
+        documents.removeAt(index);
+      });
+    } catch (e) {
+      print('Error deleting document: $e');
+      // Could show error snackbar here
+    }
   }
 
   String _formatDateTime(DateTime dateTime) {
