@@ -73,3 +73,6 @@ app.*.map.json
 
 # Supabase configuration (contains sensitive API keys)
 lib/config/supabase_config.dart
+
+# Google Service Account Key (contains sensitive credentials)
+assets/service_account_key.json

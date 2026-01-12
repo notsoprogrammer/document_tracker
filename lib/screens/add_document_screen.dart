@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/document.dart';
 import '../services/supabase_service.dart';
+import '../services/google_drive_service.dart';
 
 class AddDocumentScreen extends StatefulWidget {
   final bool incoming;
@@ -15,6 +16,7 @@ class AddDocumentScreen extends StatefulWidget {
 
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final ImagePicker _picker = ImagePicker();
+  final GoogleDriveService _driveService = GoogleDriveService();
   final codeController = TextEditingController();
   final titleController = TextEditingController();
   String? selectedType;
@@ -29,6 +31,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final personController = TextEditingController();
   String? selectedPerson;
   bool isCustomPerson = false;
+
+  // Image handling
+  List<String> _selectedImagePaths = [];
+  List<String> _uploadedImageUrls = [];
+  bool _isUploadingImages = false;
 
   // Validation flags
   bool _showValidationErrors = false;
@@ -411,10 +418,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () async {
+                                onPressed: _isUploadingImages ? null : () async {
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
                                   if (image != null) {
-                                    setState(() => selectedFilePath = image.path);
+                                    setState(() => _selectedImagePaths.add(image.path));
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -427,17 +434,17 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () async {
+                                onPressed: _isUploadingImages ? null : () async {
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
-                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                                    allowedExtensions: ['jpg', 'jpeg', 'png'],
                                   );
                                   if (result != null) {
-                                    setState(() => selectedFilePath = result.files.single.path);
+                                    setState(() => _selectedImagePaths.add(result.files.single.path!));
                                   }
                                 },
-                                icon: const Icon(Icons.attach_file),
-                                label: const Text("Pick File"),
+                                icon: const Icon(Icons.photo_library),
+                                label: const Text("Pick Images"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
@@ -445,12 +452,30 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             ),
                           ],
                         ),
-                        if (selectedFilePath != null) ...[
+                        if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
-                            "File Selected: ${selectedFilePath!.split('/').last}",
+                            "${_selectedImagePaths.length} image(s) selected",
                             style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
                           ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedImagePaths.map((path) {
+                              return Chip(
+                                label: Text(path.split('/').last),
+                                onDeleted: () {
+                                  setState(() => _selectedImagePaths.remove(path));
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        if (_isUploadingImages) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Uploading images to Google Drive..."),
                         ],
                         const SizedBox(height: 12),
                         TextField(
@@ -520,7 +545,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: _isUploadingImages ? null : () async {
                     setState(() {
                       _showValidationErrors = true;
                     });
@@ -530,6 +555,27 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
                         fromToController.text.trim().isNotEmpty) {
+
+                      // Upload images to Google Drive if any are selected
+                      if (_selectedImagePaths.isNotEmpty) {
+                        setState(() => _isUploadingImages = true);
+
+                        try {
+                          _uploadedImageUrls = await GoogleDriveService.uploadMultipleImages(
+                            _selectedImagePaths,
+                            widget.incoming,
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to upload images: $e')),
+                          );
+                          setState(() => _isUploadingImages = false);
+                          return;
+                        }
+
+                        setState(() => _isUploadingImages = false);
+                      }
+
                       final doc = Document(
                         code: codeController.text,
                         title: titleController.text,
@@ -542,6 +588,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         person: personController.text,
                         incoming: widget.incoming,
                         status: selectedStatus ?? (widget.incoming ? 'Received' : 'Delivered'),
+                        imageUrls: _uploadedImageUrls,
                       );
 
                       Navigator.pop(context, doc); // Return the document
@@ -552,7 +599,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
-                  child: const Text("Save Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: _isUploadingImages
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("Save Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

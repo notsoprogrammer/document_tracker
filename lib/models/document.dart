@@ -87,6 +87,14 @@ class Document {
 
   factory Document.fromJson(Map<String, dynamic> json) {
     List<HistoryEntry> history = [];
+    List<String> imageUrls = [];
+
+    // Parse image_urls if present
+    if (json['image_urls'] != null) {
+      if (json['image_urls'] is List) {
+        imageUrls = List<String>.from(json['image_urls']);
+      }
+    }
 
     if (json['incoming'] == true) {
       // For incoming documents, create a simple history entry
@@ -185,6 +193,7 @@ class Document {
       incoming: json['incoming'],
       status: json['status'],
       history: history,
+      imageUrls: imageUrls,
     );
   }
 
