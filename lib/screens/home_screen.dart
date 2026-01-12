@@ -138,33 +138,13 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update in Supabase
       Map<String, dynamic> updates = {'addressed_to': documents[index].assignedTo};
 
-      if (!documents[index].incoming) {
-        // Reconstruct history TEXT for outgoing
-        final historyText = documents[index].history.map((entry) {
-          if (entry.action.startsWith('Created and forwarded to')) {
-            final office = documents[index].fromOrTo;
-            final personnel = documents[index].assignedTo;
-            final timeStr = _formatDateTimeForStorage(entry.timestamp);
-            return "Created and forwarded to $office c/o $personnel|by: ${entry.person} | Time: $timeStr";
-          } else {
-            final timeStr = _formatDateTimeForStorage(entry.timestamp);
-            String line = "${entry.action}|by: ${entry.person} | Time: $timeStr";
-            if (entry.notes != null && entry.notes!.isNotEmpty) {
-              line += " | ${entry.notes}";
-            }
-            return line;
-          }
-        }).join('\n');
-        updates['history'] = historyText;
-      } else {
-        // Add history entry for incoming
-        await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
-          action: 'Transferred to $newAssignee',
-          person: transferredBy,
-          timestamp: DateTime.now(),
-          notes: notes,
-        ), personnel: transferredBy);
-      }
+      // Add history entry for both incoming and outgoing documents
+      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+        action: 'Transferred to $newAssignee',
+        person: transferredBy,
+        timestamp: DateTime.now(),
+        notes: notes,
+      ), personnel: transferredBy);
 
       // Update the document
       await _supabaseService.updateDocument(documents[index].code, updates);
@@ -181,13 +161,19 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update local document
       documents[index].updateStatus(newStatus, updatedBy, notes: notes);
 
-      // Add history entry (don't update documents table status)
+      // Update in Supabase
+      Map<String, dynamic> updates = {'status': newStatus};
+
+      // Add history entry for both incoming and outgoing documents
       await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Status changed to $newStatus',
         person: updatedBy,
         timestamp: DateTime.now(),
         notes: notes,
       ), personnel: updatedBy);
+
+      // Update the document
+      await _supabaseService.updateDocument(documents[index].code, updates);
 
       setState(() {});
     } catch (e) {

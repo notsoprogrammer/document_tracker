@@ -8,10 +8,20 @@ class SupabaseService {
   Future<List<Document>> fetchDocuments() async {
     try {
       print('Fetching documents from Supabase...');
-      final response = await _client.from('documents').select('*');
+      final response = await _client.from('documents').select('*, history_entries(*)');
       print('Raw response: $response');
 
-      final documents = response.map((doc) => Document.fromJson(doc)).toList();
+      final documents = response.map((doc) {
+        final document = Document.fromJson(doc);
+        // Add history entries from the joined table
+        if (doc['history_entries'] != null) {
+          final historyEntries = (doc['history_entries'] as List<dynamic>)
+              .map((entry) => HistoryEntry.fromJson(entry))
+              .toList();
+          document.history.addAll(historyEntries);
+        }
+        return document;
+      }).toList();
 
       print('Parsed ${documents.length} documents');
       return documents;
@@ -31,7 +41,7 @@ class SupabaseService {
 
     print('Document created successfully: $response'); // Debug log
 
-    // Create initial history entry
+    // Create initial history entry in history_entries table
     if (document.history.isNotEmpty) {
       await _client.from('history_entries').insert(
         document.history.map((entry) => {
@@ -45,6 +55,21 @@ class SupabaseService {
     return Document.fromJson(response)..history.addAll(document.history);
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays == 1) {
+      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays < 7) {
+      return "${difference.inDays} days ago";
+    } else {
+      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
+    }
+  }
+
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
     await _client.from('documents').update(updates).eq('code', documentCode);
   }
@@ -55,9 +80,12 @@ class SupabaseService {
 
   // History operations - simplified to work with existing table structure
   Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
-    // For now, history is handled by the Document model locally
-    // In the future, this could be extended to store history in a separate table
-    print('History entry added locally for document $documentCode: ${entry.action}');
+    await _client.from('history_entries').insert({
+      'document_code': documentCode,
+      'personnel': personnel ?? entry.person,
+      ...entry.toJson(),
+    });
+    print('History entry added to database for document $documentCode: ${entry.action}');
   }
 
   Future<List<HistoryEntry>> fetchHistory(String documentCode) async {
