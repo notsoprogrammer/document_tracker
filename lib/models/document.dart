@@ -47,6 +47,7 @@ class Document {
   final bool incoming;
   final List<HistoryEntry> history;
   String status;
+  final List<String> imageUrls; // Google Drive image URLs
 
   Document({
     required this.code,
@@ -61,7 +62,8 @@ class Document {
     required this.incoming,
     List<HistoryEntry>? history,
     this.status = 'Received',
-  }) : history = history ?? [];
+    List<String>? imageUrls,
+  }) : history = history ?? [], imageUrls = imageUrls ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
     history.add(HistoryEntry(
@@ -199,6 +201,7 @@ class Document {
       'person': person,
       'incoming': incoming,
       'status': status,
+      'image_urls': imageUrls,
     };
   }
 }

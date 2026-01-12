@@ -1,4 +1,4 @@
-name: document_tracker
+name: com.cpdco.docutracker
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -37,6 +37,10 @@ dependencies:
   file_picker: ^8.0.0+1
   image_picker: ^1.2.1
   supabase_flutter: ^2.5.0
+  google_sign_in: ^6.2.1
+  googleapis: ^13.1.0
+  googleapis_auth: ^1.6.0
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:

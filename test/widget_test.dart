@@ -8,7 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:document_tracker/app.dart';
+import 'package:com.cpdco.docutracker/app.dart';
 
 void main() {
   testWidgets('App loads smoke test', (WidgetTester tester) async {
