@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
@@ -28,6 +29,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _specificDate;
+  final Set<int> _expandedTiles = {};
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -849,6 +851,15 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   elevation: 2,
                   child: ExpansionTile(
+                    onExpansionChanged: (expanded) {
+                      setState(() {
+                        if (expanded) {
+                          _expandedTiles.add(index);
+                        } else {
+                          _expandedTiles.remove(index);
+                        }
+                      });
+                    },
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFFFB74D),
                       child: const Icon(
@@ -870,6 +881,19 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text("${doc.code}  "),
+                        if (_expandedTiles.contains(index))
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 16),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: doc.code));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Code copied to clipboard')),
+                              );
+                            },
+                            tooltip: 'Copy Code',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
                       ],
                     ),
                     children: [
