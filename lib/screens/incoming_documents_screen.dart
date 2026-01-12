@@ -10,6 +10,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
   final Function(int, String, String, {String? notes}) updateDocumentStatus;
   // final Function(int, Document) editDocument;
   final Function(int) deleteDocument;
+  final Function(String) syncDocument;
 
   const IncomingDocumentsScreen({
     super.key,
@@ -18,6 +19,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
     required this.updateDocumentStatus,
     // required this.editDocument,
     required this.deleteDocument,
+    required this.syncDocument,
   });
 
   @override
@@ -861,9 +863,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       });
                     },
                     leading: CircleAvatar(
-                      backgroundColor: const Color(0xFFFFB74D),
-                      child: const Icon(
-                        Icons.arrow_downward,
+                      backgroundColor: doc.needsSync ? Colors.red : const Color(0xFFFFB74D),
+                      child: Icon(
+                        doc.needsSync ? Icons.sync : Icons.arrow_downward,
                         color: Colors.white,
                         size: 20,
                       ),
@@ -1018,6 +1020,20 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                               runSpacing: 8,
                               alignment: WrapAlignment.center,
                               children: [
+                                if (doc.needsSync)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text("Sync"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onPressed: () => widget.syncDocument(doc.code),
+                                  ),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete"),

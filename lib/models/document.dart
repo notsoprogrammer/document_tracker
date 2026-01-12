@@ -51,6 +51,7 @@ class Document {
   String status;
   final List<String> imageUrls; // Google Drive image URLs
   final List<String> fileUrls; // Google Drive file URLs (non-images)
+  bool needsSync; // Indicates if document was added offline and needs syncing
 
   Document({
     required this.code,
@@ -67,6 +68,7 @@ class Document {
     this.status = 'Received',
     List<String>? imageUrls,
     List<String>? fileUrls,
+    this.needsSync = false,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
@@ -229,6 +231,7 @@ class Document {
       history: history,
       imageUrls: imageUrls,
       fileUrls: fileUrls,
+      needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
     );
   }
 
@@ -247,6 +250,43 @@ class Document {
       'status': status,
       'image_urls': imageUrls,
       'file_urls': fileUrls,
+      'needs_sync': needsSync,
     };
+  }
+
+  Document copyWith({
+    String? code,
+    String? title,
+    String? type,
+    String? fromOrTo,
+    String? mode,
+    String? assignedTo,
+    String? filePath,
+    String? remarks,
+    String? person,
+    bool? incoming,
+    List<HistoryEntry>? history,
+    String? status,
+    List<String>? imageUrls,
+    List<String>? fileUrls,
+    bool? needsSync,
+  }) {
+    return Document(
+      code: code ?? this.code,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      fromOrTo: fromOrTo ?? this.fromOrTo,
+      mode: mode ?? this.mode,
+      assignedTo: assignedTo ?? this.assignedTo,
+      filePath: filePath ?? this.filePath,
+      remarks: remarks ?? this.remarks,
+      person: person ?? this.person,
+      incoming: incoming ?? this.incoming,
+      history: history ?? this.history,
+      status: status ?? this.status,
+      imageUrls: imageUrls ?? this.imageUrls,
+      fileUrls: fileUrls ?? this.fileUrls,
+      needsSync: needsSync ?? this.needsSync,
+    );
   }
 }

@@ -23,8 +23,9 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -45,6 +46,7 @@ class SQLiteDatabaseService {
         status TEXT,
         image_urls TEXT,
         file_urls TEXT,
+        needs_sync INTEGER,
         created_at TEXT,
         updated_at TEXT
       )
@@ -63,6 +65,13 @@ class SQLiteDatabaseService {
         FOREIGN KEY (document_code) REFERENCES documents (code)
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add needs_sync column to existing documents table
+      await db.execute('ALTER TABLE documents ADD COLUMN needs_sync INTEGER DEFAULT 0');
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -104,6 +113,9 @@ class SQLiteDatabaseService {
     // Convert boolean to integer for SQLite if present
     if (updates.containsKey('incoming')) {
       updates['incoming'] = (updates['incoming'] == true || updates['incoming'] == 1) ? 1 : 0;
+    }
+    if (updates.containsKey('needs_sync')) {
+      updates['needs_sync'] = (updates['needs_sync'] == true || updates['needs_sync'] == 1) ? 1 : 0;
     }
     // Convert lists to JSON strings for SQLite if present
     if (updates.containsKey('image_urls')) {

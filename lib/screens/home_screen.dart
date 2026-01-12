@@ -199,6 +199,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _syncDocument(String documentCode) async {
+    try {
+      await _documentService.syncSpecificDocument(documentCode);
+      // Reload documents to reflect changes
+      await _loadDocuments();
+    } catch (e) {
+      print('Error syncing document: $e');
+      // Could show error snackbar here
+    }
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -280,6 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               transferDocument: _transferDocument,
                               updateDocumentStatus: _updateDocumentStatus,
                               deleteDocument: _deleteDocument,
+                              syncDocument: _syncDocument,
                             ),
                           ),
                         );

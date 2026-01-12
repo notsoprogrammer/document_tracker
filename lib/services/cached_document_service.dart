@@ -78,6 +78,10 @@ class CachedDocumentService {
           print('Failed to sync creation to remote: $e');
           // Document is saved locally, will sync later
         }
+      } else {
+        // Mark as needing sync if offline
+        await _localDb.updateDocument(document.code, {'needs_sync': true});
+        return document.copyWith(needsSync: true);
       }
 
       return document;
@@ -163,6 +167,23 @@ class CachedDocumentService {
       }
     } catch (e) {
       print('Error syncing pending changes: $e');
+    }
+  }
+
+  Future<void> syncSpecificDocument(String documentCode) async {
+    if (!(await isOnline)) return;
+
+    try {
+      final localDoc = (await _localDb.fetchDocuments()).firstWhere((doc) => doc.code == documentCode);
+      if (localDoc.needsSync) {
+        // Sync to remote
+        await _remoteDb.createDocument(localDoc);
+        // Mark as synced
+        await _localDb.updateDocument(documentCode, {'needs_sync': false});
+      }
+    } catch (e) {
+      print('Error syncing specific document: $e');
+      rethrow;
     }
   }
 }
