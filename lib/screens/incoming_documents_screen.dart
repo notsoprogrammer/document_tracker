@@ -481,7 +481,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  "Search by docs, staff, personnel, remarks, type, office, status",
+                  "Search by docs, staff, personnel, remarks, type, office, status, doc code",
                   style: const TextStyle(fontSize: 14),
                   overflow: TextOverflow.visible, // allow wrapping
                   softWrap: true,

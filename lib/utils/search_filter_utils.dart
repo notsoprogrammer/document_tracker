@@ -13,7 +13,8 @@ List<Document> searchDocuments(List<Document> documents, String query) {
            doc.mode.toLowerCase().contains(lowerQuery) ||
            doc.type.toLowerCase().contains(lowerQuery) ||
            doc.fromOrTo.toLowerCase().contains(lowerQuery) ||
-           doc.status.toLowerCase().contains(lowerQuery);
+           doc.status.toLowerCase().contains(lowerQuery) ||
+           doc.code.toLowerCase().contains(lowerQuery);
   }).toList();
 }
 
