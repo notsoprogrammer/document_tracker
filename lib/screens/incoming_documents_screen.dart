@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 
@@ -674,6 +675,60 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     );
   }
 
+  void _showImageDialog(BuildContext context, List<String> imageUrls) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: PageView.builder(
+                  itemCount: imageUrls.length,
+                  itemBuilder: (context, index) {
+                    return InteractiveViewer(
+                      child: Image.network(
+                        imageUrls[index],
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(child: CircularProgressIndicator());
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(child: Text('Failed to load image'));
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewFile(String filePath) async {
+    final uri = Uri.parse(filePath);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      // Handle error
+    }
+  }
+
   void _showDeleteConfirmation(BuildContext context, int index) {
     showDialog(
       context: context,
@@ -844,6 +899,53 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                 ),
                               ],
                             ),
+                            if (doc.imageUrls.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.image, size: 20, color: Theme.of(context).colorScheme.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Images",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            color: Theme.of(context).colorScheme.primary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: doc.imageUrls.map((url) {
+                                            final fileName = url.split('/').last.split('?').first; // Extract filename
+                                            return GestureDetector(
+                                              onTap: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (_) => Dialog(
+                                                    child: InteractiveViewer(
+                                                      child: Image.network(url),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Chip(
+                                                label: Text(fileName),
+                                                avatar: const Icon(Icons.image, size: 16),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             if (doc.filePath != null) ...[
                               const SizedBox(height: 8),
                               _buildDetailRow(Icons.attach_file, "Attachment", doc.filePath!.split('/').last),
@@ -920,8 +1022,28 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             ),
                             const SizedBox(height: 16),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.visibility),
+                                  label: const Text("View Document"),
+                                  onPressed: () {
+                                    if (doc.imageUrls.isNotEmpty) {
+                                      _showImageDialog(context, doc.imageUrls);
+                                    } else if (doc.filePath != null) {
+                                      _viewFile(doc.filePath!);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('No attachments to view')),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete", style: TextStyle(fontSize: 10)),

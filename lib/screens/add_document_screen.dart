@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/supabase_service.dart';
 import '../services/google_drive_service.dart';
@@ -137,6 +139,69 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return '$prefix$year-$month-$day-$hour$minute';
   }
 
+  void _viewSelectedFiles(BuildContext context) {
+    final imageFiles = _selectedImagePaths.where((path) {
+      final extension = path.split('.').last.toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+    }).toList();
+
+    final otherFiles = _selectedImagePaths.where((path) {
+      final extension = path.split('.').last.toLowerCase();
+      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+    }).toList();
+
+    if (imageFiles.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: PageView.builder(
+                    itemCount: imageFiles.length,
+                    itemBuilder: (context, index) {
+                      return InteractiveViewer(
+                        child: Image.file(
+                          File(imageFiles[index]),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(child: Text('Failed to load image'));
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final filePath in otherFiles) {
+      final uri = Uri.file(filePath);
+      launchUrl(uri);
+    }
+
+    if (imageFiles.isEmpty && otherFiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No files to view')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -454,7 +519,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
-                            "${_selectedImagePaths.length} image(s) selected",
+                            "${_selectedImagePaths.length} file(s) selected",
                             style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
                           ),
                           const SizedBox(height: 8),
@@ -471,6 +536,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             }).toList(),
                           ),
                         ],
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => _viewSelectedFiles(context),
+                          icon: const Icon(Icons.visibility),
+                          label: const Text("View Selected Files"),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          ),
+                        ),
                         if (_isUploadingImages) ...[
                           const SizedBox(height: 8),
                           const LinearProgressIndicator(),

@@ -131,12 +131,11 @@ class GoogleDriveService {
   }
 
   /// Upload image and return public URL
-  static Future<String?> uploadImage(String imagePath, bool isIncoming) async {
+  static Future<String?> uploadImage(String imagePath, bool isIncoming, String fileName) async {
     try {
       final file = File(imagePath);
       if (!await file.exists()) return null;
 
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
       final folder = isIncoming ? DriveFolder.incoming : DriveFolder.outgoing;
 
       final driveId = await uploadImageToDrive(file, fileName, folder: folder);
@@ -151,11 +150,12 @@ class GoogleDriveService {
   }
 
   /// Upload multiple images and return list of public URLs
-  static Future<List<String>> uploadMultipleImages(List<String> imagePaths, bool isIncoming) async {
+  static Future<List<String>> uploadMultipleImages(List<String> imagePaths, bool isIncoming, String baseFileName) async {
     final uploadedUrls = <String>[];
 
-    for (final path in imagePaths) {
-      final url = await uploadImage(path, isIncoming);
+    for (int i = 0; i < imagePaths.length; i++) {
+      final fileName = imagePaths.length == 1 ? '$baseFileName.jpg' : '$baseFileName\_${i + 1}.jpg';
+      final url = await uploadImage(imagePaths[i], isIncoming, fileName);
       if (url != null) {
         uploadedUrls.add(url);
       }
