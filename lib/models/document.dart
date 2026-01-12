@@ -224,7 +224,7 @@ class Document {
       filePath: json['file_path'],
       remarks: json['remarks'],
       person: json['person'],
-      incoming: json['incoming'],
+      incoming: json['incoming'] == 1 || json['incoming'] == true,
       status: json['status'],
       history: history,
       imageUrls: imageUrls,

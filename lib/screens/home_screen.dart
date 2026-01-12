@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../models/document.dart';
-import '../services/supabase_service.dart';
+import '../services/cached_document_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final SupabaseService _supabaseService = SupabaseService();
+  final CachedDocumentService _documentService = CachedDocumentService();
   List<Document> documents = [];
   bool _isLoading = true;
 
@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDocuments() async {
     try {
-      final loadedDocuments = await _supabaseService.fetchDocuments();
+      final loadedDocuments = await _documentService.fetchDocuments();
       print('Loaded documents: ${loadedDocuments.map((d) => '${d.code}: incoming=${d.incoming}').toList()}');
       setState(() {
         documents = loadedDocuments;
@@ -114,8 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final historyAction = doc.incoming ? 'Document Received' : 'Created and forwarded to ${doc.fromOrTo} c/o ${doc.assignedTo}';
       doc.addHistoryEntry(historyAction, doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
 
-      // Save to Supabase
-      final savedDoc = await _supabaseService.createDocument(doc);
+      // Save to cached service (handles both local and remote)
+      final savedDoc = await _documentService.createDocument(doc);
 
       setState(() {
         documents.add(savedDoc);
@@ -135,11 +135,11 @@ class _HomeScreenState extends State<HomeScreen> {
         documents[index].transferTo(newAssignee, transferredBy, notes: notes);
       }
 
-      // Update in Supabase
+      // Update through cached service (handles both local and remote)
       Map<String, dynamic> updates = {'addressed_to': documents[index].assignedTo};
 
       // Add history entry for both incoming and outgoing documents
-      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+      await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Transferred to $newAssignee',
         person: transferredBy,
         timestamp: DateTime.now(),
@@ -147,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ), personnel: transferredBy);
 
       // Update the document
-      await _supabaseService.updateDocument(documents[index].code, updates);
+      await _documentService.updateDocument(documents[index].code, updates);
 
       setState(() {});
     } catch (e) {
@@ -161,11 +161,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update local document
       documents[index].updateStatus(newStatus, updatedBy, notes: notes);
 
-      // Update in Supabase
+      // Update through cached service (handles both local and remote)
       Map<String, dynamic> updates = {'status': newStatus};
 
       // Add history entry for both incoming and outgoing documents
-      await _supabaseService.addHistoryEntry(documents[index].code, HistoryEntry(
+      await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Status changed to $newStatus',
         person: updatedBy,
         timestamp: DateTime.now(),
@@ -173,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ), personnel: updatedBy);
 
       // Update the document
-      await _supabaseService.updateDocument(documents[index].code, updates);
+      await _documentService.updateDocument(documents[index].code, updates);
 
       setState(() {});
     } catch (e) {
@@ -186,8 +186,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final documentCode = documents[index].code;
 
-      // Delete from Supabase
-      await _supabaseService.deleteDocument(documentCode);
+      // Delete through cached service (handles both local and remote)
+      await _documentService.deleteDocument(documentCode);
 
       // Remove from local list
       setState(() {
