@@ -165,12 +165,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
-  bool _isImageUrl(String url) {
-    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-    final extension = url.split('.').last.toLowerCase();
-    return imageExtensions.contains(extension);
-  }
-
   void _viewFile(String filePath) async {
     final uri = Uri.parse(filePath);
     if (await canLaunchUrl(uri)) {
@@ -877,17 +871,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             ),
                             if (doc.imageUrls.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _showImageDialog(context, doc.imageUrls),
-                                child: Text(
-                                  "View image",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Theme.of(context).colorScheme.primary,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ),
                             ],
 
                             const SizedBox(height: 8),
@@ -1028,6 +1011,18 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   ),
                                   onPressed: () => _showDeleteConfirmation(context, originalIndex),
                                 ),
+                                if (doc.imageUrls.isNotEmpty)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.image),
+                                    label: const Text("View Image"),
+                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
                                 if (doc.filePath != null)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_file),
