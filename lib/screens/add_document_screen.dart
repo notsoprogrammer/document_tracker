@@ -436,15 +436,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               child: ElevatedButton.icon(
                                 onPressed: _isUploadingImages ? null : () async {
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
-                                    type: FileType.custom,
-                                    allowedExtensions: ['jpg', 'jpeg', 'png'],
+                                    type: FileType.any,
                                   );
                                   if (result != null) {
                                     setState(() => _selectedImagePaths.add(result.files.single.path!));
                                   }
                                 },
-                                icon: const Icon(Icons.photo_library),
-                                label: const Text("Pick Images"),
+                                icon: const Icon(Icons.attach_file),
+                                label: const Text("Pick Files"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
@@ -564,6 +563,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           _uploadedImageUrls = await GoogleDriveService.uploadMultipleImages(
                             _selectedImagePaths,
                             widget.incoming,
+                            codeController.text,
                           );
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
