@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
-import '../services/supabase_service.dart';
 import '../services/google_drive_service.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -517,9 +516,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
                                   if (image != null && image.path.isNotEmpty) {
                                     setState(() => _selectedImagePaths.add(image.path));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
-                                    );
+                                    // ScaffoldMessenger.of(context).showSnackBar(
+                                    //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
+                                    // );
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text('No image captured or path empty')),
@@ -562,11 +561,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(content: Text('${file.name} exceeds 20MB limit')),
                                         );
-                                      } else {
-                                        setState(() => _selectedDocumentPaths.add(filePath!));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Document added: ${file.name}')),
-                                        );
+                                      // } else {
+                                      //   setState(() => _selectedDocumentPaths.add(filePath!));
+                                      //   ScaffoldMessenger.of(context).showSnackBar(
+                                      //     SnackBar(content: Text('Document added: ${file.name}')),
+                                      //   );
                                       }
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
