@@ -34,10 +34,22 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String? selectedPerson;
   bool isCustomPerson = false;
 
-  // Image handling
+  // File handling
   List<String> _selectedImagePaths = [];
+  List<String> _selectedDocumentPaths = [];
   List<String> _uploadedImageUrls = [];
+  List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
+
+  bool _isImage(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+  }
+
+  bool _isDocument(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['docx', 'pdf'].contains(ext);
+  }
 
   // Validation flags
   bool _showValidationErrors = false;
@@ -495,6 +507,13 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: _isUploadingImages ? null : () async {
+                                  int currentImageCount = _selectedImagePaths.where(_isImage).length;
+                                  if (currentImageCount >= 10) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Only 10 image files allowed')),
+                                    );
+                                    return;
+                                  }
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
                                   if (image != null && image.path.isNotEmpty) {
                                     setState(() => _selectedImagePaths.add(image.path));
@@ -520,11 +539,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 onPressed: _isUploadingImages ? null : () async {
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
-                                    allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'docx', 'pdf'],
+                                    allowedExtensions: ['docx', 'pdf'],
+                                    allowMultiple: false, // Only one document
                                     withData: true, // Ensure bytes are available
                                   );
                                   if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.single;
+                                    final file = result.files.first;
                                     String? filePath = file.path;
                                     if (filePath == null || filePath.isEmpty) {
                                       if (file.bytes != null) {
@@ -535,11 +555,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                         filePath = tempFile.path;
                                       }
                                     }
+
                                     if (filePath != null && filePath.isNotEmpty) {
-                                      setState(() => _selectedImagePaths.add(filePath!));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('File added: ${file.name}')),
-                                      );
+                                      final fileSize = File(filePath).lengthSync();
+                                      if (fileSize > 20 * 1024 * 1024) { // 20MB
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('${file.name} exceeds 20MB limit')),
+                                        );
+                                      } else {
+                                        setState(() => _selectedDocumentPaths.add(filePath!));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Document added: ${file.name}')),
+                                        );
+                                      }
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(content: Text('Unable to access file')),
@@ -552,7 +580,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
-                                label: const Text("Pick Files"),
+                                label: const Text("Pick Document"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
@@ -562,20 +590,35 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ),
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _viewSelectedFiles(context),
+                            child: Text(
+                              "View Selected Images (${_selectedImagePaths.length})",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_selectedDocumentPaths.isNotEmpty) ...[
+                          const SizedBox(height: 8),
                           Text(
-                            "${_selectedImagePaths.length} file(s) selected",
+                            "${_selectedDocumentPaths.length} document(s) selected",
                             style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: _selectedImagePaths.map((path) {
+                            children: _selectedDocumentPaths.map((path) {
                               final fileName = path.split('\\').last.split('/').last;
                               return Chip(
                                 label: Text(fileName),
                                 onDeleted: () {
-                                  setState(() => _selectedImagePaths.remove(path));
+                                  setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );
                             }).toList(),
@@ -687,19 +730,48 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         setState(() => _isUploadingImages = false);
                       }
 
+                      // Upload documents to Google Drive if any are selected
+                      if (_selectedDocumentPaths.isNotEmpty) {
+                        setState(() => _isUploadingImages = true);
+
+                        try {
+                          _uploadedDocumentUrls = await GoogleDriveService.uploadMultipleFiles(
+                            _selectedDocumentPaths,
+                            widget.incoming,
+                            codeController.text,
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to upload documents: $e')),
+                          );
+                          setState(() => _isUploadingImages = false);
+                          return;
+                        }
+
+                        setState(() => _isUploadingImages = false);
+                      }
+
+                      final String code = codeController.text ?? '';
+                      final String title = titleController.text ?? '';
+                      final String fromOrTo = fromToController.text ?? '';
+                      final String assignedTo = assignedToController.text ?? '';
+                      final String remarks = remarksController.text ?? '';
+                      final String person = personController.text ?? '';
+
                       final doc = Document(
-                        code: codeController.text,
-                        title: titleController.text,
+                        code: code,
+                        title: title,
                         type: selectedType!,
-                        fromOrTo: fromToController.text,
+                        fromOrTo: fromOrTo,
                         mode: selectedMode!,
-                        assignedTo: assignedToController.text,
-                        filePath: selectedFilePath,
-                        remarks: remarksController.text,
-                        person: personController.text,
+                        assignedTo: assignedTo,
+                        filePath: null,
+                        remarks: remarks,
+                        person: person,
                         incoming: widget.incoming,
                         status: selectedStatus ?? (widget.incoming ? 'Received' : 'Delivered'),
                         imageUrls: _uploadedImageUrls,
+                        fileUrls: _uploadedDocumentUrls,
                       );
 
                       Navigator.pop(context, doc); // Return the document

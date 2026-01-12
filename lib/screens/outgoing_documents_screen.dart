@@ -127,48 +127,48 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   }
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.8,
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: PageView.builder(
+            itemCount: imageUrls.length,
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                child: Center(
+                  child: Image.network(
+                    imageUrls[index],
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(child: Text('Failed to load image'));
+                    },
                   ),
-                ],
-              ),
-              Expanded(
-                child: PageView.builder(
-                  itemCount: imageUrls.length,
-                  itemBuilder: (context, index) {
-                    return InteractiveViewer(
-                      child: Image.network(
-                        imageUrls[index],
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(child: CircularProgressIndicator());
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(child: Text('Failed to load image'));
-                        },
-                      ),
-                    );
-                  },
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+
+  bool _isImageUrl(String url) {
+    final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    final extension = url.split('.').last.toLowerCase();
+    return imageExtensions.contains(extension);
   }
 
   void _viewFile(String filePath) async {
@@ -875,9 +875,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 ),
                               ],
                             ),
-                            if (doc.filePath != null) ...[
+                            if (doc.imageUrls.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              _buildDetailRow(Icons.attach_file, "Attachment", doc.filePath!.split('/').last),
+                              GestureDetector(
+                                onTap: () => _showImageDialog(context, doc.imageUrls),
+                                child: Text(
+                                  "View image",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.primary,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
                             ],
 
                             const SizedBox(height: 8),
@@ -1001,31 +1011,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                               })(),
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
                               children: [
-                                if (doc.imageUrls.isNotEmpty)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.image),
-                                    label: const Text("View Images"),
-                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
-                                    style: ElevatedButton.styleFrom(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
-                                if (doc.filePath != null)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.visibility),
-                                    label: const Text("View Document"),
-                                    onPressed: () => _viewFile(doc.filePath!),
-                                    style: ElevatedButton.styleFrom(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete"),
@@ -1038,6 +1028,27 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   ),
                                   onPressed: () => _showDeleteConfirmation(context, originalIndex),
                                 ),
+                                if (doc.filePath != null)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.attach_file),
+                                    label: const Text("View File"),
+                                    onPressed: () => _viewFile(doc.filePath!),
+                                    style: ElevatedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                ...doc.fileUrls.map((url) => ElevatedButton.icon(
+                                  icon: const Icon(Icons.attach_file),
+                                  label: const Text("View File"),
+                                  onPressed: () => _viewFile(url),
+                                  style: ElevatedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                )),
                               ],
                             ),
                           ],

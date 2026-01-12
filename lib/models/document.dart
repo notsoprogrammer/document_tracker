@@ -50,6 +50,7 @@ class Document {
   final List<HistoryEntry> history;
   String status;
   final List<String> imageUrls; // Google Drive image URLs
+  final List<String> fileUrls; // Google Drive file URLs (non-images)
 
   Document({
     required this.code,
@@ -65,7 +66,8 @@ class Document {
     List<HistoryEntry>? history,
     this.status = 'Received',
     List<String>? imageUrls,
-  }) : history = history ?? [], imageUrls = imageUrls ?? [];
+    List<String>? fileUrls,
+  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
     history.add(HistoryEntry(
@@ -90,6 +92,7 @@ class Document {
   factory Document.fromJson(Map<String, dynamic> json) {
     List<HistoryEntry> history = [];
     List<String> imageUrls = [];
+    List<String> fileUrls = [];
 
     // Parse image_urls if present
     if (json['image_urls'] != null) {
@@ -105,6 +108,24 @@ class Document {
         } catch (e) {
           // If parsing fails, treat as single URL
           imageUrls = [json['image_urls']];
+        }
+      }
+    }
+
+    // Parse file_urls if present
+    if (json['file_urls'] != null) {
+      if (json['file_urls'] is List) {
+        fileUrls = List<String>.from(json['file_urls']);
+      } else if (json['file_urls'] is String) {
+        // Handle case where file_urls is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['file_urls']);
+          if (decoded is List) {
+            fileUrls = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, treat as single URL
+          fileUrls = [json['file_urls']];
         }
       }
     }
@@ -207,6 +228,7 @@ class Document {
       status: json['status'],
       history: history,
       imageUrls: imageUrls,
+      fileUrls: fileUrls,
     );
   }
 
@@ -224,6 +246,7 @@ class Document {
       'incoming': incoming,
       'status': status,
       'image_urls': imageUrls,
+      'file_urls': fileUrls,
     };
   }
 }
