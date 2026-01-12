@@ -1022,28 +1022,30 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             ),
                             const SizedBox(height: 16),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.visibility),
-                                  label: const Text("View Document"),
-                                  onPressed: () {
-                                    if (doc.imageUrls.isNotEmpty) {
-                                      _showImageDialog(context, doc.imageUrls);
-                                    } else if (doc.filePath != null) {
-                                      _viewFile(doc.filePath!);
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('No attachments to view')),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                if (doc.imageUrls.isNotEmpty)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.image),
+                                    label: const Text("View Images"),
+                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
+                                    style: ElevatedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                if (doc.filePath != null)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.visibility),
+                                    label: const Text("View Document"),
+                                    onPressed: () => _viewFile(doc.filePath!),
+                                    style: ElevatedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete", style: TextStyle(fontSize: 10)),
