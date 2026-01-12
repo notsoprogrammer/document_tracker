@@ -139,14 +139,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return '$prefix$year-$month-$day-$hour$minute';
   }
 
-  void _viewSelectedFiles(BuildContext context) {
+  void _viewSelectedFiles(BuildContext context) async {
     final imageFiles = _selectedImagePaths.where((path) {
-      final extension = path.split('.').last.toLowerCase();
+      final parts = path.split('.');
+      if (parts.length <= 1) return false;
+      final extension = parts.last.toLowerCase();
       return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
     }).toList();
 
     final otherFiles = _selectedImagePaths.where((path) {
-      final extension = path.split('.').last.toLowerCase();
+      final parts = path.split('.');
+      if (parts.length <= 1) return true;
+      final extension = parts.last.toLowerCase();
       return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
     }).toList();
 
@@ -192,13 +196,20 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     }
 
     for (final filePath in otherFiles) {
-      final uri = Uri.file(filePath);
-      launchUrl(uri);
+      final normalizedPath = filePath.replaceAll('\\', '/');
+      final uri = Uri.file(normalizedPath);
+      if (await launchUrl(uri)) {
+        // Successfully launched
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: ${filePath.split('\\').last.split('/').last}')),
+        );
+      }
     }
 
     if (imageFiles.isEmpty && otherFiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No files to view')),
+        const SnackBar(content: Text('No files selected to view')),
       );
     }
   }
@@ -485,8 +496,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               child: ElevatedButton.icon(
                                 onPressed: _isUploadingImages ? null : () async {
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null) {
+                                  if (image != null && image.path.isNotEmpty) {
                                     setState(() => _selectedImagePaths.add(image.path));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('No image captured or path empty')),
+                                    );
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -501,10 +519,36 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               child: ElevatedButton.icon(
                                 onPressed: _isUploadingImages ? null : () async {
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
-                                    type: FileType.any,
+                                    type: FileType.custom,
+                                    allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'docx', 'pdf'],
+                                    withData: true, // Ensure bytes are available
                                   );
-                                  if (result != null) {
-                                    setState(() => _selectedImagePaths.add(result.files.single.path!));
+                                  if (result != null && result.files.isNotEmpty) {
+                                    final file = result.files.single;
+                                    String? filePath = file.path;
+                                    if (filePath == null || filePath.isEmpty) {
+                                      if (file.bytes != null) {
+                                        // Create a temporary file for platforms that don't provide paths
+                                        final tempDir = Directory.systemTemp;
+                                        final tempFile = File('${tempDir.path}/${file.name}');
+                                        await tempFile.writeAsBytes(file.bytes!);
+                                        filePath = tempFile.path;
+                                      }
+                                    }
+                                    if (filePath != null && filePath.isNotEmpty) {
+                                      setState(() => _selectedImagePaths.add(filePath!));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('File added: ${file.name}')),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Unable to access file')),
+                                      );
+                                    }
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('No file selected')),
+                                    );
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
@@ -527,8 +571,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             spacing: 8,
                             runSpacing: 8,
                             children: _selectedImagePaths.map((path) {
+                              final fileName = path.split('\\').last.split('/').last;
                               return Chip(
-                                label: Text(path.split('/').last),
+                                label: Text(fileName),
                                 onDeleted: () {
                                   setState(() => _selectedImagePaths.remove(path));
                                 },
@@ -536,15 +581,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             }).toList(),
                           ),
                         ],
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _viewSelectedFiles(context),
-                          icon: const Icon(Icons.visibility),
-                          label: const Text("View Selected Files"),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          ),
-                        ),
+
                         if (_isUploadingImages) ...[
                           const SizedBox(height: 8),
                           const LinearProgressIndicator(),
@@ -634,7 +671,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         setState(() => _isUploadingImages = true);
 
                         try {
-                          _uploadedImageUrls = await GoogleDriveService.uploadMultipleImages(
+                          _uploadedImageUrls = await GoogleDriveService.uploadMultipleFiles(
                             _selectedImagePaths,
                             widget.incoming,
                             codeController.text,

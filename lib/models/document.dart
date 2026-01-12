@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class HistoryEntry {
   final String action;
   final String person;
@@ -93,6 +95,17 @@ class Document {
     if (json['image_urls'] != null) {
       if (json['image_urls'] is List) {
         imageUrls = List<String>.from(json['image_urls']);
+      } else if (json['image_urls'] is String) {
+        // Handle case where image_urls is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['image_urls']);
+          if (decoded is List) {
+            imageUrls = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, treat as single URL
+          imageUrls = [json['image_urls']];
+        }
       }
     }
 

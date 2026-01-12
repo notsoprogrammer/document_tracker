@@ -130,11 +130,14 @@ class GoogleDriveService {
     return 'https://drive.google.com/uc?id=$fileId';
   }
 
-  /// Upload image and return public URL
-  static Future<String?> uploadImage(String imagePath, bool isIncoming, String fileName) async {
+  /// Upload file and return public URL
+  static Future<String?> uploadFile(String filePath, bool isIncoming, String baseFileName) async {
     try {
-      final file = File(imagePath);
+      final file = File(filePath);
       if (!await file.exists()) return null;
+
+      final extension = filePath.split('.').last.toLowerCase();
+      final fileName = extension.isEmpty ? baseFileName : '$baseFileName.$extension';
 
       final folder = isIncoming ? DriveFolder.incoming : DriveFolder.outgoing;
 
@@ -144,18 +147,18 @@ class GoogleDriveService {
       }
       return null;
     } catch (e) {
-      print('Error uploading image: $e');
+      print('Error uploading file: $e');
       return null;
     }
   }
 
-  /// Upload multiple images and return list of public URLs
-  static Future<List<String>> uploadMultipleImages(List<String> imagePaths, bool isIncoming, String baseFileName) async {
+  /// Upload multiple files and return list of public URLs
+  static Future<List<String>> uploadMultipleFiles(List<String> filePaths, bool isIncoming, String baseFileName) async {
     final uploadedUrls = <String>[];
 
-    for (int i = 0; i < imagePaths.length; i++) {
-      final fileName = imagePaths.length == 1 ? '$baseFileName.jpg' : '$baseFileName\_${i + 1}.jpg';
-      final url = await uploadImage(imagePaths[i], isIncoming, fileName);
+    for (int i = 0; i < filePaths.length; i++) {
+      final fileName = filePaths.length == 1 ? baseFileName : '$baseFileName\_${i + 1}';
+      final url = await uploadFile(filePaths[i], isIncoming, fileName);
       if (url != null) {
         uploadedUrls.add(url);
       }
