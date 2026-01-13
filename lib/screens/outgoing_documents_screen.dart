@@ -1044,19 +1044,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                               runSpacing: 8,
                               alignment: WrapAlignment.center,
                               children: [
-                                if (doc.needsSync)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.sync),
-                                    label: const Text("Sync"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () => widget.syncDocument(doc.code),
-                                  ),
                                 ElevatedButton.icon(
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete"),

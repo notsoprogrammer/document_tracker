@@ -181,8 +181,15 @@ class CachedDocumentService {
       final localDoc = localDocs.firstWhere((doc) => doc.code == documentCode);
 
       if (localDoc.needsSync) {
-        // Sync to remote
-        await _remoteDb.createDocument(localDoc);
+        // Check if document already exists remotely
+        final existingDoc = await _remoteDb.fetchDocumentByCode(documentCode);
+        if (existingDoc != null) {
+          // Update existing document
+          await _remoteDb.updateDocument(documentCode, localDoc.toJson());
+        } else {
+          // Create new document
+          await _remoteDb.createDocument(localDoc);
+        }
 
         // Update local to mark as synced
         await _localDb.updateDocument(documentCode, {'needs_sync': 0});
@@ -225,7 +232,15 @@ class CachedDocumentService {
     int success = 0;
     for (var doc in unsynced) {
       try {
-        await _remoteDb.createDocument(doc);
+        // Check if document already exists remotely
+        final existingDoc = await _remoteDb.fetchDocumentByCode(doc.code);
+        if (existingDoc != null) {
+          // Update existing document
+          await _remoteDb.updateDocument(doc.code, doc.toJson());
+        } else {
+          // Create new document
+          await _remoteDb.createDocument(doc);
+        }
         await _localDb.updateDocument(doc.code, {'needs_sync': 0});
         success++;
       } catch (e) {

@@ -213,6 +213,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _syncAllDocuments() async {
     try {
       await _documentService.syncAllData(context, reloadRecords: _loadDocuments);
+      // Mark all documents as synced locally to update UI
+      final allDocuments = await _documentService.fetchDocuments();
+      for (var doc in allDocuments) {
+        if (doc.needsSync) {
+          await _documentService.updateDocument(doc.code, {'needs_sync': false});
+        }
+      }
+      await _loadDocuments(); // Reload to reflect changes
     } catch (e) {
       print('Error syncing all documents: $e');
       // Could show error snackbar here
@@ -254,6 +262,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("CPDCO Document Tracker"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            onPressed: _syncAllDocuments,
+            tooltip: 'Sync All Documents',
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -362,20 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _syncAllDocuments,
-                icon: const Icon(Icons.sync),
-                label: const Text("Sync All Documents"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+
 
             ],
           ),

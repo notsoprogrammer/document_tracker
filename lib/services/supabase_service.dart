@@ -31,6 +31,24 @@ class SupabaseService {
     }
   }
 
+  Future<Document?> fetchDocumentByCode(String code) async {
+    try {
+      final response = await _client.from('documents').select('*, history_entries(*)').eq('code', code).single();
+      final document = Document.fromJson(response);
+      // Add history entries from the joined table
+      if (response['history_entries'] != null) {
+        final historyEntries = (response['history_entries'] as List<dynamic>)
+            .map((entry) => HistoryEntry.fromJson(entry))
+            .toList();
+        document.history.addAll(historyEntries);
+      }
+      return document;
+    } catch (e) {
+      print('Error fetching document by code: $e');
+      return null;
+    }
+  }
+
   Future<Document> createDocument(Document document) async {
     final docData = document.toJson();
     docData.remove('history'); // Remove history as it's stored separately
