@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
+import 'google_drive_service.dart';
+import 'upload_queue_manager.dart';
 import '../models/document.dart';
 
 class CachedDocumentService {
@@ -69,6 +73,9 @@ class CachedDocumentService {
     try {
       // Always save locally first
       await _localDb.createDocument(document);
+
+      // Queue files for upload if they exist
+      await _queueFilesForUpload(document);
 
       // If online, sync to remote
       if (await isOnline) {
@@ -260,6 +267,136 @@ class CachedDocumentService {
     }
 
     await reloadRecords();
+  }
+
+  /// Queue files for background upload
+  Future<void> _queueFilesForUpload(Document document) async {
+    final queueManager = UploadQueueManager();
+
+    // Queue image files from local paths
+    if (document.localImagePaths.isNotEmpty) {
+      for (final localPath in document.localImagePaths) {
+        queueManager.addToQueue(
+          documentCode: document.code,
+          filePath: localPath,
+          isImage: true,
+          localPath: localPath,
+        );
+      }
+    }
+
+    // Queue document files from local paths
+    if (document.localFilePaths.isNotEmpty) {
+      for (final localPath in document.localFilePaths) {
+        queueManager.addToQueue(
+          documentCode: document.code,
+          filePath: localPath,
+          isImage: false,
+          localPath: localPath,
+        );
+      }
+    }
+  }
+
+  /// Process pending file uploads
+  Future<void> processPendingUploads() async {
+    if (!(await isOnline)) return;
+
+    final queueManager = UploadQueueManager();
+    final failedUploads = queueManager.getFailedUploads();
+
+    // Also get pending uploads that haven't been attempted yet
+    final allItems = queueManager.getAllItems();
+    final pendingUploads = allItems.where((item) =>
+      item['status'] == 'pending'
+    ).toList();
+
+    // Combine pending and failed uploads
+    final uploadsToProcess = [...pendingUploads, ...failedUploads];
+
+    for (final upload in uploadsToProcess) {
+      try {
+        queueManager.updateStatus(
+          upload['documentCode'],
+          upload['filePath'],
+          'uploading'
+        );
+
+        final file = File(upload['localPath']);
+        final isImage = upload['isImage'];
+        final fileName = '${upload['documentCode']}_${DateTime.now().millisecondsSinceEpoch}';
+        final folder = DriveFolder.incoming; // Default to incoming folder
+
+        String? driveId;
+        if (isImage) {
+          // For images, use the existing uploadImageToDrive method
+          driveId = await GoogleDriveService.uploadImageToDrive(
+            file,
+            fileName,
+            folder: folder,
+          );
+        } else {
+          // For documents, use uploadFile method which handles file extensions properly
+          final extension = upload['localPath'].split('.').last.toLowerCase();
+          final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+          driveId = await GoogleDriveService.uploadImageToDrive(
+            file,
+            docFileName,
+            folder: folder,
+          );
+        }
+        String? driveUrl = driveId != null ? GoogleDriveService.generatePublicUrl(driveId) : null;
+
+        if (driveUrl != null) {
+          // Update document with the uploaded URL
+          final documentCode = upload['documentCode'];
+          final isImage = upload['isImage'];
+
+          // Get current document to update URLs
+          final docs = await _localDb.fetchDocuments();
+          final doc = docs.firstWhere((d) => d.code == documentCode);
+
+          if (isImage) {
+            final updatedUrls = [...doc.imageUrls, driveUrl];
+            final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
+            await _localDb.updateDocument(documentCode, {
+              'image_urls': updatedUrls,
+              'local_image_paths': updatedLocalPaths,
+            });
+          } else {
+            final updatedUrls = [...doc.fileUrls, driveUrl];
+            final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
+            await _localDb.updateDocument(documentCode, {
+              'file_urls': updatedUrls,
+              'local_file_paths': updatedLocalPaths,
+            });
+          }
+
+          queueManager.updateStatus(documentCode, upload['filePath'], 'completed');
+          debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
+        } else {
+          throw Exception('Upload returned null URL');
+        }
+      } catch (e) {
+        debugPrint('Failed to upload ${upload['filePath']}: $e');
+        final newRetryCount = upload['retryCount'] + 1;
+        if (newRetryCount >= 3) {
+          queueManager.updateStatus(
+            upload['documentCode'],
+            upload['filePath'],
+            'failed',
+            retryCount: newRetryCount
+          );
+        } else {
+          queueManager.updateStatus(
+            upload['documentCode'],
+            upload['filePath'],
+            'failed',
+            retryCount: newRetryCount
+          );
+        }
+      }
+    }
   }
 
   // Future<void> syncSpecificDocument(String documentCode) async {

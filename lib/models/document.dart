@@ -51,6 +51,8 @@ class Document {
   String status;
   final List<String> imageUrls; // Google Drive image URLs
   final List<String> fileUrls; // Google Drive file URLs (non-images)
+  final List<String> localImagePaths; // Local image file paths (for offline uploads)
+  final List<String> localFilePaths; // Local file paths (for offline uploads)
   bool needsSync; // Indicates if document was added offline and needs syncing
 
   Document({
@@ -68,8 +70,10 @@ class Document {
     this.status = 'Received',
     List<String>? imageUrls,
     List<String>? fileUrls,
+    List<String>? localImagePaths,
+    List<String>? localFilePaths,
     this.needsSync = false,
-  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [];
+  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
     history.add(HistoryEntry(
@@ -128,6 +132,44 @@ class Document {
         } catch (e) {
           // If parsing fails, treat as single URL
           fileUrls = [json['file_urls']];
+        }
+      }
+    }
+
+    // Parse local_image_paths if present
+    List<String> localImagePaths = [];
+    if (json['local_image_paths'] != null) {
+      if (json['local_image_paths'] is List) {
+        localImagePaths = List<String>.from(json['local_image_paths']);
+      } else if (json['local_image_paths'] is String) {
+        // Handle case where local_image_paths is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['local_image_paths']);
+          if (decoded is List) {
+            localImagePaths = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, treat as single path
+          localImagePaths = [json['local_image_paths']];
+        }
+      }
+    }
+
+    // Parse local_file_paths if present
+    List<String> localFilePaths = [];
+    if (json['local_file_paths'] != null) {
+      if (json['local_file_paths'] is List) {
+        localFilePaths = List<String>.from(json['local_file_paths']);
+      } else if (json['local_file_paths'] is String) {
+        // Handle case where local_file_paths is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['local_file_paths']);
+          if (decoded is List) {
+            localFilePaths = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, treat as single path
+          localFilePaths = [json['local_file_paths']];
         }
       }
     }
@@ -231,6 +273,8 @@ class Document {
       history: history,
       imageUrls: imageUrls,
       fileUrls: fileUrls,
+      localImagePaths: localImagePaths,
+      localFilePaths: localFilePaths,
       needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
     );
   }
@@ -250,6 +294,8 @@ class Document {
       'status': status,
       'image_urls': imageUrls,
       'file_urls': fileUrls,
+      'local_image_paths': localImagePaths,
+      'local_file_paths': localFilePaths,
       'needs_sync': needsSync,
     };
   }
@@ -269,6 +315,8 @@ class Document {
     String? status,
     List<String>? imageUrls,
     List<String>? fileUrls,
+    List<String>? localImagePaths,
+    List<String>? localFilePaths,
     bool? needsSync,
   }) {
     return Document(
@@ -286,6 +334,8 @@ class Document {
       status: status ?? this.status,
       imageUrls: imageUrls ?? this.imageUrls,
       fileUrls: fileUrls ?? this.fileUrls,
+      localImagePaths: localImagePaths ?? this.localImagePaths,
+      localFilePaths: localFilePaths ?? this.localFilePaths,
       needsSync: needsSync ?? this.needsSync,
     );
   }

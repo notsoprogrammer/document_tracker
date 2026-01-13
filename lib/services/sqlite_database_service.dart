@@ -23,7 +23,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -72,6 +72,11 @@ class SQLiteDatabaseService {
       // Add needs_sync column to existing documents table
       await db.execute('ALTER TABLE documents ADD COLUMN needs_sync INTEGER DEFAULT 0');
     }
+    if (oldVersion < 3) {
+      // Add local file path columns for offline uploads
+      await db.execute('ALTER TABLE documents ADD COLUMN local_image_paths TEXT');
+      await db.execute('ALTER TABLE documents ADD COLUMN local_file_paths TEXT');
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -95,6 +100,8 @@ class SQLiteDatabaseService {
     // Convert lists to JSON strings for SQLite
     docData['image_urls'] = jsonEncode(docData['image_urls']);
     docData['file_urls'] = jsonEncode(docData['file_urls']);
+    docData['local_image_paths'] = jsonEncode(docData['local_image_paths'] ?? []);
+    docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
     docData['created_at'] = DateTime.now().toIso8601String();
     docData['updated_at'] = DateTime.now().toIso8601String();
 

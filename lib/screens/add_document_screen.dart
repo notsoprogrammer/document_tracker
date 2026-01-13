@@ -708,47 +708,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         personController.text.trim().isNotEmpty &&
                         fromToController.text.trim().isNotEmpty) {
 
-                      // Upload images to Google Drive if any are selected
-                      if (_selectedImagePaths.isNotEmpty) {
-                        setState(() => _isUploadingImages = true);
-
-                        try {
-                          _uploadedImageUrls = await GoogleDriveService.uploadMultipleFiles(
-                            _selectedImagePaths,
-                            widget.incoming,
-                            codeController.text,
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to upload images: $e')),
-                          );
-                          setState(() => _isUploadingImages = false);
-                          return;
-                        }
-
-                        setState(() => _isUploadingImages = false);
-                      }
-
-                      // Upload documents to Google Drive if any are selected
-                      if (_selectedDocumentPaths.isNotEmpty) {
-                        setState(() => _isUploadingImages = true);
-
-                        try {
-                          _uploadedDocumentUrls = await GoogleDriveService.uploadMultipleFiles(
-                            _selectedDocumentPaths,
-                            widget.incoming,
-                            codeController.text,
-                          );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to upload documents: $e')),
-                          );
-                          setState(() => _isUploadingImages = false);
-                          return;
-                        }
-
-                        setState(() => _isUploadingImages = false);
-                      }
+                      // Note: File uploads will be handled by CachedDocumentService
+                      // when the document is created. We just pass the local file paths.
 
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
@@ -771,6 +732,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         status: selectedStatus ?? (widget.incoming ? 'Received' : 'Delivered'),
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,
+                        localImagePaths: _selectedImagePaths,
+                        localFilePaths: _selectedDocumentPaths,
                       );
 
                       Navigator.pop(context, doc); // Return the document

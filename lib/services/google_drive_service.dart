@@ -1,7 +1,9 @@
-import 'dart:io';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'dart:io';
 
 /// Result class for image operations
 class ImageSaveResult {
@@ -26,6 +28,34 @@ class GoogleDriveService {
   // Use your folder IDs - replace these with your actual Google Drive folder IDs
   static const String _incomingFolderId = '1m8qaIDu1P9pBk3sIiOwqis3vL1xXjsah';
   static const String _outgoingFolderId = '1EkHogt5qXNjMjjWBspwseOBoKyrxnfFE';
+
+  /// Save image locally in the app's documents directory
+  static Future<String?> saveImageLocally(File imageFile, String uniqueId) async {
+    try {
+      // Get the app's documents directory
+      final appDocDir = await getApplicationDocumentsDirectory();
+
+      // Create images/documents directory if it doesn't exist
+      final imagesDir = Directory(path.join(appDocDir.path, 'images', 'documents'));
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+
+      // Create filename with timestamp for uniqueness
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'doc_${uniqueId}_$timestamp.jpg';
+      final localPath = path.join(imagesDir.path, fileName);
+
+      // Copy the image file to local storage
+      final localFile = await imageFile.copy(localPath);
+
+      print('Image saved locally: ${localFile.path}');
+      return localFile.path;
+    } catch (e) {
+      print('Error saving image locally: $e');
+      return null;
+    }
+  }
 
   /// Upload image to Google Drive (original functionality)
   static Future<String?> uploadImageToDrive(
@@ -165,5 +195,146 @@ class GoogleDriveService {
     }
 
     return uploadedUrls;
+  }
+
+  /// Save image both locally and to Google Drive
+  static Future<ImageSaveResult> saveImageWithBackup(
+    File imageFile,
+    String uniqueId, {
+    DriveFolder folder = DriveFolder.incoming,
+  }) async {
+    String? localPath;
+    String? driveId;
+    String? driveUrl;
+    bool localSuccess = false;
+    bool driveSuccess = false;
+
+    // Always try to save locally first
+    localPath = await saveImageLocally(imageFile, uniqueId);
+    localSuccess = localPath != null;
+
+    // Try to upload to Google Drive
+    try {
+      driveId = await uploadImageToDrive(
+        imageFile,
+        uniqueId,
+        folder: folder,
+      );
+      driveSuccess = driveId != null;
+
+      // Generate public URL if upload was successful
+      if (driveId != null) {
+        driveUrl = generatePublicUrl(driveId);
+      }
+    } catch (e) {
+      print('Google Drive upload failed, but local save succeeded: $e');
+      driveSuccess = false;
+    }
+
+    return ImageSaveResult(
+      localPath: localPath,
+      driveId: driveId,
+      driveUrl: driveUrl,
+      localSaveSuccess: localSuccess,
+      driveSaveSuccess: driveSuccess,
+    );
+  }
+
+  /// Get local image file if it exists
+  static Future<File?> getLocalImage(String localPath) async {
+    try {
+      final file = File(localPath);
+      if (await file.exists()) {
+        return file;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting local image: $e');
+      return null;
+    }
+  }
+
+  /// Get all local image files for a specific document
+  static Future<List<File>> getLocalImagesForDocument(String uniqueId) async {
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(path.join(appDocDir.path, 'images', 'documents'));
+
+      if (!await imagesDir.exists()) {
+        return [];
+      }
+
+      final files = await imagesDir.list().toList();
+      final imageFiles = files
+          .whereType<File>()
+          .where((file) => path.basename(file.path).startsWith('doc_$uniqueId'))
+          .toList();
+
+      return imageFiles;
+    } catch (e) {
+      print('Error getting local images for document: $e');
+      return [];
+    }
+  }
+
+  /// Clean up old local images (older than specified days)
+  static Future<void> cleanupOldImages({int daysOld = 30}) async {
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(path.join(appDocDir.path, 'images', 'documents'));
+
+      if (!await imagesDir.exists()) {
+        return;
+      }
+
+      final cutoffDate = DateTime.now().subtract(Duration(days: daysOld));
+      final files = await imagesDir.list().toList();
+
+      for (final file in files) {
+        if (file is File) {
+          final stat = await file.stat();
+          if (stat.modified.isBefore(cutoffDate)) {
+            await file.delete();
+            print('Deleted old image: ${file.path}');
+          }
+        }
+      }
+    } catch (e) {
+      print('Error cleaning up old images: $e');
+    }
+  }
+
+  /// Get the size of local images directory in bytes
+  static Future<int> getLocalImagesSize() async {
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(path.join(appDocDir.path, 'images', 'documents'));
+
+      if (!await imagesDir.exists()) {
+        return 0;
+      }
+
+      int totalSize = 0;
+      final files = await imagesDir.list(recursive: true).toList();
+
+      for (final file in files) {
+        if (file is File) {
+          final stat = await file.stat();
+          totalSize += stat.size;
+        }
+      }
+
+      return totalSize;
+    } catch (e) {
+      print('Error calculating local images size: $e');
+      return 0;
+    }
+  }
+
+  /// Legacy method for backward compatibility
+  @deprecated
+  static Future<String?> uploadImage(File imageFile, String uniqueId) async {
+    final result = await saveImageWithBackup(imageFile, uniqueId);
+    return result.driveId;
   }
 }

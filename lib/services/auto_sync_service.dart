@@ -74,6 +74,9 @@ class AutoSyncService {
         return;
       }
 
+      // Process any pending file uploads first
+      await cachedService.processPendingUploads();
+
       // Get all unsynced documents
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
@@ -165,6 +168,9 @@ class AutoSyncService {
       }
 
       debugPrint('Starting full bidirectional sync...');
+
+      // Step 0: Process any pending file uploads first
+      await cachedService.processPendingUploads();
 
       // Step 1: Push local unsynced documents to Supabase
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
