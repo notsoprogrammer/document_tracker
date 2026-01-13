@@ -114,7 +114,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   ];
 
   final List<String> cpdcoStaff = [
-    'Arnie',
+    'Sir Arnie',
     'Rex',
     'Floro',
     'Arlene',

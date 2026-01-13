@@ -80,7 +80,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     final notesController = TextEditingController();
 
     final List<String> cpdcoStaff = [
-      'Arnie',
+      'Sir Arnie',
       'Rex',
       'Floro',
       'Arlene',

@@ -28,7 +28,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   final List<String> cpdcoStaff = [
-    'Arnie',
+    'Sir Arnie',
     'Rex',
     'Floro',
     'Arlene',
