@@ -86,8 +86,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _specificDate;
-  String? _selectedType;
-  String? _selectedOffice;
   final Set<int> _expandedTiles = {};
 
   String _formatDateTime(DateTime dateTime) {
@@ -546,20 +544,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   }
 
   void _showFilterDialog(BuildContext context) {
-
-    final List<String> typeOptions = [    
-    'Memo',
-    'Travel',
-    'Transmittal',
-    'Executive Order',
-    'Letter',
-    'Report',
-    'Endorsement',
-    'Resolution',
-    'Voucher/OBR',
-    'Others'];
-    final officeController = TextEditingController(text: _selectedOffice ?? '');
-
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -668,37 +652,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedType,
-                  decoration: InputDecoration(
-                    labelText: "Document Type",
-                    prefixIcon: const Icon(Icons.description),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: typeOptions.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                  onChanged: (value) {
-                    setState(() {});
-                    this.setState(() => _selectedType = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: officeController,
-                  decoration: InputDecoration(
-                    labelText: "Office",
-                    prefixIcon: const Icon(Icons.business),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {});
-                    this.setState(() => _selectedOffice = value.isEmpty ? null : value);
-                  },
-                ),
               ],
             ),
           ),
@@ -710,8 +663,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   _specificDate = null;
                   _startDate = null;
                   _endDate = null;
-                  _selectedType = null;
-                  _selectedOffice = null;
                 });
                 Navigator.pop(context);
               },
