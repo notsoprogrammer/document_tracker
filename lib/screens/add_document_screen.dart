@@ -557,15 +557,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                                     if (filePath != null && filePath.isNotEmpty) {
                                       final fileSize = File(filePath).lengthSync();
-                                      if (fileSize > 20 * 1024 * 1024) { // 20MB
+                                      if (fileSize > 50 * 1024 * 1024) { // 20MB
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('${file.name} exceeds 20MB limit')),
+                                          SnackBar(content: Text('${file.name} exceeds 50MB limit')),
                                         );
-                                      // } else {
-                                      //   setState(() => _selectedDocumentPaths.add(filePath!));
-                                      //   ScaffoldMessenger.of(context).showSnackBar(
-                                      //     SnackBar(content: Text('Document added: ${file.name}')),
-                                      //   );
+                                      } else {
+                                        setState(() => _selectedDocumentPaths.add(filePath!));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Document added: ${file.name}')),
+                                        );
                                       }
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
