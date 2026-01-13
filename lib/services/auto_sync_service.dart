@@ -152,10 +152,94 @@ class AutoSyncService {
     }
   }
 
-  /// Manually trigger sync
+  /// Perform full bidirectional sync (push local changes and pull remote changes)
+  static Future<void> _performFullSync() async {
+    try {
+      final cachedService = CachedDocumentService();
+
+      // Check connectivity
+      final isOnline = await cachedService.isOnline;
+      if (!isOnline) {
+        debugPrint('Device is offline - skipping full sync');
+        return;
+      }
+
+      debugPrint('Starting full bidirectional sync...');
+
+      // Step 1: Push local unsynced documents to Supabase
+      final allDocuments = await SQLiteDatabaseService().fetchDocuments();
+      final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
+
+      if (unsyncedDocuments.isNotEmpty) {
+        debugPrint('Pushing ${unsyncedDocuments.length} local documents to Supabase...');
+        await _syncToSupabase(unsyncedDocuments);
+        await _syncToGoogleDrive(unsyncedDocuments);
+      }
+
+      // Step 2: Pull remote documents from Supabase and merge with local
+      debugPrint('Pulling remote documents from Supabase...');
+      await _pullFromSupabase();
+
+      debugPrint('Full bidirectional sync completed');
+    } catch (e) {
+      debugPrint('Error in full sync: $e');
+    }
+  }
+
+  /// Pull documents from Supabase and merge with local database
+  static Future<void> _pullFromSupabase() async {
+    try {
+      final supabaseService = SupabaseService();
+      final remoteDocuments = await supabaseService.fetchDocuments();
+      final localDocuments = await SQLiteDatabaseService().fetchDocuments();
+
+      // Create a map of local documents by code for quick lookup
+      final localDocMap = {for (var doc in localDocuments) doc.code: doc};
+
+      int addedCount = 0;
+      int updatedCount = 0;
+
+      for (final remoteDoc in remoteDocuments) {
+        if (localDocMap.containsKey(remoteDoc.code)) {
+          // Document exists locally - check if remote is newer
+          // final localDoc = localDocMap[remoteDoc.code]!;
+
+          // For now, we'll update local documents with remote data if they exist
+          
+          await SQLiteDatabaseService().updateDocument(remoteDoc.code, {
+            'title': remoteDoc.title,
+            'type': remoteDoc.type,
+            'from_or_to': remoteDoc.fromOrTo,
+            'mode': remoteDoc.mode,
+            'addressed_to': remoteDoc.assignedTo,
+            'remarks': remoteDoc.remarks,
+            'person': remoteDoc.person,
+            'incoming': remoteDoc.incoming,
+            'status': remoteDoc.status,
+            'image_urls': remoteDoc.imageUrls,
+            'file_urls': remoteDoc.fileUrls,
+            'updated_at': DateTime.now().toIso8601String(),
+            'needs_sync': 0, // Mark as synced
+          });
+          updatedCount++;
+        } else {
+          // Document doesn't exist locally - add it
+          await SQLiteDatabaseService().createDocument(remoteDoc);
+          await SQLiteDatabaseService().updateDocument(remoteDoc.code, {'needs_sync': 0});
+          addedCount++;
+        }
+      }
+
+      debugPrint('Pull sync completed: $addedCount added, $updatedCount updated');
+    } catch (e) {
+      debugPrint('Error pulling from Supabase: $e');
+    }
+  }
+
+  /// Manually trigger sync (bidirectional - push local changes and pull remote changes)
   static Future<void> triggerSync() async {
-    debugPrint('Manual auto-sync triggered');
-    await _performSync();
+    debugPrint('Manual sync triggered - performing bidirectional sync');
+    await _performFullSync();
   }
 
   /// Get sync statistics
