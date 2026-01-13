@@ -74,12 +74,11 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   }
 
   String _generateCode() {
-    if (selectedCeremonyType == null) return 'FL-mm-dd-yyyy'; // Default format
+    if (selectedCeremonyType == null || selectedDate == null) return '-'; // Default format
 
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final year = now.year.toString().substring(2); // Last 2 digits
+    final month = selectedDate!.month.toString().padLeft(2, '0');
+    final day = selectedDate!.day.toString().padLeft(2, '0');
+    final year = selectedDate!.year.toString();
 
     final prefix = selectedCeremonyType == 'Flag Raising' ? 'FR' : 'FL';
 
@@ -171,6 +170,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
+        codeController.text = _generateCode();
       });
     }
   }
@@ -222,28 +222,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: codeController,
-                          decoration: InputDecoration(
-                            labelText: "Document Code",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                          ),
-                          readOnly: true,
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: titleController,
-                          decoration: InputDecoration(
-                            labelText: "Document Title",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Document title is required" : null,
-                          ),
-                        ),
+
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: selectedCeremonyType,
@@ -280,6 +259,20 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                               ),
                             ),
                           ),
+                        ),                       
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: codeController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Document Code",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          readOnly: true,
                         ),
                       ],
                     ),
