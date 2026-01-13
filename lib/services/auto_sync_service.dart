@@ -4,11 +4,12 @@ import 'cached_document_service.dart';
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
+import 'connectivity_service.dart';
 
-/// Auto-sync service to handle unsynced documents periodically
+/// Auto-sync service to handle unsynced documents periodically and when online
 class AutoSyncService {
-  static bool _isRunning = false;
   static bool _isInitialized = false;
+  static bool _isRunning = false;
   static const Duration _syncInterval = Duration(minutes: 5);
 
   /// Initialize the auto-sync service
@@ -16,17 +17,23 @@ class AutoSyncService {
     if (_isInitialized) return;
 
     try {
-      _isInitialized = true;
-      debugPrint('AutoSyncService initialized');
+      // Initialize connectivity service
+      await ConnectivityService().initialize();
+
+      // Register for reconnection events
+      ConnectivityService().registerReconnectionCallback(_onReconnection);
 
       // Start periodic sync
       _startPeriodicSync();
+
+      _isInitialized = true;
+      debugPrint('AutoSyncService initialized');
     } catch (e) {
       debugPrint('Error initializing AutoSyncService: $e');
     }
   }
 
-  /// Start periodic sync for unsynced documents
+  /// Start periodic sync for cross-device synchronization
   static void _startPeriodicSync() {
     if (_isRunning) return;
 
@@ -47,6 +54,12 @@ class AutoSyncService {
 
       return _isRunning;
     });
+  }
+
+  /// Callback for when internet connection is restored
+  static void _onReconnection() {
+    debugPrint('Internet reconnected! Starting auto-sync...');
+    _performSync();
   }
 
   /// Perform sync operation for unsynced documents
@@ -157,7 +170,6 @@ class AutoSyncService {
         'synced': syncedDocuments.length,
         'unsynced': unsyncedDocuments.length,
         'syncPercentage': allDocuments.isEmpty ? 100.0 : (syncedDocuments.length / allDocuments.length) * 100,
-        'isRunning': _isRunning,
         'isInitialized': _isInitialized,
       };
     } catch (e) {
@@ -182,6 +194,7 @@ class AutoSyncService {
   /// Dispose the auto-sync service
   static void dispose() {
     stop();
+    ConnectivityService().unregisterReconnectionCallback(_onReconnection);
     _isInitialized = false;
     debugPrint('AutoSyncService disposed');
   }
