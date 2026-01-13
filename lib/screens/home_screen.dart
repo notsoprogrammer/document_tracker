@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   final List<String> cpdcoStaff = [
-    'Arnie',
+    'Sir Arnie',
     'Rex',
     'Floro',
     'Arlene',
@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Pau',
     'Chris',
     'Wena',
+    'N/A',
     'Arlyn',
     'Dari',
   ];
@@ -261,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("CPDCO Document Tracker"),
+        title: const Text("FileTrack Hub"),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -293,14 +294,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 80,
               ),
               const SizedBox(height: 16),
-              Text(
-                "Document Management",
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              "City Planning and Development Coordinator's Office\nFile Tracking System",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600, // Sleek semi-bold instead of heavy bold
+                fontStyle: FontStyle.normal, // Drop italic for a cleaner look
+                letterSpacing: 1.2, // Adds modern spacing
+                color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
               ),
+            ),
               const SizedBox(height: 40),
               Row(
                 children: [
