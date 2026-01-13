@@ -1038,7 +1038,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 }).toList();
                               })(),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 16),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -1050,6 +1050,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color.fromARGB(255, 218, 87, 78),
                                     foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -1074,6 +1075,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     label: const Text("View File"),
                                     onPressed: () => _viewFile(doc.filePath!),
                                     style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -1084,6 +1086,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   label: const Text("View File"),
                                   onPressed: () => _viewFile(url),
                                   style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
