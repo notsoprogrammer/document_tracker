@@ -76,15 +76,15 @@ class CachedDocumentService {
           return remoteDoc;
         } catch (e) {
           print('Failed to sync creation to remote: $e');
-          // Document is saved locally, will sync later
+          // Mark as needing sync since remote failed
+          await _localDb.updateDocument(document.code, {'needs_sync': true});
+          return document.copyWith(needsSync: true);
         }
       } else {
         // Mark as needing sync if offline
         await _localDb.updateDocument(document.code, {'needs_sync': true});
         return document.copyWith(needsSync: true);
       }
-
-      return document;
     } catch (e) {
       print('Error creating document: $e');
       rethrow;
