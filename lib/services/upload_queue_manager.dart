@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
 
 /// Manages a queue of files pending upload to Google Drive
 class UploadQueueManager {
