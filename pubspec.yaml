@@ -104,8 +104,8 @@ flutter:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/image/appLogo2.png"
+  image_path: "assets/image/appLogo.png"
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/image/FTHub.png"
+  adaptive_icon_foreground: "assets/image/FTHubLogo.png"
 
