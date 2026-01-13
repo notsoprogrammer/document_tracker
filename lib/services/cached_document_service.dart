@@ -1,4 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
+import 'dart:developer' as developer;
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import '../models/document.dart';
@@ -174,16 +176,91 @@ class CachedDocumentService {
     if (!(await isOnline)) return;
 
     try {
-      final localDoc = (await _localDb.fetchDocuments()).firstWhere((doc) => doc.code == documentCode);
+      // Get the local document
+      final localDocs = await _localDb.fetchDocuments();
+      final localDoc = localDocs.firstWhere((doc) => doc.code == documentCode);
+
       if (localDoc.needsSync) {
         // Sync to remote
         await _remoteDb.createDocument(localDoc);
-        // Mark as synced
-        await _localDb.updateDocument(documentCode, {'needs_sync': false});
+
+        // Update local to mark as synced
+        await _localDb.updateDocument(documentCode, {'needs_sync': 0});
       }
     } catch (e) {
       print('Error syncing specific document: $e');
       rethrow;
     }
   }
+
+  Future<void> syncAllData(
+    BuildContext context, {
+    required Future<void> Function() reloadRecords,
+    bool showMessages = true,
+  }) async {
+    // Check offline
+    if (!(await isOnline)) {
+      debugPrint('Device is offline - skipping sync');
+      if (context.mounted && showMessages) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Device is offline - sync skipped'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    // Fetch unsynced documents
+    final allDocuments = await _localDb.fetchDocuments();
+    final unsynced = allDocuments.where((doc) => doc.needsSync).toList();
+    if (unsynced.isEmpty) {
+      if (context.mounted && showMessages) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All documents are already synced!'), backgroundColor: Colors.green),
+        );
+      }
+      return;
+    }
+
+    // Sync to Supabase
+    int success = 0;
+    for (var doc in unsynced) {
+      try {
+        await _remoteDb.createDocument(doc);
+        await _localDb.updateDocument(doc.code, {'needs_sync': 0});
+        success++;
+      } catch (e) {
+        print('Failed to sync document ${doc.code}: $e');
+      }
+    }
+
+    // Show result
+    if (context.mounted && showMessages) {
+      final total = unsynced.length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Synced $success of $total documents'),
+          backgroundColor: success == total ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+
+    await reloadRecords();
+  }
+
+  // Future<void> syncSpecificDocument(String documentCode) async {
+  //   if (!(await isOnline)) return;
+
+  //   try {
+  //     final localDoc = (await _localDb.fetchDocuments()).firstWhere((doc) => doc.code == documentCode);
+  //     if (localDoc.needsSync) {
+  //       // Sync to remote
+  //       await _remoteDb.createDocument(localDoc);
+  //       // Mark as synced
+  //       await _localDb.updateDocument(documentCode, {'needs_sync': false});
+  //     }
+  //   } catch (e) {
+  //     print('Error syncing specific document: $e');
+  //     rethrow;
+  //   }
+  // }
 }

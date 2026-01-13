@@ -210,6 +210,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _syncAllDocuments() async {
+    try {
+      await _documentService.syncAllData(context, reloadRecords: _loadDocuments);
+    } catch (e) {
+      print('Error syncing all documents: $e');
+      // Could show error snackbar here
+    }
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -320,6 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               transferDocument: _transferDocument,
                               updateDocumentStatus: _updateDocumentStatus,
                               deleteDocument: _deleteDocument,
+                              syncDocument: _syncDocument,
                             ),
                           ),
                         );
@@ -346,6 +356,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _syncAllDocuments,
+                icon: const Icon(Icons.sync),
+                label: const Text("Sync All Documents"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
