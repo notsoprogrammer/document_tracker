@@ -18,11 +18,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final CachedDocumentService _documentService = CachedDocumentService();
   List<Document> documents = [];
   bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
     _loadDocuments();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadDocuments() async {
@@ -258,6 +262,60 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Add New Document',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildAddOption(
+                  context,
+                  Icons.arrow_downward,
+                  "Incoming",
+                  "Receive document",
+                  () {
+                    Navigator.pop(context);
+                    _showForm(context, true);
+                  },
+                ),
+                _buildAddOption(
+                  context,
+                  Icons.arrow_upward,
+                  "Outgoing",
+                  "Send document",
+                  () {
+                    Navigator.pop(context);
+                    _showForm(context, false);
+                  },
+                ),
+                _buildAddOption(
+                  context,
+                  Icons.flag,
+                  "Flag Ceremony",
+                  "Attendance",
+                  () {
+                    Navigator.pop(context);
+                    _showFlagCeremonyForm(context);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -308,8 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
+                    child: _buildFolderButton(
+                      context,
+                      Icons.folder,
+                      "Incoming Documents",
+                      const Color(0xFFFFB74D), // Pastel orange
+                      () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -323,22 +385,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.arrow_downward, color: Colors.white),
-                      label: const Text("Incoming Documents"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFB74D), // Pastel orange
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
+                    child: _buildFolderButton(
+                      context,
+                      Icons.folder,
+                      "Outgoing Documents",
+                      const Color(0xFF2196F3), // Blue complementing orange
+                      () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -352,16 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.arrow_upward, color: Colors.white),
-                      label: const Text("Outgoing Documents"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2196F3), // Blue complementing orange
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -370,60 +416,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddMenu(context),
-        icon: const Icon(Icons.add),
-        label: const Text("Add New Document"),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _showAddMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Add New Document",
-              style: Theme.of(context).textTheme.headlineSmall,
+
+
+  Widget _buildFolderButton(BuildContext context, IconData icon, String title, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildAddOption(
-                    context,
-                    Icons.arrow_downward,
-                    "Incoming",
-                    "Receive documents",
-                    () {
-                      Navigator.pop(context);
-                      _showForm(context, true);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildAddOption(
-                    context,
-                    Icons.arrow_upward,
-                    "Outgoing",
-                    "Send documents",
-                    () {
-                      Navigator.pop(context);
-                      _showForm(context, false);
-                    },
-                  ),
-                ),
-              ],
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 48, color: Colors.white),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -453,6 +485,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildCompactAddOption(BuildContext context, IconData icon, String title, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 4),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showForm(BuildContext context, bool incoming) async {
     final result = await Navigator.push(
       context,
@@ -463,5 +516,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null && result is Document) {
       _addDocument(result);
     }
+  }
+
+  void _showFlagCeremonyForm(BuildContext context) async {
+    // For now, show a simple dialog or navigate to a new screen
+    // This can be expanded to a full form later
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Flag Ceremony Attendance"),
+        content: const Text("Flag Ceremony Attendance tracking will be implemented here."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 }
