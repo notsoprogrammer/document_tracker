@@ -325,7 +325,15 @@ class CachedDocumentService {
         final file = File(upload['localPath']);
         final isImage = upload['isImage'];
         final fileName = '${upload['documentCode']}_${DateTime.now().millisecondsSinceEpoch}';
-        final folder = DriveFolder.incoming; // Default to incoming folder
+
+        // Get the document to determine the correct folder
+        final docs = await _localDb.fetchDocuments();
+        final doc = docs.firstWhere((d) => d.code == upload['documentCode']);
+        final folder = doc.mode == 'Flag Ceremony'
+            ? DriveFolder.flagCeremony
+            : doc.incoming
+                ? DriveFolder.incoming
+                : DriveFolder.outgoing;
 
         String? driveId;
         if (isImage) {

@@ -22,12 +22,13 @@ class ImageSaveResult {
   });
 }
 
-enum DriveFolder { incoming, outgoing }
+enum DriveFolder { incoming, outgoing, flagCeremony }
 
 class GoogleDriveService {
   // Use your folder IDs - replace these with your actual Google Drive folder IDs
   static const String _incomingFolderId = '1m8qaIDu1P9pBk3sIiOwqis3vL1xXjsah';
   static const String _outgoingFolderId = '1EkHogt5qXNjMjjWBspwseOBoKyrxnfFE';
+  static const String _flagCeremonyFolderId = '1KYbOWoQZZIAbT69t7elduQLiITdFK45Y';
 
   /// Save image locally in the app's documents directory
   static Future<String?> saveImageLocally(File imageFile, String uniqueId) async {
@@ -80,7 +81,9 @@ class GoogleDriveService {
       // Resolve target folder
       final targetFolderId = folder == DriveFolder.outgoing
           ? _outgoingFolderId
-          : _incomingFolderId;
+          : folder == DriveFolder.flagCeremony
+              ? _flagCeremonyFolderId
+              : _incomingFolderId;
 
       // Build file name if you currently do so elsewhere, keep it; otherwise:
       final fileName = fileNameOrUniqueId.endsWith('.jpg')

@@ -7,6 +7,8 @@ import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
 import 'flag_ceremony_screen.dart';
+import 'add_flag_ceremony_screen.dart';
+import 'flag_ceremony_documents_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -427,7 +429,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const FlagCeremonyScreen(),
+                              builder: (context) => FlagCeremonyDocumentsScreen(
+                                documents: documents,
+                                transferDocument: _transferDocument,
+                                updateDocumentStatus: _updateDocumentStatus,
+                                deleteDocument: _deleteDocument,
+                                syncDocument: _syncDocument,
+                              ),
                             ),
                           );
                         },
@@ -543,20 +551,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFlagCeremonyForm(BuildContext context) async {
-    // For now, show a simple dialog or navigate to a new screen
-    // This can be expanded to a full form later
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Flag Ceremony Attendance"),
-        content: const Text("Flag Ceremony Attendance tracking will be implemented here."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
-          ),
-        ],
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddFlagCeremonyScreen(),
       ),
     );
+    if (result != null && result is Document) {
+      _addDocument(result);
+    }
   }
 }
