@@ -163,7 +163,7 @@ class GoogleDriveService {
     return 'https://drive.google.com/uc?id=$fileId';
   }
 
-  /// Upload file and return public URL
+  /// Upload file and return public URL (generic method for any file type)
   static Future<String?> uploadFile(String filePath, bool isIncoming, String baseFileName) async {
     try {
       final file = File(filePath);
@@ -174,13 +174,88 @@ class GoogleDriveService {
 
       final folder = isIncoming ? DriveFolder.incoming : DriveFolder.outgoing;
 
-      final driveId = await uploadImageToDrive(file, fileName, folder: folder);
+      final driveId = await uploadFileToDrive(file, fileName, folder: folder);
       if (driveId != null) {
         return generatePublicUrl(driveId);
       }
       return null;
     } catch (e) {
       print('Error uploading file: $e');
+      return null;
+    }
+  }
+
+  /// Upload any file to Google Drive (generic method)
+  static Future<String?> uploadFileToDrive(
+    File file,
+    String fileName, {
+    DriveFolder folder = DriveFolder.incoming,
+  }) async {
+    try {
+      // Load service account credentials
+      final serviceAccountJson = await rootBundle.loadString('assets/service_account_key.json');
+      final credentials = ServiceAccountCredentials.fromJson(serviceAccountJson);
+
+      // Get authenticated HTTP client
+      final client = await clientViaServiceAccount(
+        credentials,
+        [drive.DriveApi.driveFileScope]
+      );
+
+      // Create Drive API client
+      final driveApi = drive.DriveApi(client);
+
+      // Resolve target folder
+      final targetFolderId = folder == DriveFolder.outgoing
+          ? _outgoingFolderId
+          : folder == DriveFolder.flagCeremony
+              ? _flagCeremonyFolderId
+              : _incomingFolderId;
+
+      // Check if file already exists
+      final query = "name = '$fileName' and '$targetFolderId' in parents and trashed = false";
+      final existingFiles = await driveApi.files.list(
+        q: query,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        $fields: 'files(id,name)',
+      );
+
+      final media = drive.Media(file.openRead(), await file.length());
+
+      if (existingFiles.files?.isNotEmpty == true) {
+        // Update existing file
+        final fileId = existingFiles.files!.first.id!;
+        final updated = await driveApi.files.update(
+          drive.File(name: fileName, parents: [targetFolderId]),
+          fileId,
+          uploadMedia: media,
+          supportsAllDrives: true,
+        );
+        // Make the file public
+        if (updated.id != null) {
+          await _makeFilePublic(driveApi, updated.id!);
+        }
+        return updated.id;
+      } else {
+        // Create new file
+        final driveFile = drive.File()
+          ..name = fileName
+          ..parents = [targetFolderId];
+        final created = await driveApi.files.create(
+          driveFile,
+          uploadMedia: media,
+          supportsAllDrives: true,
+        );
+        // Make the file public
+        if (created.id != null) {
+          await _makeFilePublic(driveApi, created.id!);
+        }
+        return created.id;
+      }
+
+    } catch (e) {
+      print('Error uploading file to Google Drive: $e');
       return null;
     }
   }

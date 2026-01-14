@@ -279,11 +279,11 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                         ),
                                       ),
                                     ),
-                                  if (document.fileUrls.isNotEmpty || document.filePath != null || document.localFilePaths.isNotEmpty)
+                                  if (document.filePath != null)
                                     ElevatedButton.icon(
                                       icon: const Icon(Icons.attach_file),
                                       label: const Text("View File"),
-                                      onPressed: () => _viewFiles(document),
+                                      onPressed: () => _viewFile(document.filePath!),
                                       style: ElevatedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         shape: RoundedRectangleBorder(
@@ -291,6 +291,17 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                         ),
                                       ),
                                     ),
+                                  ...document.fileUrls.map((url) => ElevatedButton.icon(
+                                    icon: const Icon(Icons.attach_file),
+                                    label: const Text("View File"),
+                                    onPressed: () => _viewFile(url),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  )),
                                 ],
                               ),
                             ],
@@ -391,18 +402,12 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     );
   }
 
-  void _viewFiles(Document document) async {
-    if (document.filePath != null) {
-      final uri = Uri.parse(document.filePath!);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
-    }
-    for (final url in document.fileUrls) {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
+  void _viewFile(String filePath) async {
+    final uri = Uri.parse(filePath);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      // Handle error
     }
   }
 }

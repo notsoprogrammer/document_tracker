@@ -308,7 +308,7 @@ class CachedDocumentService {
   }
 
   /// Process pending file uploads
-  Future<void> processPendingUploads() async {
+  Future<void> processPendingUploads({VoidCallback? onUploadComplete}) async {
     if (!(await isOnline)) return;
 
     final queueManager = UploadQueueManager();
@@ -322,6 +322,7 @@ class CachedDocumentService {
 
     // Combine pending and failed uploads
     final uploadsToProcess = [...pendingUploads, ...failedUploads];
+    bool hasCompletedUploads = false;
 
     for (final upload in uploadsToProcess) {
       try {
@@ -353,10 +354,11 @@ class CachedDocumentService {
             folder: folder,
           );
         } else {
-          // For documents, use uploadFile method which handles file extensions properly
+          // For documents, use uploadFileToDrive method which handles file extensions properly
+          final file = File(upload['localPath']);
           final extension = upload['localPath'].split('.').last.toLowerCase();
           final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-          driveId = await GoogleDriveService.uploadImageToDrive(
+          driveId = await GoogleDriveService.uploadFileToDrive(
             file,
             docFileName,
             folder: folder,
@@ -380,6 +382,11 @@ class CachedDocumentService {
               'image_urls': updatedUrls,
               'local_image_paths': updatedLocalPaths,
             });
+            // Also update remote database
+            await _remoteDb.updateDocument(documentCode, {
+              'image_urls': updatedUrls,
+              'local_image_paths': updatedLocalPaths,
+            });
           } else {
             final updatedUrls = [...doc.fileUrls, driveUrl];
             final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
@@ -387,9 +394,15 @@ class CachedDocumentService {
               'file_urls': updatedUrls,
               'local_file_paths': updatedLocalPaths,
             });
+            // Also update remote database
+            await _remoteDb.updateDocument(documentCode, {
+              'file_urls': updatedUrls,
+              'local_file_paths': updatedLocalPaths,
+            });
           }
 
           queueManager.updateStatus(documentCode, upload['filePath'], 'completed');
+          hasCompletedUploads = true;
           debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
         } else {
           throw Exception('Upload returned null URL');
@@ -413,6 +426,11 @@ class CachedDocumentService {
           );
         }
       }
+    }
+
+    // Call the callback if uploads were completed
+    if (hasCompletedUploads && onUploadComplete != null) {
+      onUploadComplete();
     }
   }
 

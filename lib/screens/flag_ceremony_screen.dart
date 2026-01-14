@@ -20,13 +20,19 @@ class _FlagCeremonyScreenState extends State<FlagCeremonyScreen> {
     _loadDocuments();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh documents when returning to this screen
+    _loadDocuments();
+  }
+
   Future<void> _loadDocuments() async {
     try {
       final loadedDocuments = await _documentService.fetchDocuments();
-      // Filter for flag ceremony related documents if needed
-      // For now, show all or placeholder
+      // Filter for flag ceremony documents by mode
       setState(() {
-        documents = loadedDocuments.where((doc) => doc.remarks.contains('flag')).toList();
+        documents = loadedDocuments.where((doc) => doc.mode == 'Flag Ceremony').toList();
         _isLoading = false;
       });
     } catch (e) {
