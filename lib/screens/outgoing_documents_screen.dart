@@ -731,7 +731,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final outgoingDocuments = widget.documents.where((doc) => !doc.incoming).toList();
+    final outgoingDocuments = widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony').toList();
     final filteredDocuments = searchAndFilterDocuments(
       outgoingDocuments,
       searchQuery: _searchQuery,
