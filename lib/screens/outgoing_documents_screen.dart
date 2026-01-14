@@ -762,7 +762,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             ),
             onPressed: () {
               widget.deleteDocument(index);
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              Navigator.pop(context);
+              setState(() {
+                // The documents list will be updated by the parent, so we just need to rebuild
+              });
+              
             },
           ),
         ],

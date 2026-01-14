@@ -322,7 +322,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Document'),
-        content: const Text('Are you sure you want to delete this Flag Ceremony document?'),
+        content: const Text('Sure??? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

@@ -6,7 +6,8 @@ List<Document> searchDocuments(List<Document> documents, String query) {
   if (query.isEmpty) return documents;
   final lowerQuery = query.toLowerCase();
   return documents.where((doc) {
-    return 
+    return
+           (doc.title?.toLowerCase().contains(lowerQuery) ?? false) ||
            doc.assignedTo.toLowerCase().contains(lowerQuery) ||
            doc.person.toLowerCase().contains(lowerQuery) ||
            doc.remarks.toLowerCase().contains(lowerQuery) ||
@@ -51,20 +52,21 @@ List<Document> searchAndFilterDocuments(List<Document> documents, {
   DateTime? startDate,
   DateTime? endDate,
 }) {
-  // If any filter criteria are provided, apply filters-only (prioritize filters).
+  List<Document> result = documents;
+
+  // Apply date filters first if provided
   final hasFilter = startDate != null || endDate != null;
   if (hasFilter) {
-    return filterDocuments(documents,
+    result = filterDocuments(result,
       startDate: startDate,
       endDate: endDate,
     );
   }
 
-  // If a search query is provided (and no filters), perform search-only.
+  // Then apply search if query is provided
   if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-    return searchDocuments(documents, searchQuery);
+    result = searchDocuments(result, searchQuery);
   }
 
-  // No search or filters — return original list
-  return documents;
+  return result;
 }

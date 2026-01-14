@@ -33,6 +33,18 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   DateTime? _endDate;
   DateTime? _specificDate;
   final Set<int> _expandedTiles = {};
+  late final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = _searchQuery;
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -470,216 +482,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     );
   }
 
-  void _showSearchDialog(BuildContext context) {
-    final searchController = TextEditingController(text: _searchQuery);
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-          title: Row(
-            children: [
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  "Search by docs, staff, personnel, remarks, type, office, status, doc code",
-                  style: const TextStyle(fontSize: 14),
-                  overflow: TextOverflow.visible, // allow wrapping
-                  softWrap: true,
-                ),
-              ),
-            ],
-          ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 16),
-              TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: "Type here to search",
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = '';
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Clear"),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.search),
-            label: const Text("Search", style: TextStyle(fontSize: 10)),
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              setState(() {
-                _searchQuery = searchController.text;
-              });
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFilterDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 8),
-              const Text("Filter Documents", style: TextStyle(fontSize: 16)),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 16),
-                TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "Specific Date",
-                    prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _specificDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() {});
-                      this.setState(() {
-                        _specificDate = picked;
-                        _startDate = picked;
-                        _endDate = picked;
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "Start Date",
-                    prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onTap: () async {
-                      final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _startDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() {});
-                      this.setState(() {
-                        _startDate = picked;
-                        _specificDate = null; // Clear specific date if range is used
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "End Date",
-                    prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _endDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() {});
-                      this.setState(() => _endDate = picked);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setState(() {});
-                this.setState(() {
-                  _specificDate = null;
-                  _startDate = null;
-                  _endDate = null;
-                });
-                Navigator.pop(context);
-              },
-              child: const Text("Clear All"),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.filter_list),
-              label: const Text("Apply"),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
 
 
@@ -790,6 +593,181 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     }
   }
 
+  void _showSearchDialog(BuildContext context) {
+    final searchController = TextEditingController(text: _searchQuery);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Search Documents'),
+        content: TextField(
+          controller: searchController,
+          decoration: const InputDecoration(
+            hintText: 'Enter search query',
+            prefixIcon: Icon(Icons.search),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _searchQuery = searchController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterDialog(BuildContext context, StateSetter setState) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, dialogSetState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text("Filter Documents", style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Specific Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _specificDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _specificDate = picked;
+                        _startDate = picked;
+                        _endDate = picked;
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Start Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                      final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _startDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _startDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "End Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _endDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _endDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                dialogSetState(() {});
+                setState(() {
+                  _specificDate = null;
+                  _startDate = null;
+                  _endDate = null;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Clear All"),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.filter_list),
+              label: const Text("Apply"),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showDeleteConfirmation(BuildContext context, int index) {
     showDialog(
       context: context,
@@ -824,8 +802,12 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               ),
             ),
             onPressed: () {
+              Navigator.pop(context);
               widget.deleteDocument(index);
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              setState(() {
+                // The documents list will be updated by the parent, so we just need to rebuild
+                // Navigator.of(context).popUntil((route) => route.isFirst);
+              });
             },
           ),
         ],
@@ -849,16 +831,48 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         title: const Text("Incoming Documents"),
         backgroundColor: const Color(0xFFFFB74D), // Pastel orange
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _showSearchDialog(context),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(80),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textDirection: TextDirection.ltr,
+                    decoration: InputDecoration(
+                      hintText: 'Search documents...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showFilterDialog(context, setState),
+                  tooltip: 'Filter by Date',
+                ),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ],
+        ),
       ),
       body: incomingDocuments.isEmpty
           ? Center(
