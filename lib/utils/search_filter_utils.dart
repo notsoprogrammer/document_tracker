@@ -6,7 +6,7 @@ List<Document> searchDocuments(List<Document> documents, String query) {
   if (query.isEmpty) return documents;
   final lowerQuery = query.toLowerCase();
   return documents.where((doc) {
-    return doc.title.toLowerCase().contains(lowerQuery) ||
+    return 
            doc.assignedTo.toLowerCase().contains(lowerQuery) ||
            doc.person.toLowerCase().contains(lowerQuery) ||
            doc.remarks.toLowerCase().contains(lowerQuery) ||

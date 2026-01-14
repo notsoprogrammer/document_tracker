@@ -17,7 +17,6 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   final ImagePicker _picker = ImagePicker();
   final GoogleDriveService _driveService = GoogleDriveService();
   final codeController = TextEditingController();
-  final titleController = TextEditingController();
   String? selectedCeremonyType;
   DateTime? selectedDate;
   final remarksController = TextEditingController();
@@ -493,14 +492,9 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                     setState(() {
                       _showValidationErrors = true;
                     });
-
-                    if (titleController.text.trim().isNotEmpty &&
-                        selectedCeremonyType != null &&
-                        selectedDate != null &&
-                        personController.text.trim().isNotEmpty) {
+ {
 
                       final String code = codeController.text;
-                      final String title = titleController.text;
                       final String ceremonyType = selectedCeremonyType!;
                       final String dateStr = "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}";
                       final String remarks = remarksController.text;
@@ -508,7 +502,6 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
                       final doc = Document(
                         code: code,
-                        title: title,
                         type: ceremonyType,
                         fromOrTo: dateStr,
                         mode: 'Flag Ceremony',

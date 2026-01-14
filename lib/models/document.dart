@@ -38,7 +38,7 @@ class HistoryEntry {
 
 class Document {
   final String code;
-  final String title;
+  final String? title;
   final String type;
   final String fromOrTo;
   final String mode;
@@ -57,7 +57,7 @@ class Document {
 
   Document({
     required this.code,
-    required this.title,
+    this.title,
     required this.type,
     required this.fromOrTo,
     required this.mode,
@@ -280,9 +280,21 @@ class Document {
   }
 
   Map<String, dynamic> toJson() {
+    // Generate default title for flag ceremony documents if title is null
+    String effectiveTitle = title ?? '';
+    if (title == null && mode == 'Flag Ceremony') {
+      if (type == 'Flag Raising') {
+        effectiveTitle = 'Flag Raising Ceremony - $code';
+      } else if (type == 'Flag Lowering') {
+        effectiveTitle = 'Flag Lowering Ceremony - $code';
+      } else {
+        effectiveTitle = 'Flag Ceremony - $code';
+      }
+    }
+
     return {
       'code': code,
-      'title': title,
+      'title': effectiveTitle,
       'type': type,
       'from_or_to': fromOrTo,
       'mode': mode,

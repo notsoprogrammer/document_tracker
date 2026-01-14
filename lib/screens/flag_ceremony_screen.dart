@@ -26,7 +26,7 @@ class _FlagCeremonyScreenState extends State<FlagCeremonyScreen> {
       // Filter for flag ceremony related documents if needed
       // For now, show all or placeholder
       setState(() {
-        documents = loadedDocuments.where((doc) => doc.remarks.contains('flag') || doc.title.contains('flag')).toList();
+        documents = loadedDocuments.where((doc) => doc.remarks.contains('flag')).toList();
         _isLoading = false;
       });
     } catch (e) {

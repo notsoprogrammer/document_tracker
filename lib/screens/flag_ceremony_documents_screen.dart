@@ -41,7 +41,6 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
 
         // Search filter
         bool matchesSearch = _searchQuery.isEmpty ||
-            doc.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.type.toLowerCase().contains(_searchQuery.toLowerCase());
 
@@ -137,13 +136,12 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
                       title: Text(
-                        document.title,
+                        document.code,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Code: ${document.code}'),
                           Text('Type: ${document.type}'),
                           Text('Date: ${document.fromOrTo}'),
                           Text('Recorded by: ${document.person}'),
@@ -185,7 +183,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(document.title),
+        title: Text(document.code),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
