@@ -282,7 +282,18 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                     ElevatedButton.icon(
                                       icon: const Icon(Icons.attach_file),
                                       label: Text("View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}"),
-                                      onPressed: () => _showFileDialog(context, document),
+                                      onPressed: () {
+                                        final allFiles = <String>[];
+                                        if (document.filePath != null) {
+                                          allFiles.add(document.filePath!);
+                                        }
+                                        allFiles.addAll(document.fileUrls);
+                                        if (allFiles.length == 1) {
+                                          _viewFile(allFiles[0]);
+                                        } else {
+                                          _showFileDialog(context, document);
+                                        }
+                                      },
                                       style: ElevatedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         shape: RoundedRectangleBorder(
