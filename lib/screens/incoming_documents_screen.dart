@@ -1089,7 +1089,18 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_file),
                                     label: Text("View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}"),
-                                    onPressed: () => _showFileDialog(context, doc),
+                                    onPressed: () {
+                                      final allFiles = <String>[];
+                                      if (doc.filePath != null) {
+                                        allFiles.add(doc.filePath!);
+                                      }
+                                      allFiles.addAll(doc.fileUrls);
+                                      if (allFiles.length == 1) {
+                                        _viewFile(allFiles[0]);
+                                      } else {
+                                        _showFileDialog(context, doc);
+                                      }
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       shape: RoundedRectangleBorder(

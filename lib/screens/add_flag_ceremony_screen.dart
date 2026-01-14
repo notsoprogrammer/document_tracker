@@ -326,7 +326,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingFile) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile || _selectedDocumentPaths.isNotEmpty) ? null : () async {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
