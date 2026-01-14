@@ -188,6 +188,46 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
+  void _showFileDialog(BuildContext context, Document document) {
+    final allFiles = <String>[];
+    if (document.filePath != null) {
+      allFiles.add(document.filePath!);
+    }
+    allFiles.addAll(document.fileUrls);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select File to View'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: allFiles.length,
+            itemBuilder: (context, index) {
+              final filePath = allFiles[index];
+              final fileName = filePath.split('/').last.split('\\').last;
+              return ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: Text(fileName),
+                onTap: () {
+                  Navigator.pop(context);
+                  _viewFile(filePath);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _viewFile(String filePath) async {
     final uri = Uri.parse(filePath);
     if (await canLaunchUrl(uri)) {
@@ -1020,11 +1060,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       ),
                                     ),
                                   ),
-                                if (doc.filePath != null)
+                                if (doc.filePath != null || doc.fileUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_file),
-                                    label: const Text("View File"),
-                                    onPressed: () => _viewFile(doc.filePath!),
+                                    label: Text("View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}"),
+                                    onPressed: () => _showFileDialog(context, doc),
                                     style: ElevatedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       shape: RoundedRectangleBorder(
@@ -1032,17 +1072,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       ),
                                     ),
                                   ),
-                                ...doc.fileUrls.map((url) => ElevatedButton.icon(
-                                  icon: const Icon(Icons.attach_file),
-                                  label: const Text("View File"),
-                                  onPressed: () => _viewFile(url),
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                )),
                               ],
                             ),
                           ],

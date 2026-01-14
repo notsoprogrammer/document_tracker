@@ -424,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         context,
                         Icons.folder,
                         "Flag Ceremony",
-                        const Color.fromARGB(255, 78, 195, 119), // Pastel lavender
+                        const Color(0xFF4EC377), // Soft green
                         () {
                           Navigator.push(
                             context,

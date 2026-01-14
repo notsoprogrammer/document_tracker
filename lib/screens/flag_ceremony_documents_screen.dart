@@ -103,7 +103,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     return Scaffold(
       appBar: AppBar(
         title: const Text("Flag Ceremony Documents"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: const Color(0xFF4EC377), 
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(120),
@@ -198,7 +198,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                         });
                       },
                       leading: CircleAvatar(
-                        backgroundColor: document.needsSync ? Colors.red : Theme.of(context).colorScheme.primary,
+                        backgroundColor: document.needsSync ? Colors.red : const Color(0xFF4EC377),
                         child: Icon(
                           document.needsSync ? Icons.sync : Icons.flag,
                           color: Colors.white,
@@ -278,11 +278,11 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                         ),
                                       ),
                                     ),
-                                  if (document.filePath != null)
+                                  if (document.filePath != null || document.fileUrls.isNotEmpty)
                                     ElevatedButton.icon(
                                       icon: const Icon(Icons.attach_file),
-                                      label: const Text("View File"),
-                                      onPressed: () => _viewFile(document.filePath!),
+                                      label: Text("View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}"),
+                                      onPressed: () => _showFileDialog(context, document),
                                       style: ElevatedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         shape: RoundedRectangleBorder(
@@ -290,17 +290,6 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                         ),
                                       ),
                                     ),
-                                  ...document.fileUrls.map((url) => ElevatedButton.icon(
-                                    icon: const Icon(Icons.attach_file),
-                                    label: const Text("View File"),
-                                    onPressed: () => _viewFile(url),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  )),
                                 ],
                               ),
                             ],
@@ -397,6 +386,46 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showFileDialog(BuildContext context, Document document) {
+    final allFiles = <String>[];
+    if (document.filePath != null) {
+      allFiles.add(document.filePath!);
+    }
+    allFiles.addAll(document.fileUrls);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select File to View'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: allFiles.length,
+            itemBuilder: (context, index) {
+              final filePath = allFiles[index];
+              final fileName = filePath.split('/').last.split('\\').last;
+              return ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: Text(document.code),
+                onTap: () {
+                  Navigator.pop(context);
+                  _viewFile(filePath);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }
