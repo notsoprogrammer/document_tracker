@@ -35,7 +35,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _filterOptions = ['All', 'Flag Raising', 'Flag Lowering'];
+  final List<String> _filterOptions = ['All', 'Raising', 'Lowering'];
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -169,7 +169,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                     ),
                     items: _filterOptions.map((filter) => DropdownMenuItem(
                       value: filter,
-                      child: Text(filter, style: const TextStyle(fontSize: 11)),
+                      child: Text(filter, style: const TextStyle(fontSize: 14)),
                     )).toList(),
                     onChanged: (value) {
                       if (value != null) {
