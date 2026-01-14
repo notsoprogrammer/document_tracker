@@ -1,19 +1,39 @@
-# Flag Ceremony Documents Screen Update
+# Document Tracker - Google Drive URL Fix
 
-## Completed Tasks
-- [x] Updated flag ceremony documents screen to use expandable tiles showing only type (similar to incoming/outgoing screens)
-- [x] Added buttons at bottom of expanded tiles (Delete, View Image, View File)
-- [x] Kept search and filter functionality unchanged
-- [x] Modified Document model to skip adding history entries for flag ceremony documents
-- [x] Modified SupabaseService to skip creating history entries in database for flag ceremony documents
-- [x] Added copy code functionality when tile is expanded
-- [x] Added proper detail rows with icons in expanded content
+## Issue
+Images/files uploaded to Google Drive were returning null URLs instead of proper web-accessible links.
 
-## Summary
-The flag ceremony documents screen now matches the UI and behavior of incoming/outgoing documents screens with:
-- Expandable tiles showing document type as title
-- Code displayed in subtitle with copy button when expanded
-- Detailed information in expanded content with icons
-- Action buttons at bottom (Delete, View Image, View File)
-- Search and filter functionality preserved
-- No history tracking for flag ceremony documents
+## Root Cause
+The upload methods were returning the Google Drive file ID instead of the webViewLink, and then attempting to generate a public URL from the ID using a deprecated method.
+
+## Changes Made
+
+### 1. Updated `uploadImageToDrive` method
+- Modified to return `webViewLink` instead of `fileId`
+- Added API call to fetch the file's webViewLink after making it public
+
+### 2. Updated `uploadFileToDrive` method
+- Modified to return `webViewLink` instead of `fileId`
+- Added API call to fetch the file's webViewLink after making it public
+
+### 3. Updated `cached_document_service.dart`
+- Removed the call to `generatePublicUrl` in `processPendingUploads`
+- Now directly uses the URL returned from upload methods
+
+### 4. Updated `saveImageWithBackup` method
+- Modified to directly get the URL from `uploadImageToDrive`
+- Removed redundant URL generation step
+
+## Files Modified
+- `lib/services/google_drive_service.dart`
+- `lib/services/cached_document_service.dart`
+
+## Testing Required
+- Test uploading images to Google Drive
+- Test uploading documents to Google Drive
+- Verify that URLs are properly accessible in web browsers
+- Check that existing functionality still works
+
+## Status
+✅ Changes implemented
+⏳ Testing pending

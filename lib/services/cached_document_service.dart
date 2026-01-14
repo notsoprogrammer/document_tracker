@@ -86,22 +86,29 @@ class CachedDocumentService {
         }
       }
 
+      // Fetch the updated document after uploads (to get URLs)
+      final updatedDocuments = await _localDb.fetchDocuments();
+      final updatedDocument = updatedDocuments.firstWhere(
+        (doc) => doc.code == document.code,
+        orElse: () => document,
+      );
+
       // If online, sync to remote
       if (await isOnline) {
         try {
-          final remoteDoc = await _remoteDb.createDocument(document);
+          final remoteDoc = await _remoteDb.createDocument(updatedDocument);
           // Update local with any remote changes (like IDs)
           return remoteDoc;
         } catch (e) {
           print('Failed to sync creation to remote: $e');
           // Mark as needing sync since remote failed
-          await _localDb.updateDocument(document.code, {'needs_sync': true});
-          return document.copyWith(needsSync: true);
+          await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
+          return updatedDocument.copyWith(needsSync: true);
         }
       } else {
         // Mark as needing sync if offline
-        await _localDb.updateDocument(document.code, {'needs_sync': true});
-        return document.copyWith(needsSync: true);
+        await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
+        return updatedDocument.copyWith(needsSync: true);
       }
     } catch (e) {
       print('Error creating document: $e');
@@ -345,26 +352,27 @@ class CachedDocumentService {
                 ? DriveFolder.incoming
                 : DriveFolder.outgoing;
 
-        String? driveId;
+        String? driveUrl;
         if (isImage) {
           // For images, use the existing uploadImageToDrive method
-          driveId = await GoogleDriveService.uploadImageToDrive(
+          driveUrl = await GoogleDriveService.uploadImageToDrive(
             file,
             fileName,
             folder: folder,
           );
+          debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
         } else {
           // For documents, use uploadFileToDrive method which handles file extensions properly
           final file = File(upload['localPath']);
           final extension = upload['localPath'].split('.').last.toLowerCase();
           final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-          driveId = await GoogleDriveService.uploadFileToDrive(
+          driveUrl = await GoogleDriveService.uploadFileToDrive(
             file,
             docFileName,
             folder: folder,
           );
+          debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
         }
-        String? driveUrl = driveId != null ? GoogleDriveService.generatePublicUrl(driveId) : null;
 
         if (driveUrl != null) {
           // Update document with the uploaded URL

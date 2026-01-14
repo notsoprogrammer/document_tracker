@@ -102,7 +102,7 @@ class GoogleDriveService {
       final media = drive.Media(imageFile.openRead(), await imageFile.length());
 
       if (existingFiles.files?.isNotEmpty == true) {
-        // Update
+        // Update existing file
         final fileId = existingFiles.files!.first.id!;
         final updated = await driveApi.files.update(
           drive.File(name: fileName, parents: [targetFolderId]),
@@ -113,10 +113,12 @@ class GoogleDriveService {
         // Make the file public
         if (updated.id != null) {
           await _makeFilePublic(driveApi, updated.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(updated.id!);
         }
-        return updated.id;
+        return null;
       } else {
-        // Create
+        // Create new file
         final driveFile = drive.File()
           ..name = fileName
           ..parents = [targetFolderId];
@@ -128,8 +130,10 @@ class GoogleDriveService {
         // Make the file public
         if (created.id != null) {
           await _makeFilePublic(driveApi, created.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(created.id!);
         }
-        return created.id;
+        return null;
       }
 
     } catch (e) {
@@ -174,11 +178,8 @@ class GoogleDriveService {
 
       final folder = isIncoming ? DriveFolder.incoming : DriveFolder.outgoing;
 
-      final driveId = await uploadFileToDrive(file, fileName, folder: folder);
-      if (driveId != null) {
-        return generatePublicUrl(driveId);
-      }
-      return null;
+      final driveUrl = await uploadFileToDrive(file, fileName, folder: folder);
+      return driveUrl;
     } catch (e) {
       print('Error uploading file: $e');
       return null;
@@ -235,8 +236,10 @@ class GoogleDriveService {
         // Make the file public
         if (updated.id != null) {
           await _makeFilePublic(driveApi, updated.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(updated.id!);
         }
-        return updated.id;
+        return null;
       } else {
         // Create new file
         final driveFile = drive.File()
@@ -250,8 +253,10 @@ class GoogleDriveService {
         // Make the file public
         if (created.id != null) {
           await _makeFilePublic(driveApi, created.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(created.id!);
         }
-        return created.id;
+        return null;
       }
 
     } catch (e) {
@@ -293,17 +298,13 @@ class GoogleDriveService {
 
     // Try to upload to Google Drive
     try {
-      driveId = await uploadImageToDrive(
+      driveUrl = await uploadImageToDrive(
         imageFile,
         uniqueId,
         folder: folder,
       );
-      driveSuccess = driveId != null;
-
-      // Generate public URL if upload was successful
-      if (driveId != null) {
-        driveUrl = generatePublicUrl(driveId);
-      }
+      driveSuccess = driveUrl != null;
+      driveId = driveUrl; // For backward compatibility
     } catch (e) {
       print('Google Drive upload failed, but local save succeeded: $e');
       driveSuccess = false;
