@@ -88,6 +88,18 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   DateTime? _endDate;
   DateTime? _specificDate;
   final Set<int> _expandedTiles = {};
+  late final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = _searchQuery;
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -789,16 +801,48 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
         title: const Text("Outgoing Documents"),
         backgroundColor: const Color(0xFF2196F3), // Blue complementing orange
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _showSearchDialog(context),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(80),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textDirection: TextDirection.ltr,
+                    decoration: InputDecoration(
+                      hintText: 'Search documents...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showFilterDialog(context),
+                  tooltip: 'Filter by Date',
+                ),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ],
+        ),
       ),
       body: filteredDocuments.isEmpty
           ? Center(
