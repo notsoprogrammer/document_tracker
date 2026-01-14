@@ -8,6 +8,7 @@ import 'supabase_service.dart';
 import 'google_drive_service.dart';
 import 'upload_queue_manager.dart';
 import '../models/document.dart';
+import '../utils/snackbar_utils.dart';
 
 class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
@@ -232,9 +233,7 @@ class CachedDocumentService {
     if (!(await isOnline)) {
       debugPrint('Device is offline - skipping sync');
       if (context.mounted && showMessages) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Device is offline - sync skipped'), backgroundColor: Colors.orange),
-        );
+        SnackbarUtils.showWarningSnackBar(context, 'Device is offline - sync skipped');
       }
       return;
     }
@@ -244,9 +243,7 @@ class CachedDocumentService {
     final unsynced = allDocuments.where((doc) => doc.needsSync).toList();
     if (unsynced.isEmpty) {
       if (context.mounted && showMessages) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All documents are already synced!'), backgroundColor: Colors.green),
-        );
+        SnackbarUtils.showInfoSnackBar(context, 'All documents are already synced!');
       }
       return;
     }
@@ -274,12 +271,11 @@ class CachedDocumentService {
     // Show result
     if (context.mounted && showMessages) {
       final total = unsynced.length;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Synced $success of $total documents'),
-          backgroundColor: success == total ? Colors.green : Colors.orange,
-        ),
-      );
+      if (success == total) {
+        SnackbarUtils.showSuccessSnackBar(context, 'Synced $success of $total documents');
+      } else {
+        SnackbarUtils.showWarningSnackBar(context, 'Synced $success of $total documents');
+      }
     }
 
     await reloadRecords();

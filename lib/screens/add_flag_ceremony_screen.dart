@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/google_drive_service.dart';
-
+import '../utils/snackbar_utils.dart';
 class AddFlagCeremonyScreen extends StatefulWidget {
   const AddFlagCeremonyScreen({super.key});
 
@@ -30,6 +30,8 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
+  bool _isPickingImage = false;
+  bool _isPickingFile = false;
 
   bool _isImage(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
@@ -146,16 +148,12 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       if (await launchUrl(uri)) {
         // Successfully launched
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: ${filePath.split('\\').last.split('/').last}')),
-        );
+        SnackbarUtils.showErrorSnackBar(context, 'Could not open file: ${filePath.split('\\').last.split('/').last}');
       }
     }
 
     if (imageFiles.isEmpty && otherFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No files selected to view')),
-      );
+      SnackbarUtils.showErrorSnackBar(context, 'No files selected to view');
     }
   }
 
@@ -297,24 +295,25 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: _isUploadingImages ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingImage) ? null : () async {
                                   int currentImageCount = _selectedImagePaths.where(_isImage).length;
                                   if (currentImageCount >= 10) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Only 10 image files allowed')),
-                                    );
+                                    SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
                                     return;
                                   }
+                                  setState(() => _isPickingImage = true);
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
                                   if (image != null && image.path.isNotEmpty) {
-                                    setState(() => _selectedImagePaths.add(image.path));
+                                    setState(() {
+                                      _selectedImagePaths.add(image.path);
+                                      _isPickingImage = false;
+                                    });
                                     // ScaffoldMessenger.of(context).showSnackBar(
                                     //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
                                     // );
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('No image captured or path empty')),
-                                    );
+                                    setState(() => _isPickingImage = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -327,7 +326,8 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: _isUploadingImages ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile) ? null : () async {
+                                  setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
                                     allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
@@ -349,24 +349,22 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                     if (filePath != null && filePath.isNotEmpty) {
                                       final fileSize = File(filePath).lengthSync();
                                       if (fileSize > 50 * 1024 * 1024) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('${file.name} exceeds 50MB limit')),
-                                        );
+                                        setState(() => _isPickingFile = false);
+                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
                                       } else {
-                                        setState(() => _selectedDocumentPaths.add(filePath!));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('File added: ${file.name}')),
-                                        );
+                                        setState(() {
+                                          _selectedDocumentPaths.add(filePath!);
+                                          _isPickingFile = false;
+                                        });
+                                        SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
                                       }
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Unable to access file')),
-                                      );
+                                      setState(() => _isPickingFile = false);
+                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
                                     }
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('No file selected')),
-                                    );
+                                    setState(() => _isPickingFile = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No file selected');
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
@@ -414,7 +412,16 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             }).toList(),
                           ),
                         ],
-
+                        if (_isPickingImage) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Capturing image..."),
+                        ],
+                        if (_isPickingFile) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Selecting file..."),
+                        ],
                         if (_isUploadingImages) ...[
                           const SizedBox(height: 8),
                           const LinearProgressIndicator(),

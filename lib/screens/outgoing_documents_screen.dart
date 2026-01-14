@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
+import '../utils/snackbar_utils.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -825,9 +826,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             icon: const Icon(Icons.copy, size: 16),
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: doc.code));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Code copied to clipboard')),
-                              );
+                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
                             },
                             tooltip: 'Copy Code',
                             padding: EdgeInsets.zero,

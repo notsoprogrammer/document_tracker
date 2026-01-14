@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/google_drive_service.dart';
+import '../utils/snackbar_utils.dart';
 
 class AddDocumentScreen extends StatefulWidget {
   final bool incoming;
@@ -39,6 +40,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
+  bool _isPickingImage = false;
+  bool _isPickingFile = false;
 
   bool _isImage(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
@@ -213,16 +216,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       if (await launchUrl(uri)) {
         // Successfully launched
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open file: ${filePath.split('\\').last.split('/').last}')),
-        );
+        SnackbarUtils.showErrorSnackBar(context, 'Could not open file: ${filePath.split('\\').last.split('/').last}');
       }
     }
 
     if (imageFiles.isEmpty && otherFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No files selected to view')),
-      );
+      SnackbarUtils.showInfoSnackBar(context, 'No files selected to view');
     }
   }
 
@@ -506,24 +505,22 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: _isUploadingImages ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingImage) ? null : () async {
                                   int currentImageCount = _selectedImagePaths.where(_isImage).length;
                                   if (currentImageCount >= 10) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Only 10 image files allowed')),
-                                    );
+                                    SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
                                     return;
                                   }
+                                  setState(() => _isPickingImage = true);
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
                                   if (image != null && image.path.isNotEmpty) {
-                                    setState(() => _selectedImagePaths.add(image.path));
-                                    // ScaffoldMessenger.of(context).showSnackBar(
-                                    //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
-                                    // );
+                                    setState(() {
+                                      _selectedImagePaths.add(image.path);
+                                      _isPickingImage = false;
+                                    });
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('No image captured or path empty')),
-                                    );
+                                    setState(() => _isPickingImage = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -536,7 +533,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: _isUploadingImages ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile) ? null : () async {
+                                  setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
                                     allowedExtensions: ['docx', 'pdf'],
@@ -559,24 +557,21 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     if (filePath != null && filePath.isNotEmpty) {
                                       final fileSize = File(filePath).lengthSync();
                                       if (fileSize > 50 * 1024 * 1024) { // 20MB
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('${file.name} exceeds 50MB limit')),
-                                        );
+                                        setState(() => _isPickingFile = false);
+                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
                                       } else {
-                                        setState(() => _selectedDocumentPaths.add(filePath!));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Document added: ${file.name}')),
-                                        );
+                                        setState(() {
+                                          _selectedDocumentPaths.add(filePath!);
+                                          _isPickingFile = false;
+                                        });
                                       }
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Unable to access file')),
-                                      );
+                                      setState(() => _isPickingFile = false);
+                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
                                     }
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('No file selected')),
-                                    );
+                                    setState(() => _isPickingFile = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No file selected');
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
@@ -588,6 +583,16 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             ),
                           ],
                         ),
+                        if (_isPickingImage) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Capturing image..."),
+                        ],
+                        if (_isPickingFile) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Selecting document..."),
+                        ],
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           GestureDetector(

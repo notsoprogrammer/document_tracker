@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
+import '../utils/snackbar_utils.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -214,12 +215,10 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                           if (_expandedTiles.contains(index))
                             IconButton(
                               icon: const Icon(Icons.copy, size: 16),
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: document.code));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Code copied to clipboard')),
-                                );
-                              },
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: document.code));
+                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                            },
                               tooltip: 'Copy Code',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),

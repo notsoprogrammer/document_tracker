@@ -37,3 +37,21 @@ The upload methods were returning the Google Drive file ID instead of the webVie
 ## Status
 ✅ Changes implemented
 ⏳ Testing pending
+
+## Additional Fix: Prevent Multiple Simultaneous File Operations
+
+### Issue
+Users could trigger multiple image/file picking operations simultaneously, leading to potential conflicts and poor UX.
+
+### Changes Made
+- Added `_isPickingImage` and `_isPickingFile` boolean flags to track picking states
+- Modified button `onPressed` callbacks to disable buttons when already picking or uploading
+- Added progress indicators that show "Capturing image..." and "Selecting file..." during operations
+- Ensured flags are properly reset on success or failure
+
+### Files Modified
+- `lib/screens/add_flag_ceremony_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
