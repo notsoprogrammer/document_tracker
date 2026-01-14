@@ -59,8 +59,8 @@ class SupabaseService {
 
     print('Document created successfully: $response'); // Debug log
 
-    // Create initial history entry in history_entries table
-    if (document.history.isNotEmpty) {
+    // Create initial history entry in history_entries table (skip for flag ceremony)
+    if (document.history.isNotEmpty && document.mode != 'Flag Ceremony') {
       await _client.from('history_entries').insert(
         document.history.map((entry) => {
           'document_code': response['code'],

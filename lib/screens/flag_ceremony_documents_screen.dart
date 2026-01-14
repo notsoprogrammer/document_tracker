@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
+import '../services/upload_queue_manager.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -25,8 +28,50 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
   late List<Document> _filteredDocuments;
   String _searchQuery = '';
   String _selectedFilter = 'All';
+  final Set<int> _expandedTiles = {};
 
   final List<String> _filterOptions = ['All', 'Flag Raising', 'Flag Lowering'];
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays == 1) {
+      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+    } else if (difference.inDays < 7) {
+      return "${difference.inDays} days ago";
+    } else {
+      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
+    }
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 12,
+                ),
+              ),
+              Text(value, style: const TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -127,50 +172,131 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                 ),
               )
             : ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                 itemCount: _filteredDocuments.length,
                 itemBuilder: (context, index) {
                   final document = _filteredDocuments[index];
+                  final originalIndex = widget.documents.indexOf(document);
+                  final queueManager = UploadQueueManager();
+                  final pendingUploads = queueManager.getPendingUploads(document.code);
+                  final uploadingUploads = queueManager.getAllItems().where((item) =>
+                    item['documentCode'] == document.code && item['status'] == 'uploading'
+                  ).toList();
+
                   return Card(
-                    elevation: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      title: Text(
-                        document.code,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Type: ${document.type}'),
-                          Text('Date: ${document.fromOrTo}'),
-                          Text('Recorded by: ${document.person}'),
-                          Text('Status: ${document.status}'),
-                        ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'view':
-                              _viewDocumentDetails(document);
-                              break;
-                            case 'delete':
-                              _confirmDelete(index);
-                              break;
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    elevation: 2,
+                    child: ExpansionTile(
+                      onExpansionChanged: (expanded) {
+                        setState(() {
+                          if (expanded) {
+                            _expandedTiles.add(index);
+                          } else {
+                            _expandedTiles.remove(index);
                           }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'view',
-                            child: Text('View Details'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
+                        });
+                      },
+                      leading: CircleAvatar(
+                        backgroundColor: document.needsSync ? Colors.red : Theme.of(context).colorScheme.primary,
+                        child: Icon(
+                          document.needsSync ? Icons.sync : Icons.flag,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        "${document.type}",
+                        style: const TextStyle(fontWeight: FontWeight.w400),
+                      ),
+                      subtitle: Row(
+                        children: [
+                          Text("${document.code}  "),
+                          if (_expandedTiles.contains(index))
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 16),
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: document.code));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Code copied to clipboard')),
+                                );
+                              },
+                              tooltip: 'Copy Code',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
                         ],
                       ),
-                      onTap: () => _viewDocumentDetails(document),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(12),
+                              bottomRight: Radius.circular(12),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
+                              const SizedBox(height: 8),
+                              _buildDetailRow(Icons.person, "Recorded by", document.person),
+                              const SizedBox(height: 8),
+                              _buildDetailRow(Icons.info, "Status", document.status),
+                              if (document.remarks.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _buildDetailRow(Icons.comment, "Remarks", document.remarks),
+                              ],
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.delete),
+                                    label: const Text("Delete"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(255, 218, 87, 78),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onPressed: () => _confirmDelete(originalIndex),
+                                  ),
+                                  if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty)
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.image),
+                                      label: const Text("View Image"),
+                                      onPressed: () => _showImageDialog(context, document.imageUrls.isNotEmpty ? document.imageUrls : document.localImagePaths),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                  if (document.fileUrls.isNotEmpty || document.filePath != null || document.localFilePaths.isNotEmpty)
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.attach_file),
+                                      label: const Text("View File"),
+                                      onPressed: () => _viewFiles(document),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -179,57 +305,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     );
   }
 
-  void _viewDocumentDetails(Document document) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(document.code),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDetailRow('Code', document.code),
-              _buildDetailRow('Type', document.type),
-              _buildDetailRow('Date', document.fromOrTo),
-              _buildDetailRow('Recorded by', document.person),
-              _buildDetailRow('Status', document.status),
-              if (document.remarks.isNotEmpty) _buildDetailRow('Remarks', document.remarks),
-              if (document.imageUrls.isNotEmpty) _buildDetailRow('Images', '${document.imageUrls.length} attached'),
-              if (document.fileUrls.isNotEmpty) _buildDetailRow('Files', '${document.fileUrls.length} attached'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
 
-  void _confirmDelete(int index) {
+  void _confirmDelete(int originalIndex) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -243,9 +321,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.deleteDocument(widget.documents.indexOf(_filteredDocuments[index]));
+              widget.deleteDocument(originalIndex);
               setState(() {
-                _filteredDocuments.removeAt(index);
+                _filteredDocuments.removeWhere((doc) => widget.documents.indexOf(doc) == originalIndex);
               });
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -253,5 +331,78 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
         ],
       ),
     );
+  }
+
+  void _showImageDialog(BuildContext context, List<String> imageUrls) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black.withOpacity(0.8),
+        insetPadding: const EdgeInsets.all(14),
+        child: SizedBox.expand(
+          child: Stack(
+            children: [
+              PageView.builder(
+                itemCount: imageUrls.length,
+                itemBuilder: (context, index) {
+                  return InteractiveViewer(
+                    child: Center(
+                      child: Image.network(
+                        imageUrls[index],
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text(
+                                  'wait la po...',
+                                  style: TextStyle(color: Colors.white, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(child: Text('Failed to load image'));
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewFiles(Document document) async {
+    if (document.filePath != null) {
+      final uri = Uri.parse(document.filePath!);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    }
+    for (final url in document.fileUrls) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    }
   }
 }

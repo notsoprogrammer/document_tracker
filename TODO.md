@@ -1,15 +1,19 @@
-# TODO List for Doc-Trail App Enhancement
+# Flag Ceremony Documents Screen Update
 
-## Tasks
-- [x] Add file_picker dependency to pubspec.yaml
-- [x] Update Document class in main.dart to include all required fields
-- [x] Implement auto-generation of document codes (IDL/ODL with date and count)
-- [x] Update the form dialog to include all fields with dropdowns and file upload
-- [x] Update the list view to display more document details
-- [x] Enhance front-end UI with dropdowns, file upload, and improved list display
-- [x] Modernize UI with Material 3, icons, better spacing, and improved UX
-- [x] Test the app functionality
+## Completed Tasks
+- [x] Updated flag ceremony documents screen to use expandable tiles showing only type (similar to incoming/outgoing screens)
+- [x] Added buttons at bottom of expanded tiles (Delete, View Image, View File)
+- [x] Kept search and filter functionality unchanged
+- [x] Modified Document model to skip adding history entries for flag ceremony documents
+- [x] Modified SupabaseService to skip creating history entries in database for flag ceremony documents
+- [x] Added copy code functionality when tile is expanded
+- [x] Added proper detail rows with icons in expanded content
 
-## Progress Tracking
-- Started: [Date/Time]
-- Completed: All tasks completed successfully. The app now includes comprehensive document tracking with status updates, history logging, and modern UI.
+## Summary
+The flag ceremony documents screen now matches the UI and behavior of incoming/outgoing documents screens with:
+- Expandable tiles showing document type as title
+- Code displayed in subtitle with copy button when expanded
+- Detailed information in expanded content with icons
+- Action buttons at bottom (Delete, View Image, View File)
+- Search and filter functionality preserved
+- No history tracking for flag ceremony documents

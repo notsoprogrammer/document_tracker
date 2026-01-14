@@ -94,6 +94,9 @@ class AutoSyncService {
       // Sync to Google Drive if needed
       await _syncToGoogleDrive(unsyncedDocuments);
 
+      // Process any new pending uploads that might have been created during sync
+      await cachedService.processPendingUploads();
+
     } catch (e) {
       debugPrint('Error in auto-sync: $e');
     }

@@ -77,6 +77,15 @@ class CachedDocumentService {
       // Queue files for upload if they exist
       await _queueFilesForUpload(document);
 
+      // Process uploads immediately if online
+      if (await isOnline) {
+        try {
+          await processPendingUploads();
+        } catch (e) {
+          debugPrint('Failed to process pending uploads: $e');
+        }
+      }
+
       // If online, sync to remote
       if (await isOnline) {
         try {

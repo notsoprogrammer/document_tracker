@@ -76,6 +76,9 @@ class Document {
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [];
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
+    // Skip adding history entries for flag ceremony documents
+    if (mode == 'Flag Ceremony') return;
+
     history.add(HistoryEntry(
       action: action,
       person: person,
