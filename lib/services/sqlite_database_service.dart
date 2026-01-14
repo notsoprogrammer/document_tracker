@@ -20,10 +20,10 @@ class SQLiteDatabaseService {
 
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'documents.db');
+    String path = join(documentsDirectory.path, 'documents_v4.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -46,6 +46,8 @@ class SQLiteDatabaseService {
         status TEXT,
         image_urls TEXT,
         file_urls TEXT,
+        local_image_paths TEXT,
+        local_file_paths TEXT,
         needs_sync INTEGER,
         created_at TEXT,
         updated_at TEXT
@@ -72,10 +74,18 @@ class SQLiteDatabaseService {
       // Add needs_sync column to existing documents table
       await db.execute('ALTER TABLE documents ADD COLUMN needs_sync INTEGER DEFAULT 0');
     }
-    if (oldVersion < 3) {
+    if (oldVersion < 4) {
       // Add local file path columns for offline uploads
-      await db.execute('ALTER TABLE documents ADD COLUMN local_image_paths TEXT');
-      await db.execute('ALTER TABLE documents ADD COLUMN local_file_paths TEXT');
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN local_image_paths TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN local_file_paths TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
     }
   }
 
@@ -130,6 +140,12 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('file_urls')) {
       updates['file_urls'] = jsonEncode(updates['file_urls']);
+    }
+    if (updates.containsKey('local_image_paths')) {
+      updates['local_image_paths'] = jsonEncode(updates['local_image_paths']);
+    }
+    if (updates.containsKey('local_file_paths')) {
+      updates['local_file_paths'] = jsonEncode(updates['local_file_paths']);
     }
     updates['updated_at'] = DateTime.now().toIso8601String();
     await db.update('documents', updates, where: 'code = ?', whereArgs: [documentCode]);
