@@ -352,11 +352,25 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                         setState(() => _isPickingFile = false);
                                         SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
                                       } else {
-                                        setState(() {
-                                          _selectedDocumentPaths.add(filePath!);
-                                          _isPickingFile = false;
-                                        });
-                                        SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
+                                        if (_isImage(file.name)) {
+                                          int currentImageCount = _selectedImagePaths.where(_isImage).length;
+                                          if (currentImageCount >= 10) {
+                                            setState(() => _isPickingFile = false);
+                                            SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+                                            return;
+                                          }
+                                          setState(() {
+                                            _selectedImagePaths.add(filePath!);
+                                            _isPickingFile = false;
+                                          });
+                                          SnackbarUtils.showSuccessSnackBar(context, 'Image added: ${file.name}');
+                                        } else {
+                                          setState(() {
+                                            _selectedDocumentPaths.add(filePath!);
+                                            _isPickingFile = false;
+                                          });
+                                          SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
+                                        }
                                       }
                                     } else {
                                       setState(() => _isPickingFile = false);
