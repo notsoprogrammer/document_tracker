@@ -29,7 +29,11 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
   late List<Document> _filteredDocuments;
   String _searchQuery = '';
   String _selectedFilter = 'All';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  DateTime? _specificDate;
   final Set<int> _expandedTiles = {};
+  late final TextEditingController _searchController = TextEditingController();
 
   final List<String> _filterOptions = ['All', 'Flag Raising', 'Flag Lowering'];
 
@@ -77,6 +81,12 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
   @override
   void initState() {
     super.initState();
+    _searchController.text = _searchQuery;
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
     _filteredDocuments = widget.documents.where((doc) => doc.mode == 'Flag Ceremony').toList();
   }
 
@@ -93,7 +103,23 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
         // Type filter
         bool matchesFilter = _selectedFilter == 'All' || doc.type == _selectedFilter;
 
-        return matchesSearch && matchesFilter;
+        // Date filter
+        bool matchesDate = true;
+        if (_startDate != null || _endDate != null) {
+          try {
+            final docDate = DateTime.parse(doc.fromOrTo);
+            if (_startDate != null && docDate.isBefore(_startDate!)) {
+              matchesDate = false;
+            }
+            if (_endDate != null && docDate.isAfter(_endDate!)) {
+              matchesDate = false;
+            }
+          } catch (e) {
+            // If date parsing fails, include the document
+          }
+        }
+
+        return matchesSearch && matchesFilter && matchesDate;
       }).toList();
     });
   }
@@ -106,48 +132,57 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
         backgroundColor: const Color(0xFF4EC377), 
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(120),
+          preferredSize: const Size.fromHeight(80),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
+            child: Row(
               children: [
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search documents...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search documents...',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                  onChanged: (value) {
-                    _searchQuery = value;
-                    _filterDocuments();
-                  },
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedFilter,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedFilter,
+                    isDense: true,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                     ),
+                    items: _filterOptions.map((filter) => DropdownMenuItem(
+                      value: filter,
+                      child: Text(filter, style: const TextStyle(fontSize: 11)),
+                    )).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        _selectedFilter = value;
+                        _filterDocuments();
+                      }
+                    },
                   ),
-                  items: _filterOptions.map((filter) => DropdownMenuItem(
-                    value: filter,
-                    child: Text(filter),
-                  )).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _selectedFilter = value;
-                      _filterDocuments();
-                    }
-                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showFilterDialog(context, setState),
+                  tooltip: 'Filter by Date',
                 ),
               ],
             ),
@@ -437,6 +472,148 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
             child: const Text('Cancel'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFilterDialog(BuildContext context, StateSetter setState) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, dialogSetState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text("Filter Documents", style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Specific Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _specificDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _specificDate = picked;
+                        _startDate = picked;
+                        _endDate = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "Start Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _startDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _startDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
+                  ),
+                  decoration: InputDecoration(
+                    labelText: "End Date",
+                    prefixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _endDate ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      dialogSetState(() {});
+                      setState(() {
+                        _endDate = picked;
+                        _specificDate = null; // Clear specific date if range is used
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                dialogSetState(() {});
+                setState(() {
+                  _specificDate = null;
+                  _startDate = null;
+                  _endDate = null;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Clear All"),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.filter_list),
+              label: const Text("Apply"),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
