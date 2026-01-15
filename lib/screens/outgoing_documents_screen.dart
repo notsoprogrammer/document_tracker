@@ -24,10 +24,12 @@ class OutgoingDocumentsScreen extends StatefulWidget {
   });
 
   @override
-  State<OutgoingDocumentsScreen> createState() => _OutgoingDocumentsScreenState();
+  State<OutgoingDocumentsScreen> createState() =>
+      _OutgoingDocumentsScreenState();
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
+  bool _isLoading = true;
   final List<String> cpdcoStaff = [
     'Sir Arnie',
     'Rex',
@@ -98,6 +100,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       setState(() {
         _searchQuery = _searchController.text;
       });
+    });
+    // Simulate loading for better UX
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -171,14 +181,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 SizedBox(height: 16),
                                 Text(
                                   'wait la po...',
-                                  style: TextStyle(color: Colors.white, fontSize: 16),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ],
                             ),
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-                          return const Center(child: Text('Failed to load image'));
+                          return const Center(
+                            child: Text('Failed to load image'),
+                          );
                         },
                       ),
                     ),
@@ -249,12 +264,12 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     }
   }
 
-
-
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
     final updatedByController = TextEditingController();
-    final officeController = TextEditingController(text: widget.documents[index].fromOrTo);
+    final officeController = TextEditingController(
+      text: widget.documents[index].fromOrTo,
+    );
     final forwardedToController = TextEditingController();
     final notesController = TextEditingController();
 
@@ -289,9 +304,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          Icons.edit,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
-                        const Text("Update Document Status", style: TextStyle(fontSize: 16)),
+                        const Text(
+                          "Update Document Status",
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -322,72 +343,98 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                           RawAutocomplete<String>(
                             textEditingController: officeController,
                             focusNode: FocusNode(),
-                            optionsBuilder: (TextEditingValue textEditingValue) {
-                              if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
-                              }
-                              return offices.where((String option) {
-                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                              });
-                            },
+                            optionsBuilder:
+                                (TextEditingValue textEditingValue) {
+                                  if (textEditingValue.text == '') {
+                                    return const Iterable<String>.empty();
+                                  }
+                                  return offices.where((String option) {
+                                    return option.toLowerCase().contains(
+                                      textEditingValue.text.toLowerCase(),
+                                    );
+                                  });
+                                },
                             onSelected: (String selection) {
                               setState(() {
                                 officeController.text = selection;
                               });
                             },
-                            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                              return SizedBox(
-                                width: 350,
-                                child: TextField(
-                                  controller: textEditingController,
-                                  focusNode: focusNode,
-                                  decoration: InputDecoration(
-                                    labelText: "Office",
-                                    prefixIcon: const Icon(Icons.business),
-                                    suffixIcon: textEditingController.text.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.clear),
-                                            onPressed: () {
-                                              setState(() {
-                                                textEditingController.clear();
-                                              });
-                                            },
-                                          )
-                                        : null,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  elevation: 4.0,
-                                  child: SizedBox(
+                            fieldViewBuilder:
+                                (
+                                  BuildContext context,
+                                  TextEditingController textEditingController,
+                                  FocusNode focusNode,
+                                  VoidCallback onFieldSubmitted,
+                                ) {
+                                  return SizedBox(
                                     width: 350,
-                                    height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.all(8.0),
-                                      itemCount: options.length,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        final String option = options.elementAt(index);
-                                        return GestureDetector(
-                                          onTap: () {
-                                            onSelected(option);
-                                          },
-                                          child: ListTile(
-                                            title: Text(option),
+                                    child: TextField(
+                                      controller: textEditingController,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        labelText: "Office",
+                                        prefixIcon: const Icon(Icons.business),
+                                        suffixIcon:
+                                            textEditingController
+                                                .text
+                                                .isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.clear),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    textEditingController
+                                                        .clear();
+                                                  });
+                                                },
+                                              )
+                                            : null,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                        );
-                                      },
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
+                                  );
+                                },
+                            optionsViewBuilder:
+                                (
+                                  BuildContext context,
+                                  AutocompleteOnSelected<String> onSelected,
+                                  Iterable<String> options,
+                                ) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: SizedBox(
+                                        width: 350,
+                                        height: (options.length * 56.0 + 16.0)
+                                            .clamp(0.0, 200.0),
+                                        child: ListView.builder(
+                                          padding: const EdgeInsets.all(8.0),
+                                          itemCount: options.length,
+                                          itemBuilder:
+                                              (
+                                                BuildContext context,
+                                                int index,
+                                              ) {
+                                                final String option = options
+                                                    .elementAt(index);
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    onSelected(option);
+                                                  },
+                                                  child: ListTile(
+                                                    title: Text(option),
+                                                  ),
+                                                );
+                                              },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                           ),
                           const SizedBox(height: 16),
                           TextField(
@@ -404,57 +451,79 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                           RawAutocomplete<String>(
                             textEditingController: updatedByController,
                             focusNode: FocusNode(),
-                            optionsBuilder: (TextEditingValue textEditingValue) {
-                              if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
-                              }
-                              return cpdcoStaff.where((String option) {
-                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                              });
-                            },
+                            optionsBuilder:
+                                (TextEditingValue textEditingValue) {
+                                  if (textEditingValue.text == '') {
+                                    return const Iterable<String>.empty();
+                                  }
+                                  return cpdcoStaff.where((String option) {
+                                    return option.toLowerCase().contains(
+                                      textEditingValue.text.toLowerCase(),
+                                    );
+                                  });
+                                },
                             onSelected: (String selection) {
-                              setState(() => updatedByController.text = selection);
-                            },
-                            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                              return TextField(
-                                controller: textEditingController,
-                                focusNode: focusNode,
-                                decoration: InputDecoration(
-                                  labelText: "Updated By",
-                                  prefixIcon: const Icon(Icons.person),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                              setState(
+                                () => updatedByController.text = selection,
                               );
                             },
-                            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  elevation: 4.0,
-                                  child: SizedBox(
-                                    width: 350,
-                                    height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.all(8.0),
-                                      itemCount: options.length,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        final String option = options.elementAt(index);
-                                        return GestureDetector(
-                                          onTap: () {
-                                            onSelected(option);
-                                          },
-                                          child: ListTile(
-                                            title: Text(option),
-                                          ),
-                                        );
-                                      },
+                            fieldViewBuilder:
+                                (
+                                  BuildContext context,
+                                  TextEditingController textEditingController,
+                                  FocusNode focusNode,
+                                  VoidCallback onFieldSubmitted,
+                                ) {
+                                  return TextField(
+                                    controller: textEditingController,
+                                    focusNode: focusNode,
+                                    decoration: InputDecoration(
+                                      labelText: "Updated By",
+                                      prefixIcon: const Icon(Icons.person),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
+                                  );
+                                },
+                            optionsViewBuilder:
+                                (
+                                  BuildContext context,
+                                  AutocompleteOnSelected<String> onSelected,
+                                  Iterable<String> options,
+                                ) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: SizedBox(
+                                        width: 350,
+                                        height: (options.length * 56.0 + 16.0)
+                                            .clamp(0.0, 200.0),
+                                        child: ListView.builder(
+                                          padding: const EdgeInsets.all(8.0),
+                                          itemCount: options.length,
+                                          itemBuilder:
+                                              (
+                                                BuildContext context,
+                                                int index,
+                                              ) {
+                                                final String option = options
+                                                    .elementAt(index);
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    onSelected(option);
+                                                  },
+                                                  child: ListTile(
+                                                    title: Text(option),
+                                                  ),
+                                                );
+                                              },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                           ),
                           const SizedBox(height: 16),
                           TextField(
@@ -481,15 +550,21 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                         ),
                         ElevatedButton.icon(
                           icon: const Icon(Icons.update),
-                          label: const Text("Update", style: TextStyle(fontSize: 10)),
+                          label: const Text(
+                            "Update",
+                            style: TextStyle(fontSize: 10),
+                          ),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                           onPressed: () {
-                            if (selectedStatus != null && updatedByController.text.isNotEmpty && forwardedToController.text.isNotEmpty) {
-                              String combinedNotes = "${officeController.text} - ${forwardedToController.text}";
+                            if (selectedStatus != null &&
+                                updatedByController.text.isNotEmpty &&
+                                forwardedToController.text.isNotEmpty) {
+                              String combinedNotes =
+                                  "${officeController.text} - ${forwardedToController.text}";
                               if (notesController.text.isNotEmpty) {
                                 combinedNotes += " | ${notesController.text}";
                               }
@@ -501,7 +576,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 notes: combinedNotes,
                               );
                               // Only record a transfer if the personnel actually changed
-                              if (forwardedToController.text != widget.documents[index].assignedTo) {
+                              if (forwardedToController.text !=
+                                  widget.documents[index].assignedTo) {
                                 widget.transferDocument(
                                   index,
                                   forwardedToController.text,
@@ -509,7 +585,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   notes: combinedNotes,
                                 );
                               }
-                              Navigator.of(context).popUntil((route) => route.isFirst);
+                              Navigator.of(
+                                context,
+                              ).popUntil((route) => route.isFirst);
                             }
                           },
                         ),
@@ -532,22 +610,20 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       context: context,
       barrierDismissible: true,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-          title: Row(
-            children: [
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  "Search by docs,mode, cpdco staff, other personnel, remarks, type, office, status",
-                  style: const TextStyle(fontSize: 14),
-                  overflow: TextOverflow.visible, // allow wrapping
-                  softWrap: true,
-                ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                "Search by docs,mode, cpdco staff, other personnel, remarks, type, office, status",
+                style: const TextStyle(fontSize: 14),
+                overflow: TextOverflow.visible, // allow wrapping
+                softWrap: true,
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -607,7 +683,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           ),
           title: Row(
             children: [
-              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.filter_list,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               const Text("Filter Documents", style: TextStyle(fontSize: 16)),
             ],
@@ -620,7 +699,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                    text: _specificDate != null
+                        ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Specific Date",
@@ -651,7 +732,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
+                    text: _startDate != null
+                        ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Start Date",
@@ -661,7 +744,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     ),
                   ),
                   onTap: () async {
-                      final picked = await showDatePicker(
+                    final picked = await showDatePicker(
                       context: context,
                       initialDate: _startDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
@@ -671,7 +754,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       setState(() {});
                       this.setState(() {
                         _startDate = picked;
-                        _specificDate = null; // Clear specific date if range is used
+                        _specificDate =
+                            null; // Clear specific date if range is used
                       });
                     }
                   },
@@ -680,7 +764,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
+                    text: _endDate != null
+                        ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "End Date",
@@ -700,7 +786,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       setState(() {});
                       this.setState(() {
                         _endDate = picked;
-                        _specificDate = null; // Clear specific date if range is used
+                        _specificDate =
+                            null; // Clear specific date if range is used
                       });
                     }
                   },
@@ -744,9 +831,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       context: context,
       barrierDismissible: true,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Icon(Icons.delete, color: Colors.red),
@@ -754,9 +839,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             const Text("Delete Document", style: TextStyle(fontSize: 16)),
           ],
         ),
-        content: const Text(
-          "Are you SUREEE? This action cannot be undone.",
-        ),
+        content: const Text("Are you SUREEE? This action cannot be undone."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -778,7 +861,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               setState(() {
                 // The documents list will be updated by the parent, so we just need to rebuild
               });
-              
             },
           ),
         ],
@@ -788,7 +870,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final outgoingDocuments = widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony').toList();
+    final outgoingDocuments = widget.documents
+        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
+        .toList();
     final filteredDocuments = searchAndFilterDocuments(
       outgoingDocuments,
       searchQuery: _searchQuery,
@@ -844,7 +928,18 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           ),
         ),
       ),
-      body: filteredDocuments.isEmpty
+      body: _isLoading
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading documents...', style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            )
+          : filteredDocuments.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -856,15 +951,21 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    outgoingDocuments.isEmpty ? "No outgoing documents yet" : "No documents match your search/filter",
+                    outgoingDocuments.isEmpty
+                        ? "No outgoing documents yet"
+                        : "No documents match your search/filter",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    outgoingDocuments.isEmpty ? "Outgoing documents will appear here" : "Try adjusting your search or filter criteria",
+                    outgoingDocuments.isEmpty
+                        ? "Outgoing documents will appear here"
+                        : "Try adjusting your search or filter criteria",
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
+                    ),
                   ),
                 ],
               ),
@@ -876,7 +977,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 final doc = filteredDocuments[index];
                 final originalIndex = widget.documents.indexOf(doc);
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   elevation: 2,
                   child: ExpansionTile(
                     onExpansionChanged: (expanded) {
@@ -889,7 +993,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       });
                     },
                     leading: CircleAvatar(
-                      backgroundColor: doc.needsSync ? Colors.red : const Color(0xFF2196F3),
+                      backgroundColor: doc.needsSync
+                          ? Colors.red
+                          : const Color(0xFF2196F3),
                       child: Icon(
                         doc.needsSync ? Icons.sync : Icons.arrow_upward,
                         color: Colors.white,
@@ -914,7 +1020,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             icon: const Icon(Icons.copy, size: 16),
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: doc.code));
-                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                              SnackbarUtils.showInfoSnackBar(
+                                context,
+                                'Code copied to clipboard',
+                              );
                             },
                             tooltip: 'Copy Code',
                             padding: EdgeInsets.zero,
@@ -926,7 +1035,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant.withOpacity(0.3),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(12),
                             bottomRight: Radius.circular(12),
@@ -939,16 +1050,27 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             const SizedBox(height: 8),
                             _buildDetailRow(Icons.send, "Mode", doc.mode),
                             const SizedBox(height: 8),
-                            _buildDetailRow(Icons.assignment_ind, "Forwarded To", doc.assignedTo),
+                            _buildDetailRow(
+                              Icons.assignment_ind,
+                              "Forwarded To",
+                              doc.assignedTo,
+                            ),
                             const SizedBox(height: 8),
                             Row(
                               children: [
                                 Expanded(
-                                  child: _buildDetailRow(Icons.info, "Status", doc.status),
+                                  child: _buildDetailRow(
+                                    Icons.info,
+                                    "Status",
+                                    doc.status,
+                                  ),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.edit),
-                                  onPressed: () => _showStatusUpdateDialog(context, originalIndex),
+                                  onPressed: () => _showStatusUpdateDialog(
+                                    context,
+                                    originalIndex,
+                                  ),
                                   tooltip: "Update Status",
                                 ),
                               ],
@@ -958,40 +1080,76 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             ],
 
                             const SizedBox(height: 8),
-                            _buildDetailRow(Icons.comment, "Remarks", doc.remarks),
+                            _buildDetailRow(
+                              Icons.comment,
+                              "Remarks",
+                              doc.remarks,
+                            ),
                             const SizedBox(height: 8),
-                            _buildDetailRow(Icons.send, "Released by", doc.person),
+                            _buildDetailRow(
+                              Icons.send,
+                              "Released by",
+                              doc.person,
+                            ),
                             const SizedBox(height: 16),
                             ExpansionTile(
                               leading: const Icon(Icons.history),
-                                // compute visible entries (creation + status changes)
-                                title: Text(
-                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ')).length.toString()) + ")",
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              // compute visible entries (creation + status changes)
+                              title: Text(
+                                "Document History (" +
+                                    (doc.history.isEmpty
+                                        ? '0'
+                                        : doc.history
+                                              .asMap()
+                                              .entries
+                                              .where(
+                                                (me) =>
+                                                    me.key == 0 ||
+                                                    me.value.action.startsWith(
+                                                      'Status changed to ',
+                                                    ),
+                                              )
+                                              .length
+                                              .toString()) +
+                                    ")",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                children: (() {
-                                  final entries = doc.history;
-                                  if (entries.isEmpty) {
-                                    return [const Padding(
+                              ),
+                              children: (() {
+                                final entries = doc.history;
+                                if (entries.isEmpty) {
+                                  return [
+                                    const Padding(
                                       padding: EdgeInsets.all(16),
                                       child: Text("No history available"),
-                                    )];
-                                  }
+                                    ),
+                                  ];
+                                }
 
-                                  // Only include the creation entry (index 0), status-change entries, and transfer entries.
-                                  final visible = entries.asMap().entries.where((me) {
-                                    return me.key == 0 || me.value.action.startsWith('Status changed to ');
-                                  }).toList();
+                                // Only include the creation entry (index 0), status-change entries, and transfer entries.
+                                final visible = entries.asMap().entries.where((
+                                  me,
+                                ) {
+                                  return me.key == 0 ||
+                                      me.value.action.startsWith(
+                                        'Status changed to ',
+                                      );
+                                }).toList();
 
-                                  return visible.map((mapEntry) {
+                                return visible.map((mapEntry) {
                                   final originalIndex = mapEntry.key;
                                   final entry = mapEntry.value;
                                   String office = doc.fromOrTo;
-                                  String personnel = originalIndex == 0 ? 'Original Assignee' : doc.assignedTo;
+                                  String personnel = originalIndex == 0
+                                      ? 'Original Assignee'
+                                      : doc.assignedTo;
                                   String? additionalNotes;
 
                                   // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
-                                  if (entry.notes != null && entry.notes!.isNotEmpty) {
+                                  if (entry.notes != null &&
+                                      entry.notes!.isNotEmpty) {
                                     final parts = entry.notes!.split('|');
                                     if (originalIndex == 0) {
                                       // Creation: notes = "office|personnel"
@@ -1001,39 +1159,58 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       }
                                     } else {
                                       // Status change: notes = "office - personnel|additional"
-                                      final officePersonnelStr = parts[0].trim();
-                                      final sepIndex = officePersonnelStr.lastIndexOf(' - ');
+                                      final officePersonnelStr = parts[0]
+                                          .trim();
+                                      final sepIndex = officePersonnelStr
+                                          .lastIndexOf(' - ');
                                       if (sepIndex != -1) {
-                                        office = officePersonnelStr.substring(0, sepIndex).trim();
-                                        personnel = officePersonnelStr.substring(sepIndex + 3).trim();
+                                        office = officePersonnelStr
+                                            .substring(0, sepIndex)
+                                            .trim();
+                                        personnel = officePersonnelStr
+                                            .substring(sepIndex + 3)
+                                            .trim();
                                       } else {
-                                        final officePersonnel = officePersonnelStr.split(' - ');
+                                        final officePersonnel =
+                                            officePersonnelStr.split(' - ');
                                         if (officePersonnel.length >= 2) {
                                           office = officePersonnel[0].trim();
                                           personnel = officePersonnel[1].trim();
                                         }
                                       }
                                       if (parts.length > 1) {
-                                        additionalNotes = parts.sublist(1).join('|').trim();
+                                        additionalNotes = parts
+                                            .sublist(1)
+                                            .join('|')
+                                            .trim();
                                       }
                                     }
                                   }
 
                                   String mainLine;
-                                  final byLine = "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
+                                  final byLine =
+                                      "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
                                   if (originalIndex == 0) {
                                     // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
-                                    mainLine = "Created and forwarded to $office c/o $personnel";
+                                    mainLine =
+                                        "Created and forwarded to $office c/o $personnel";
                                   } else {
                                     // Status change: format as "(Status) c/o (office) - (personnel)"
-                                    final status = entry.action.replaceFirst('Status changed to ', '');
+                                    final status = entry.action.replaceFirst(
+                                      'Status changed to ',
+                                      '',
+                                    );
                                     mainLine = "$status: $office - $personnel";
                                   }
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Icon(
                                           Icons.circle,
@@ -1043,28 +1220,39 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 mainLine,
-                                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
                                                 byLine,
                                                 style: TextStyle(
                                                   fontSize: 13,
-                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withOpacity(0.8),
                                                 ),
                                               ),
-                                              if (additionalNotes != null && additionalNotes.isNotEmpty) ...[
+                                              if (additionalNotes != null &&
+                                                  additionalNotes
+                                                      .isNotEmpty) ...[
                                                 const SizedBox(height: 6),
                                                 Text(
                                                   "Notes: $additionalNotes",
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     fontStyle: FontStyle.italic,
-                                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurface
+                                                        .withOpacity(0.7),
                                                   ),
                                                 ),
                                               ],
@@ -1087,31 +1275,51 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete"),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color.fromARGB(255, 218, 87, 78),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      218,
+                                      87,
+                                      78,
+                                    ),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: () => _showDeleteConfirmation(context, originalIndex),
+                                  onPressed: () => _showDeleteConfirmation(
+                                    context,
+                                    originalIndex,
+                                  ),
                                 ),
                                 if (doc.imageUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.image),
                                     label: const Text("View Image"),
-                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
+                                    onPressed: () => _showImageDialog(
+                                      context,
+                                      doc.imageUrls,
+                                    ),
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
                                   ),
-                                if (doc.filePath != null || doc.fileUrls.isNotEmpty)
+                                if (doc.filePath != null ||
+                                    doc.fileUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_file),
-                                    label: Text("View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}"),
+                                    label: Text(
+                                      "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
+                                    ),
                                     onPressed: () {
                                       final allFiles = <String>[];
                                       if (doc.filePath != null) {
@@ -1125,7 +1333,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),

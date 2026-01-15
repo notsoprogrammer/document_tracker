@@ -24,8 +24,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
   });
 
   @override
-  State<IncomingDocumentsScreen> createState() =>
-      _IncomingDocumentsScreenState();
+  State<IncomingDocumentsScreen> createState() => _IncomingDocumentsScreenState();
 }
 
 class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
@@ -131,15 +130,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               ),
               title: Row(
                 children: [
-                  Icon(
-                    Icons.swap_horiz,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  Icon(Icons.swap_horiz, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
-                  const Text(
-                    "Transfer Document",
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  const Text("Transfer Document", style: TextStyle(fontSize: 16)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -155,70 +148,52 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           return const Iterable<String>.empty();
                         }
                         return cpdcoStaff.where((String option) {
-                          return option.toLowerCase().contains(
-                            textEditingValue.text.toLowerCase(),
-                          );
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
                         });
                       },
                       onSelected: (String selection) {
                         setState(() => newAssigneeController.text = selection);
                       },
-                      fieldViewBuilder:
-                          (
-                            BuildContext context,
-                            TextEditingController textEditingController,
-                            FocusNode focusNode,
-                            VoidCallback onFieldSubmitted,
-                          ) {
-                            return TextField(
-                              controller: textEditingController,
-                              focusNode: focusNode,
-                              decoration: InputDecoration(
-                                labelText: "New Assignee",
-                                prefixIcon: const Icon(Icons.person),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "New Assignee",
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              width: 350,
+                              height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                      optionsViewBuilder:
-                          (
-                            BuildContext context,
-                            AutocompleteOnSelected<String> onSelected,
-                            Iterable<String> options,
-                          ) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 4.0,
-                                child: SizedBox(
-                                  width: 350,
-                                  height: (options.length * 56.0 + 16.0).clamp(
-                                    0.0,
-                                    200.0,
-                                  ),
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.all(8.0),
-                                    itemCount: options.length,
-                                    itemBuilder:
-                                        (BuildContext context, int index) {
-                                          final String option = options
-                                              .elementAt(index);
-                                          return GestureDetector(
-                                            onTap: () {
-                                              onSelected(option);
-                                            },
-                                            child: ListTile(
-                                              title: Text(option),
-                                            ),
-                                          );
-                                        },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     RawAutocomplete<String>(
@@ -229,72 +204,52 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           return const Iterable<String>.empty();
                         }
                         return cpdcoStaff.where((String option) {
-                          return option.toLowerCase().contains(
-                            textEditingValue.text.toLowerCase(),
-                          );
+                          return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
                         });
                       },
                       onSelected: (String selection) {
-                        setState(
-                          () => transferredByController.text = selection,
+                        setState(() => transferredByController.text = selection);
+                      },
+                      fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: "Transferred By",
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         );
                       },
-                      fieldViewBuilder:
-                          (
-                            BuildContext context,
-                            TextEditingController textEditingController,
-                            FocusNode focusNode,
-                            VoidCallback onFieldSubmitted,
-                          ) {
-                            return TextField(
-                              controller: textEditingController,
-                              focusNode: focusNode,
-                              decoration: InputDecoration(
-                                labelText: "Transferred By",
-                                prefixIcon: const Icon(Icons.person),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: SizedBox(
+                              width: 350,
+                              height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8.0),
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      onSelected(option);
+                                    },
+                                    child: ListTile(
+                                      title: Text(option),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                      optionsViewBuilder:
-                          (
-                            BuildContext context,
-                            AutocompleteOnSelected<String> onSelected,
-                            Iterable<String> options,
-                          ) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 4.0,
-                                child: SizedBox(
-                                  width: 350,
-                                  height: (options.length * 56.0 + 16.0).clamp(
-                                    0.0,
-                                    200.0,
-                                  ),
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.all(8.0),
-                                    itemCount: options.length,
-                                    itemBuilder:
-                                        (BuildContext context, int index) {
-                                          final String option = options
-                                              .elementAt(index);
-                                          return GestureDetector(
-                                            onTap: () {
-                                              onSelected(option);
-                                            },
-                                            child: ListTile(
-                                              title: Text(option),
-                                            ),
-                                          );
-                                        },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -325,15 +280,12 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                     ),
                   ),
                   onPressed: () {
-                    if (newAssigneeController.text.isNotEmpty &&
-                        transferredByController.text.isNotEmpty) {
+                    if (newAssigneeController.text.isNotEmpty && transferredByController.text.isNotEmpty) {
                       widget.transferDocument(
                         index,
                         newAssigneeController.text,
                         transferredByController.text,
-                        notes: notesController.text.isNotEmpty
-                            ? notesController.text
-                            : null,
+                        notes: notesController.text.isNotEmpty ? notesController.text : null,
                       );
                       Navigator.of(context).popUntil((route) => route.isFirst);
                     }
@@ -365,6 +317,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'Urgent',
     ];
 
+
     final List<String> cpdcoStaff = [
       'Arnie',
       'Rex',
@@ -389,15 +342,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ),
           title: Row(
             children: [
-              Icon(
-                Icons.edit_document,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              Icon(Icons.edit_document, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              const Text(
-                "Update Document Status",
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text("Update Document Status", style: TextStyle(fontSize: 16)),
             ],
           ),
           content: SingleChildScrollView(
@@ -447,68 +394,52 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       return const Iterable<String>.empty();
                     }
                     return cpdcoStaff.where((String option) {
-                      return option.toLowerCase().contains(
-                        textEditingValue.text.toLowerCase(),
-                      );
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
                     });
                   },
                   onSelected: (String selection) {
                     setState(() => updatedByController.text = selection);
                   },
-                  fieldViewBuilder:
-                      (
-                        BuildContext context,
-                        TextEditingController textEditingController,
-                        FocusNode focusNode,
-                        VoidCallback onFieldSubmitted,
-                      ) {
-                        return TextField(
-                          controller: textEditingController,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: "Updated By",
-                            prefixIcon: const Icon(Icons.person),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      },
-                  optionsViewBuilder:
-                      (
-                        BuildContext context,
-                        AutocompleteOnSelected<String> onSelected,
-                        Iterable<String> options,
-                      ) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: Material(
-                            elevation: 4.0,
-                            child: SizedBox(
-                              width: 350,
-                              height: (options.length * 56.0 + 16.0).clamp(
-                                0.0,
-                                200.0,
-                              ),
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(8.0),
-                                itemCount: options.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final String option = options.elementAt(
-                                    index,
-                                  );
-                                  return GestureDetector(
-                                    onTap: () {
-                                      onSelected(option);
-                                    },
-                                    child: ListTile(title: Text(option)),
-                                  );
+                  fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                    return TextField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        labelText: "Updated By",
+                        prefixIcon: const Icon(Icons.person),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                  optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        child: SizedBox(
+                          width: 350,
+                          height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8.0),
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return GestureDetector(
+                                onTap: () {
+                                  onSelected(option);
                                 },
-                              ),
-                            ),
+                                child: ListTile(
+                                  title: Text(option),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -539,16 +470,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 ),
               ),
               onPressed: () {
-                if (selectedStatus != null &&
-                    updatedByController.text.isNotEmpty) {
-                  String? combinedNotes = notesController.text.isNotEmpty
-                      ? notesController.text
-                      : null;
-                  if (selectedStatus == 'Filed' &&
-                      cabinetController.text.isNotEmpty) {
-                    combinedNotes = combinedNotes != null
-                        ? '$combinedNotes\nFiled in: ${cabinetController.text}'
-                        : 'Filed in: ${cabinetController.text}';
+                if (selectedStatus != null && updatedByController.text.isNotEmpty) {
+                  String? combinedNotes = notesController.text.isNotEmpty ? notesController.text : null;
+                  if (selectedStatus == 'Filed' && cabinetController.text.isNotEmpty) {
+                    combinedNotes = combinedNotes != null ? '$combinedNotes\nFiled in: ${cabinetController.text}' : 'Filed in: ${cabinetController.text}';
                   }
                   widget.updateDocumentStatus(
                     index,
@@ -565,6 +490,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       ),
     );
   }
+
+
+
+
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
     showDialog(
@@ -595,19 +524,14 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                 SizedBox(height: 16),
                                 Text(
                                   'Please wait...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
+                                  style: TextStyle(color: Colors.white, fontSize: 16),
                                 ),
                               ],
                             ),
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Text('Failed to load image'),
-                          );
+                          return const Center(child: Text('Failed to load image'));
                         },
                       ),
                     ),
@@ -721,10 +645,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ),
           title: Row(
             children: [
-              Icon(
-                Icons.filter_list,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               const Text("Filter Documents", style: TextStyle(fontSize: 16)),
             ],
@@ -737,9 +658,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _specificDate != null
-                        ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}"
-                        : '',
+                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Specific Date",
@@ -770,9 +689,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _startDate != null
-                        ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}"
-                        : '',
+                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Start Date",
@@ -782,7 +699,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                     ),
                   ),
                   onTap: () async {
-                    final picked = await showDatePicker(
+                      final picked = await showDatePicker(
                       context: context,
                       initialDate: _startDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
@@ -792,8 +709,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       dialogSetState(() {});
                       setState(() {
                         _startDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null; // Clear specific date if range is used
                       });
                     }
                   },
@@ -802,9 +718,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _endDate != null
-                        ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}"
-                        : '',
+                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "End Date",
@@ -824,8 +738,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       dialogSetState(() {});
                       setState(() {
                         _endDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null; // Clear specific date if range is used
                       });
                     }
                   },
@@ -869,7 +782,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       context: context,
       barrierDismissible: true,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: Row(
           children: [
             Icon(Icons.delete, color: Colors.red),
@@ -877,7 +792,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
             const Text("Delete Document", style: TextStyle(fontSize: 16)),
           ],
         ),
-        content: const Text("Sure naaa??? This action cannot be undone."),
+        content: const Text(
+          "Sure naaa??? This action cannot be undone.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -910,9 +827,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final allIncoming = widget.documents.where((doc) => doc.incoming).toList();
-    print(
-      'Incoming screen: Total documents: ${widget.documents.length}, Incoming documents: ${allIncoming.length}',
-    );
+    print('Incoming screen: Total documents: ${widget.documents.length}, Incoming documents: ${allIncoming.length}');
     final incomingDocuments = searchAndFilterDocuments(
       allIncoming,
       searchQuery: _searchQuery,
@@ -968,18 +883,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading documents...', style: TextStyle(fontSize: 16)),
-                ],
-              ),
-            )
-          : incomingDocuments.isEmpty
+      body: incomingDocuments.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -998,10 +902,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                   Text(
                     "Incoming documents will appear here",
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
-                    ),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
                   ),
                 ],
               ),
@@ -1013,10 +915,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 final doc = incomingDocuments[index];
                 final originalIndex = widget.documents.indexOf(doc);
                 return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   elevation: 2,
                   child: ExpansionTile(
                     onExpansionChanged: (expanded) {
@@ -1029,9 +928,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       });
                     },
                     leading: CircleAvatar(
-                      backgroundColor: doc.needsSync
-                          ? Colors.red
-                          : const Color(0xFFFFB74D),
+                      backgroundColor: doc.needsSync ? Colors.red : const Color(0xFFFFB74D),
                       child: Icon(
                         doc.needsSync ? Icons.sync : Icons.arrow_downward,
                         color: Colors.white,
@@ -1056,10 +953,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             icon: const Icon(Icons.copy, size: 16),
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: doc.code));
-                              SnackbarUtils.showInfoSnackBar(
-                                context,
-                                'Code copied to clipboard',
-                              );
+                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
                             },
                             tooltip: 'Copy Code',
                             padding: EdgeInsets.zero,
@@ -1071,9 +965,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(12),
                             bottomRight: Radius.circular(12),
@@ -1089,18 +981,11 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: _buildDetailRow(
-                                    Icons.assignment_ind,
-                                    "Assigned To",
-                                    doc.assignedTo,
-                                  ),
+                                  child: _buildDetailRow(Icons.assignment_ind, "Assigned To", doc.assignedTo),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.swap_horiz),
-                                  onPressed: () => _showTransferDialog(
-                                    context,
-                                    originalIndex,
-                                  ),
+                                  onPressed: () => _showTransferDialog(context, originalIndex),
                                   tooltip: "Transfer Document",
                                 ),
                               ],
@@ -1109,18 +994,11 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: _buildDetailRow(
-                                    Icons.info,
-                                    "Status",
-                                    doc.status,
-                                  ),
+                                  child: _buildDetailRow(Icons.info, "Status", doc.status),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.edit),
-                                  onPressed: () => _showStatusUpdateDialog(
-                                    context,
-                                    originalIndex,
-                                  ),
+                                  onPressed: () => _showStatusUpdateDialog(context, originalIndex),
                                   tooltip: "Update Status",
                                 ),
                               ],
@@ -1130,132 +1008,74 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             ],
 
                             const SizedBox(height: 8),
-                            _buildDetailRow(
-                              Icons.comment,
-                              "Remarks",
-                              doc.remarks,
-                            ),
+                            _buildDetailRow(Icons.comment, "Remarks", doc.remarks),
                             const SizedBox(height: 8),
-                            _buildDetailRow(
-                              Icons.receipt,
-                              "Received by",
-                              doc.person,
-                            ),
+                            _buildDetailRow(Icons.receipt, "Received by", doc.person),
                             const SizedBox(height: 16),
                             ExpansionTile(
                               leading: const Icon(Icons.history),
-                              title: Text(
-                                "Document History (" +
-                                    (doc.history.isEmpty
-                                        ? '0'
-                                        : doc.history
-                                              .asMap()
-                                              .entries
-                                              .where(
-                                                (me) =>
-                                                    me.key == 0 ||
-                                                    me.value.action.startsWith(
-                                                      'Status changed to ',
-                                                    ) ||
-                                                    me.value.action.startsWith(
-                                                      'Transferred to ',
-                                                    ),
-                                              )
-                                              .length
-                                              .toString()) +
-                                    ")",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                title: Text(
+                                  "Document History (" + (doc.history.isEmpty ? '0' : doc.history.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ') || me.value.action.startsWith('Transferred to ')).length.toString()) + ")",
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                                 ),
-                              ),
-                              children: (() {
-                                final entries = doc.history;
-                                if (entries.isEmpty) {
-                                  return [
-                                    const Padding(
+                                children: (() {
+                                  final entries = doc.history;
+                                  if (entries.isEmpty) {
+                                    return [const Padding(
                                       padding: EdgeInsets.all(16),
                                       child: Text("No history available"),
-                                    ),
-                                  ];
-                                }
+                                    )];
+                                  }
 
-                                final visible = entries
-                                    .asMap()
-                                    .entries
-                                    .where(
-                                      (me) =>
-                                          me.key == 0 ||
-                                          me.value.action.startsWith(
-                                            'Status changed to ',
-                                          ) ||
-                                          me.value.action.startsWith(
-                                            'Transferred to ',
+                                  final visible = entries.asMap().entries.where((me) => me.key == 0 || me.value.action.startsWith('Status changed to ') || me.value.action.startsWith('Transferred to ')).toList();
+
+                                  return visible.map((mapEntry) {
+                                    final entry = mapEntry.value;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.circle,
+                                            size: 12,
+                                            color: const Color(0xFFFFB74D),
                                           ),
-                                    )
-                                    .toList();
-
-                                return visible.map((mapEntry) {
-                                  final entry = mapEntry.value;
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          size: 12,
-                                          color: const Color(0xFFFFB74D),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                entry.action,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              Text(
-                                                "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface
-                                                      .withOpacity(0.6),
-                                                ),
-                                              ),
-                                              if (entry.notes != null &&
-                                                  entry.notes!.isNotEmpty) ...[
-                                                const SizedBox(height: 4),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
                                                 Text(
-                                                  "Notes: ${entry.notes}",
+                                                  entry.action,
+                                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                                ),
+                                                Text(
+                                                  "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    fontStyle: FontStyle.italic,
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurface
-                                                        .withOpacity(0.7),
+                                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                                   ),
                                                 ),
+                                                if (entry.notes != null && entry.notes!.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    "Notes: ${entry.notes}",
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontStyle: FontStyle.italic,
+                                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                    ),
+                                                  ),
+                                                ],
                                               ],
-                                            ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList();
-                              })(),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList();
+                                })(),
                             ),
                             const SizedBox(height: 16),
                             Wrap(
@@ -1267,51 +1087,31 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                   icon: const Icon(Icons.delete),
                                   label: const Text("Delete"),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color.fromARGB(
-                                      255,
-                                      218,
-                                      87,
-                                      78,
-                                    ),
+                                    backgroundColor: const Color.fromARGB(255, 218, 87, 78),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: () => _showDeleteConfirmation(
-                                    context,
-                                    originalIndex,
-                                  ),
+                                  onPressed: () => _showDeleteConfirmation(context, originalIndex),
                                 ),
                                 if (doc.imageUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.image),
                                     label: const Text("View Image"),
-                                    onPressed: () => _showImageDialog(
-                                      context,
-                                      doc.imageUrls,
-                                    ),
+                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
                                   ),
-                                if (doc.filePath != null ||
-                                    doc.fileUrls.isNotEmpty)
+                                if (doc.filePath != null || doc.fileUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_file),
-                                    label: Text(
-                                      "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
-                                    ),
+                                    label: Text("View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}"),
                                     onPressed: () {
                                       final allFiles = <String>[];
                                       if (doc.filePath != null) {
@@ -1325,10 +1125,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),

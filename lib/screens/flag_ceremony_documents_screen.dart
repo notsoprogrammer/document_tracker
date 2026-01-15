@@ -22,10 +22,12 @@ class FlagCeremonyDocumentsScreen extends StatefulWidget {
   });
 
   @override
-  State<FlagCeremonyDocumentsScreen> createState() => _FlagCeremonyDocumentsScreenState();
+  State<FlagCeremonyDocumentsScreen> createState() =>
+      _FlagCeremonyDocumentsScreenState();
 }
 
-class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScreen> {
+class _FlagCeremonyDocumentsScreenState
+    extends State<FlagCeremonyDocumentsScreen> {
   late List<Document> _filteredDocuments;
   String _searchQuery = '';
   String _selectedFilter = 'All';
@@ -34,6 +36,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
   DateTime? _specificDate;
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
 
   final List<String> _filterOptions = ['All', 'Raising', 'Lowering'];
 
@@ -87,7 +90,17 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
         _searchQuery = _searchController.text;
       });
     });
-    _filteredDocuments = widget.documents.where((doc) => doc.mode == 'Flag Ceremony').toList();
+    _filteredDocuments = widget.documents
+        .where((doc) => doc.mode == 'Flag Ceremony')
+        .toList();
+    // Simulate loading for better UX
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   void _filterDocuments() {
@@ -96,12 +109,14 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
         if (doc.mode != 'Flag Ceremony') return false;
 
         // Search filter
-        bool matchesSearch = _searchQuery.isEmpty ||
+        bool matchesSearch =
+            _searchQuery.isEmpty ||
             doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.type.toLowerCase().contains(_searchQuery.toLowerCase());
 
         // Type filter
-        bool matchesFilter = _selectedFilter == 'All' || doc.type == _selectedFilter;
+        bool matchesFilter =
+            _selectedFilter == 'All' || doc.type == _selectedFilter;
 
         // Date filter
         bool matchesDate = true;
@@ -129,7 +144,7 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     return Scaffold(
       appBar: AppBar(
         title: const Text("Flag Ceremony Documents"),
-        backgroundColor: const Color(0xFF4EC377), 
+        backgroundColor: const Color(0xFF4EC377),
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(80),
@@ -165,12 +180,22 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
                     ),
-                    items: _filterOptions.map((filter) => DropdownMenuItem(
-                      value: filter,
-                      child: Text(filter, style: const TextStyle(fontSize: 14)),
-                    )).toList(),
+                    items: _filterOptions
+                        .map(
+                          (filter) => DropdownMenuItem(
+                            value: filter,
+                            child: Text(
+                              filter,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (value) {
                       if (value != null) {
                         _selectedFilter = value;
@@ -200,7 +225,21 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
             ],
           ),
         ),
-        child: _filteredDocuments.isEmpty
+        child: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading documents...',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              )
+            : _filteredDocuments.isEmpty
             ? const Center(
                 child: Text(
                   'No Flag Ceremony documents found',
@@ -208,19 +247,32 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                 ),
               )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 16,
+                ),
                 itemCount: _filteredDocuments.length,
                 itemBuilder: (context, index) {
                   final document = _filteredDocuments[index];
                   final originalIndex = widget.documents.indexOf(document);
                   final queueManager = UploadQueueManager();
-                  final pendingUploads = queueManager.getPendingUploads(document.code);
-                  final uploadingUploads = queueManager.getAllItems().where((item) =>
-                    item['documentCode'] == document.code && item['status'] == 'uploading'
-                  ).toList();
+                  final pendingUploads = queueManager.getPendingUploads(
+                    document.code,
+                  );
+                  final uploadingUploads = queueManager
+                      .getAllItems()
+                      .where(
+                        (item) =>
+                            item['documentCode'] == document.code &&
+                            item['status'] == 'uploading',
+                      )
+                      .toList();
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     elevation: 2,
                     child: ExpansionTile(
                       onExpansionChanged: (expanded) {
@@ -233,7 +285,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                         });
                       },
                       leading: CircleAvatar(
-                        backgroundColor: document.needsSync ? Colors.red : const Color(0xFF4EC377),
+                        backgroundColor: document.needsSync
+                            ? Colors.red
+                            : const Color(0xFF4EC377),
                         child: Icon(
                           document.needsSync ? Icons.sync : Icons.flag,
                           color: Colors.white,
@@ -250,10 +304,15 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                           if (_expandedTiles.contains(index))
                             IconButton(
                               icon: const Icon(Icons.copy, size: 16),
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: document.code));
-                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
-                            },
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: document.code),
+                                );
+                                SnackbarUtils.showInfoSnackBar(
+                                  context,
+                                  'Code copied to clipboard',
+                                );
+                              },
                               tooltip: 'Copy Code',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
@@ -264,7 +323,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceVariant.withOpacity(0.3),
                             borderRadius: const BorderRadius.only(
                               bottomLeft: Radius.circular(12),
                               bottomRight: Radius.circular(12),
@@ -273,14 +334,30 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
+                              _buildDetailRow(
+                                Icons.calendar_today,
+                                "Date",
+                                document.fromOrTo,
+                              ),
                               const SizedBox(height: 8),
-                              _buildDetailRow(Icons.person, "Recorded by", document.person),
+                              _buildDetailRow(
+                                Icons.person,
+                                "Recorded by",
+                                document.person,
+                              ),
                               const SizedBox(height: 8),
-                              _buildDetailRow(Icons.info, "Status", document.status),
+                              _buildDetailRow(
+                                Icons.info,
+                                "Status",
+                                document.status,
+                              ),
                               if (document.remarks.isNotEmpty) ...[
                                 const SizedBox(height: 8),
-                                _buildDetailRow(Icons.comment, "Remarks", document.remarks),
+                                _buildDetailRow(
+                                  Icons.comment,
+                                  "Remarks",
+                                  document.remarks,
+                                ),
                               ],
                               const SizedBox(height: 16),
                               Wrap(
@@ -292,31 +369,54 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                     icon: const Icon(Icons.delete),
                                     label: const Text("Delete"),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(255, 218, 87, 78),
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        218,
+                                        87,
+                                        78,
+                                      ),
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    onPressed: () => _confirmDelete(originalIndex),
+                                    onPressed: () =>
+                                        _confirmDelete(originalIndex),
                                   ),
-                                  if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty)
+                                  if (document.imageUrls.isNotEmpty ||
+                                      document.localImagePaths.isNotEmpty)
                                     ElevatedButton.icon(
                                       icon: const Icon(Icons.image),
                                       label: const Text("View Image"),
-                                      onPressed: () => _showImageDialog(context, document.imageUrls.isNotEmpty ? document.imageUrls : document.localImagePaths),
+                                      onPressed: () => _showImageDialog(
+                                        context,
+                                        document.imageUrls.isNotEmpty
+                                            ? document.imageUrls
+                                            : document.localImagePaths,
+                                      ),
                                       style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  if (document.filePath != null || document.fileUrls.isNotEmpty)
+                                  if (document.filePath != null ||
+                                      document.fileUrls.isNotEmpty)
                                     ElevatedButton.icon(
                                       icon: const Icon(Icons.attach_file),
-                                      label: Text("View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}"),
+                                      label: Text(
+                                        "View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}",
+                                      ),
                                       onPressed: () {
                                         final allFiles = <String>[];
                                         if (document.filePath != null) {
@@ -330,9 +430,14 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                         }
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -350,8 +455,6 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
     );
   }
 
-
-
   void _confirmDelete(int originalIndex) {
     showDialog(
       context: context,
@@ -368,7 +471,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
               Navigator.pop(context);
               widget.deleteDocument(originalIndex);
               setState(() {
-                _filteredDocuments.removeWhere((doc) => widget.documents.indexOf(doc) == originalIndex);
+                _filteredDocuments.removeWhere(
+                  (doc) => widget.documents.indexOf(doc) == originalIndex,
+                );
               });
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -407,14 +512,19 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                                 SizedBox(height: 16),
                                 Text(
                                   'wait la po...',
-                                  style: TextStyle(color: Colors.white, fontSize: 16),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ],
                             ),
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-                          return const Center(child: Text('Failed to load image'));
+                          return const Center(
+                            child: Text('Failed to load image'),
+                          );
                         },
                       ),
                     ),
@@ -487,7 +597,10 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
           ),
           title: Row(
             children: [
-              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.filter_list,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               const Text("Filter Documents", style: TextStyle(fontSize: 16)),
             ],
@@ -500,7 +613,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : '',
+                    text: _specificDate != null
+                        ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Specific Date",
@@ -530,7 +645,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : '',
+                    text: _startDate != null
+                        ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "Start Date",
@@ -550,7 +667,8 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                       dialogSetState(() {});
                       setState(() {
                         _startDate = picked;
-                        _specificDate = null; // Clear specific date if range is used
+                        _specificDate =
+                            null; // Clear specific date if range is used
                       });
                     }
                   },
@@ -559,7 +677,9 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                 TextField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : '',
+                    text: _endDate != null
+                        ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}"
+                        : '',
                   ),
                   decoration: InputDecoration(
                     labelText: "End Date",
@@ -579,7 +699,8 @@ class _FlagCeremonyDocumentsScreenState extends State<FlagCeremonyDocumentsScree
                       dialogSetState(() {});
                       setState(() {
                         _endDate = picked;
-                        _specificDate = null; // Clear specific date if range is used
+                        _specificDate =
+                            null; // Clear specific date if range is used
                       });
                     }
                   },
