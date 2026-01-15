@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// Manages a queue of files pending upload to Google Drive
-class UploadQueueManager {
+class UploadQueueManager extends ChangeNotifier {
   static final UploadQueueManager _instance = UploadQueueManager._internal();
   factory UploadQueueManager() => _instance;
   UploadQueueManager._internal();
@@ -70,6 +70,7 @@ class UploadQueueManager {
         _uploadQueue[index]['retryCount'] = retryCount;
       }
       debugPrint('Updated upload status: $filePath -> $status');
+      notifyListeners();
     }
   }
 
