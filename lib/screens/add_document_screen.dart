@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
+import '../services/upload_queue_manager.dart';
 import '../utils/snackbar_utils.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -43,6 +44,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   bool _isUploadingImages = false;
   bool _isPickingImage = false;
   bool _isPickingFile = false;
+  bool _isSaving = false;
+  String _uploadStatus = '';
+  int _totalUploads = 0;
+  int _completedUploads = 0;
 
   bool _isImage(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
@@ -56,7 +61,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   // Validation flags
   bool _showValidationErrors = false;
-  bool _isSaving = false;
 
   final List<String> documentTypes = [
     'Memo',
@@ -142,6 +146,41 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   void initState() {
     super.initState();
     codeController.text = _generateCode(widget.incoming);
+    _setupUploadListener();
+  }
+
+  void _setupUploadListener() {
+    final queueManager = UploadQueueManager();
+    queueManager.addListener(_onUploadStatusChanged);
+  }
+
+  void _onUploadStatusChanged() {
+    final queueManager = UploadQueueManager();
+    final pendingUploads = queueManager.getPendingUploads(codeController.text);
+    final uploadingUploads = queueManager.getAllItems().where((item) =>
+      item['documentCode'] == codeController.text && item['status'] == 'uploading'
+    ).toList();
+    final completedUploads = queueManager.getAllItems().where((item) =>
+      item['documentCode'] == codeController.text && item['status'] == 'completed'
+    ).toList();
+
+    setState(() {
+      _totalUploads = _selectedImagePaths.length + _selectedDocumentPaths.length;
+      _completedUploads = completedUploads.length;
+      _uploadStatus = uploadingUploads.isNotEmpty
+        ? 'Uploading ${uploadingUploads.length} file(s)...'
+        : pendingUploads.isEmpty
+          ? 'All uploads completed'
+          : 'Preparing uploads...';
+    });
+
+    // If all uploads are done and we were saving, pop the screen
+    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
+      _isSaving = false;
+      if (mounted) {
+        Navigator.pop(context, null); // Document was already saved
+      }
+    }
   }
 
   String _generateCode(bool incoming) {
@@ -744,11 +783,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                       setState(() => _isSaving = true);
                       try {
-                        final savedDoc = await CachedDocumentService().createDocument(doc);
-                        Navigator.pop(context, savedDoc);
+                        await CachedDocumentService().createDocument(doc);
+                        // Don't pop here - wait for uploads to complete
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
-                      } finally {
                         if (mounted) setState(() => _isSaving = false);
                       }
                     }
@@ -764,7 +802,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 ),
                 if (_isSaving) ...[
                   const SizedBox(height: 8),
-                  const Text("Saving document and uploading files...", textAlign: TextAlign.center),
+                  LinearProgressIndicator(
+                    value: _totalUploads > 0 ? _completedUploads / _totalUploads : null,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_uploadStatus, textAlign: TextAlign.center),
                 ],
               ],
             ),

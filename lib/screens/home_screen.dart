@@ -539,26 +539,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showForm(BuildContext context, bool incoming) async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddDocumentScreen(incoming: incoming),
       ),
     );
-    if (result != null && result is Document) {
-      _addDocument(result);
-    }
+    // Reload documents since the add screen handles saving and uploads
+    await _loadDocuments();
   }
 
   void _showFlagCeremonyForm(BuildContext context) async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const AddFlagCeremonyScreen(),
       ),
     );
-    if (result != null && result is Document) {
-      _addDocument(result);
-    }
+    // Reload documents since the add screen handles saving and uploads
+    await _loadDocuments();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
@@ -30,6 +31,8 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   bool _isLoading = true;
+  late final Connectivity _connectivity = Connectivity();
+  bool _isOnline = true;
   final List<String> cpdcoStaff = [
     'Sir Arnie',
     'Rex',
@@ -108,6 +111,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           _isLoading = false;
         });
       }
+    });
+    _checkConnectivity();
+    _connectivity.onConnectivityChanged.listen((result) {
+      setState(() {
+        _isOnline = result != ConnectivityResult.none;
+      });
+    });
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await _connectivity.checkConnectivity();
+    setState(() {
+      _isOnline = result != ConnectivityResult.none;
     });
   }
 
@@ -993,11 +1009,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       });
                     },
                     leading: CircleAvatar(
-                      backgroundColor: doc.needsSync
+                      backgroundColor: !_isOnline
                           ? Colors.red
                           : const Color(0xFF2196F3),
                       child: Icon(
-                        doc.needsSync ? Icons.sync : Icons.arrow_upward,
+                        !_isOnline ? Icons.sync : Icons.arrow_upward,
                         color: Colors.white,
                         size: 20,
                       ),

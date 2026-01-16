@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
 import '../utils/snackbar_utils.dart';
@@ -37,6 +38,8 @@ class _FlagCeremonyDocumentsScreenState
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  late final Connectivity _connectivity = Connectivity();
+  bool _isOnline = true;
 
   final List<String> _filterOptions = ['All', 'Raising', 'Lowering'];
 
@@ -100,6 +103,19 @@ class _FlagCeremonyDocumentsScreenState
           _isLoading = false;
         });
       }
+    });
+    _checkConnectivity();
+    _connectivity.onConnectivityChanged.listen((result) {
+      setState(() {
+        _isOnline = result != ConnectivityResult.none;
+      });
+    });
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await _connectivity.checkConnectivity();
+    setState(() {
+      _isOnline = result != ConnectivityResult.none;
     });
   }
 
@@ -285,11 +301,11 @@ class _FlagCeremonyDocumentsScreenState
                         });
                       },
                       leading: CircleAvatar(
-                        backgroundColor: document.needsSync
+                        backgroundColor: !_isOnline
                             ? Colors.red
                             : const Color(0xFF4EC377),
                         child: Icon(
-                          document.needsSync ? Icons.sync : Icons.flag,
+                          !_isOnline ? Icons.sync : Icons.flag,
                           color: Colors.white,
                           size: 20,
                         ),

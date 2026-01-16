@@ -68,10 +68,15 @@ Users could navigate back to home screen before file uploads to Google Drive/Sup
 - Added progress indicator (CircularProgressIndicator) on save button during operation
 - Added status text "Saving document and uploading files..." below the button
 - Ensured navigation only occurs after all uploads are complete or failed
+- Added upload progress tracking with UploadQueueManager listener
+- Added detailed progress bar showing upload completion percentage
+- Added upload status messages (e.g., "Uploading 2 file(s)...", "All uploads completed")
+- Modified home screen to reload documents after add screens return since documents are saved internally
 
 ### Files Modified
 - `lib/screens/add_document_screen.dart`
 - `lib/screens/add_flag_ceremony_screen.dart`
+- `lib/screens/home_screen.dart`
 
 ### Status
 ✅ Changes implemented

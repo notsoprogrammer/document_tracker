@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
@@ -37,6 +38,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  late final Connectivity _connectivity = Connectivity();
+  bool _isOnline = true;
 
   @override
   void initState() {
@@ -56,6 +59,19 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           _isLoading = false;
         });
       }
+    });
+    _checkConnectivity();
+    _connectivity.onConnectivityChanged.listen((result) {
+      setState(() {
+        _isOnline = result != ConnectivityResult.none;
+      });
+    });
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await _connectivity.checkConnectivity();
+    setState(() {
+      _isOnline = result != ConnectivityResult.none;
     });
   }
 
@@ -1142,11 +1158,11 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                           });
                         },
                         leading: CircleAvatar(
-                          backgroundColor: doc.needsSync
+                          backgroundColor: !_isOnline
                               ? Colors.red
                               : const Color(0xFFFFB74D),
                           child: Icon(
-                            doc.needsSync ? Icons.sync : Icons.arrow_downward,
+                            !_isOnline ? Icons.sync : Icons.arrow_downward,
                             color: Colors.white,
                             size: 20,
                           ),
