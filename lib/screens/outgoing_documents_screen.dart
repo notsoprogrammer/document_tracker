@@ -30,6 +30,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
+  late List<Document> _filteredDocuments;
   bool _isLoading = true;
   late final Connectivity _connectivity = Connectivity();
   bool _isOnline = true;
@@ -102,8 +103,12 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
+        _updateFilteredDocuments();
       });
     });
+    _filteredDocuments = widget.documents
+        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
+        .toList();
     // Simulate loading for better UX
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -120,10 +125,34 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(OutgoingDocumentsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Rebuild when the documents list changes from parent
+    if (oldWidget.documents != widget.documents) {
+      setState(() {
+        // Clear expanded tiles when list updates to avoid index issues
+        _expandedTiles.clear();
+        _updateFilteredDocuments();
+      });
+    }
+  }
+
   Future<void> _checkConnectivity() async {
     final result = await _connectivity.checkConnectivity();
     setState(() {
       _isOnline = result != ConnectivityResult.none;
+    });
+  }
+
+  void _updateFilteredDocuments() {
+    setState(() {
+      _filteredDocuments = searchAndFilterDocuments(
+        widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony').toList(),
+        searchQuery: _searchQuery,
+        startDate: _startDate,
+        endDate: _endDate,
+      );
     });
   }
 
@@ -841,13 +870,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       ),
     );
   }
-
   void _showDeleteConfirmation(BuildContext context, int index) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: Row(
           children: [
             Icon(Icons.delete, color: Colors.red),
@@ -855,7 +885,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             const Text("Delete Document", style: TextStyle(fontSize: 16)),
           ],
         ),
-        content: const Text("Are you SUREEE? This action cannot be undone."),
+        content: const Text(
+          "Sure naaa??? This action cannot be undone.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -872,10 +904,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               ),
             ),
             onPressed: () {
-              widget.deleteDocument(index);
               Navigator.pop(context);
+              widget.deleteDocument(index);
               setState(() {
                 // The documents list will be updated by the parent, so we just need to rebuild
+                // Navigator.of(context).popUntil((route) => route.isFirst);
               });
             },
           ),
@@ -884,18 +917,36 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
+  void _confirmDelete(int originalIndex) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: const Text('Sure??? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.deleteDocument(originalIndex);
+              setState(() {
+                _filteredDocuments.removeWhere(
+                  (doc) => widget.documents.indexOf(doc) == originalIndex,
+                );
+              });
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final outgoingDocuments = widget.documents
-        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
-        .toList();
-    final filteredDocuments = searchAndFilterDocuments(
-      outgoingDocuments,
-      searchQuery: _searchQuery,
-      startDate: _startDate,
-      endDate: _endDate,
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Outgoing Documents"),
@@ -921,6 +972,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 setState(() {
                                   _searchQuery = '';
                                   _searchController.clear();
+                                  _updateFilteredDocuments();
                                 });
                               },
                             )
@@ -955,7 +1007,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 ],
               ),
             )
-          : filteredDocuments.isEmpty
+          : _filteredDocuments.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -967,14 +1019,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    outgoingDocuments.isEmpty
+                    _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
                         ? "No outgoing documents yet"
                         : "No documents match your search/filter",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    outgoingDocuments.isEmpty
+                    _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
                         ? "Outgoing documents will appear here"
                         : "Try adjusting your search or filter criteria",
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -988,9 +1040,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             )
           : ListView.builder(
               padding: const EdgeInsets.only(bottom: 80),
-              itemCount: filteredDocuments.length,
+              itemCount: _filteredDocuments.length,
               itemBuilder: (context, index) {
-                final doc = filteredDocuments[index];
+                final doc = _filteredDocuments[index];
                 final originalIndex = widget.documents.indexOf(doc);
                 return Card(
                   margin: const EdgeInsets.symmetric(
@@ -1306,11 +1358,20 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  onPressed: () => _showDeleteConfirmation(
-                                    context,
-                                    originalIndex,
-                                  ),
+                                  onPressed: () => _confirmDelete(originalIndex),
                                 ),
+                                if (doc.imageUrls.isNotEmpty)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.image),
+                                    label: const Text("View Image"),
+                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
                                 if (doc.imageUrls.isNotEmpty)
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.image),
