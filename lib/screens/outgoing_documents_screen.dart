@@ -1253,6 +1253,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             .trim();
                                       }
                                     }
+                                  } else if (originalIndex == 0 && entry.action.startsWith('Document Created')) {
+                                    // For outgoing creation entry without notes, parse from action
+                                    final action = entry.action;
+                                    final match = RegExp(r'Document Created and forwarded to (.+) c/o (.+)').firstMatch(action);
+                                    if (match != null) {
+                                      office = match.group(1)!.trim();
+                                      personnel = match.group(2)!.trim();
+                                    }
                                   }
 
                                   String mainLine;
