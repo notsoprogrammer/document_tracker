@@ -31,6 +31,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
 }
 
 class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
+  late List<Document> _filteredDocuments;
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -48,8 +49,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
+        _updateFilteredDocuments();
       });
     });
+    _filteredDocuments = widget.documents.where((doc) => doc.incoming).toList();
     // Start loading immediately
     _isLoading = true;
     // Simulate loading for better UX - keep it longer to show the indicator
@@ -68,10 +71,34 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(IncomingDocumentsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Rebuild when the documents list changes from parent
+    if (oldWidget.documents != widget.documents) {
+      setState(() {
+        // Clear expanded tiles when list updates to avoid index issues
+        _expandedTiles.clear();
+        _updateFilteredDocuments();
+      });
+    }
+  }
+
   Future<void> _checkConnectivity() async {
     final result = await _connectivity.checkConnectivity();
     setState(() {
       _isOnline = result != ConnectivityResult.none;
+    });
+  }
+
+  void _updateFilteredDocuments() {
+    setState(() {
+      _filteredDocuments = searchAndFilterDocuments(
+        widget.documents.where((doc) => doc.incoming).toList(),
+        searchQuery: _searchQuery,
+        startDate: _startDate,
+        endDate: _endDate,
+      );
     });
   }
 
@@ -933,43 +960,28 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, int index) {
+  void _confirmDelete(int originalIndex) {
     showDialog(
       context: context,
-      barrierDismissible: true,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.delete, color: Colors.red),
-            const SizedBox(width: 8),
-            const Text("Delete Document", style: TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: const Text("Sure naaa??? This action cannot be undone."),
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: const Text('Sure??? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: const Text('Cancel'),
           ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.delete),
-            label: const Text("Delete", style: TextStyle(fontSize: 10)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          TextButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.deleteDocument(index);
+              widget.deleteDocument(originalIndex);
               setState(() {
-                // The documents list will be updated by the parent, so we just need to rebuild
-                // Navigator.of(context).popUntil((route) => route.isFirst);
+                _filteredDocuments.removeWhere(
+                  (doc) => widget.documents.indexOf(doc) == originalIndex,
+                );
               });
             },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1027,17 +1039,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allIncoming = widget.documents.where((doc) => doc.incoming).toList();
-    print(
-      'Incoming screen: Total documents: ${widget.documents.length}, Incoming documents: ${allIncoming.length}',
-    );
-    final incomingDocuments = searchAndFilterDocuments(
-      allIncoming,
-      searchQuery: _searchQuery,
-      startDate: _startDate,
-      endDate: _endDate,
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Incoming Documents"),
@@ -1063,6 +1064,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                 setState(() {
                                   _searchQuery = '';
                                   _searchController.clear();
+                                  _updateFilteredDocuments();
                                 });
                               },
                             )
@@ -1097,7 +1099,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                 ],
               ),
             )
-          : incomingDocuments.isEmpty
+          : _filteredDocuments.isEmpty
           ? Column(
             children: [
               _buildGlobalUploadStatusIndicator(),
@@ -1137,9 +1139,9 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: incomingDocuments.length,
+                  itemCount: _filteredDocuments.length,
                   itemBuilder: (context, index) {
-                    final doc = incomingDocuments[index];
+                    final doc = _filteredDocuments[index];
                     final originalIndex = widget.documents.indexOf(doc);
                     return Card(
                       margin: const EdgeInsets.symmetric(
@@ -1418,8 +1420,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
-                                      onPressed: () => _showDeleteConfirmation(
-                                        context,
+                                      onPressed: () => _confirmDelete(
                                         originalIndex,
                                       ),
                                     ),
