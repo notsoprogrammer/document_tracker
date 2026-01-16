@@ -31,7 +31,6 @@ class _FlagCeremonyDocumentsScreenState
     extends State<FlagCeremonyDocumentsScreen> {
   late List<Document> _filteredDocuments;
   String _searchQuery = '';
-  String _selectedFilter = 'All';
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _specificDate;
@@ -41,7 +40,18 @@ class _FlagCeremonyDocumentsScreenState
   late final Connectivity _connectivity = Connectivity();
   bool _isOnline = true;
 
-  final List<String> _filterOptions = ['All', 'Raising', 'Lowering'];
+  DateTime _parseDate(String dateStr) {
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length == 3) {
+        final month = int.parse(parts[0]);
+        final day = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+        return DateTime(year, month, day);
+      }
+    } catch (e) {}
+    return DateTime.now();
+  }
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -89,13 +99,13 @@ class _FlagCeremonyDocumentsScreenState
     super.initState();
     _searchController.text = _searchQuery;
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
+      _searchQuery = _searchController.text;
+      _filterDocuments();
     });
     _filteredDocuments = widget.documents
         .where((doc) => doc.mode == 'Flag Ceremony')
-        .toList();
+        .toList()
+      ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     // Simulate loading for better UX
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -128,30 +138,27 @@ class _FlagCeremonyDocumentsScreenState
         bool matchesSearch =
             _searchQuery.isEmpty ||
             doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().contains(_searchQuery.toLowerCase());
-
-        // Type filter
-        bool matchesFilter =
-            _selectedFilter == 'All' || doc.type == _selectedFilter;
+            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.status.toLowerCase().contains(_searchQuery.toLowerCase());
 
         // Date filter
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
-          try {
-            final docDate = DateTime.parse(doc.fromOrTo);
-            if (_startDate != null && docDate.isBefore(_startDate!)) {
-              matchesDate = false;
-            }
-            if (_endDate != null && docDate.isAfter(_endDate!)) {
-              matchesDate = false;
-            }
-          } catch (e) {
-            // If date parsing fails, include the document
+          final docDate = _parseDate(doc.fromOrTo);
+          if (_startDate != null && docDate.isBefore(_startDate!)) {
+            matchesDate = false;
+          }
+          if (_endDate != null && docDate.isAfter(_endDate!)) {
+            matchesDate = false;
           }
         }
 
-        return matchesSearch && matchesFilter && matchesDate;
-      }).toList();
+        return matchesSearch && matchesDate;
+      }).toList()
+        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     });
   }
 
@@ -181,43 +188,6 @@ class _FlagCeremonyDocumentsScreenState
                         borderSide: BorderSide.none,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedFilter,
-                    isDense: true,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 4,
-                      ),
-                    ),
-                    items: _filterOptions
-                        .map(
-                          (filter) => DropdownMenuItem(
-                            value: filter,
-                            child: Text(
-                              filter,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        _selectedFilter = value;
-                        _filterDocuments();
-                      }
-                    },
                   ),
                 ),
                 IconButton(
@@ -733,6 +703,7 @@ class _FlagCeremonyDocumentsScreenState
                   _startDate = null;
                   _endDate = null;
                 });
+                _filterDocuments();
                 Navigator.pop(context);
               },
               child: const Text("Clear All"),
@@ -746,6 +717,7 @@ class _FlagCeremonyDocumentsScreenState
                 ),
               ),
               onPressed: () {
+                _filterDocuments();
                 Navigator.pop(context);
               },
             ),
