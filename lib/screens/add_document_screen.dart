@@ -784,7 +784,13 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
-                        // Don't pop here - wait for uploads to complete
+                        // If no files to upload, pop immediately
+                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
+                        }
+                        // Otherwise, wait for uploads to complete
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);
