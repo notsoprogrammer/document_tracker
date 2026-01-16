@@ -185,6 +185,13 @@ class Document {
         timestamp: DateTime.parse(json['created_at']),
       ));
     } else {
+      // For outgoing documents, add initial creation entry
+      history.add(HistoryEntry(
+        action: 'Document Created and forwarded to ${json['from_or_to']} c/o ${json['addressed_to']}',
+        person: json['person'],
+        timestamp: DateTime.parse(json['created_at']),
+      ));
+
       // For outgoing documents, parse the history from the TEXT field
       final historyRaw = json['history'];
       String? historyText;
