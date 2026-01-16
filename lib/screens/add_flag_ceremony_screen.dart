@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
+import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
 import '../utils/snackbar_utils.dart';
 class AddFlagCeremonyScreen extends StatefulWidget {
@@ -45,6 +46,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
   // Validation flags
   bool _showValidationErrors = false;
+  bool _isSaving = false;
 
   final List<String> ceremonyTypes = [
     'Flag Raising',
@@ -77,13 +79,17 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   String _generateCode() {
     if (selectedCeremonyType == null || selectedDate == null) return '-'; // Default format
 
+    final now = DateTime.now();
     final month = selectedDate!.month.toString().padLeft(2, '0');
     final day = selectedDate!.day.toString().padLeft(2, '0');
     final year = selectedDate!.year.toString();
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
 
     final prefix = selectedCeremonyType == 'Flag Raising' ? 'FR' : 'FL';
 
-    return '$prefix-$month-$day-$year';
+    return '$prefix-$month-$day-$year-$hour$minute$second';
   }
 
   void _viewSelectedFiles(BuildContext context) async {
@@ -509,12 +515,12 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _isUploadingImages ? null : () async {
+                  onPressed: _isSaving ? null : () async {
                     setState(() {
                       _showValidationErrors = true;
                     });
- {
 
+                    if (selectedCeremonyType != null && selectedDate != null && personController.text.trim().isNotEmpty) {
                       final String code = codeController.text;
                       final String ceremonyType = selectedCeremonyType!;
                       final String dateStr = "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}";
@@ -538,7 +544,15 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                         localFilePaths: _selectedDocumentPaths,
                       );
 
-                      Navigator.pop(context, doc);
+                      setState(() => _isSaving = true);
+                      try {
+                        final savedDoc = await CachedDocumentService().createDocument(doc);
+                        Navigator.pop(context, savedDoc);
+                      } catch (e) {
+                        SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
+                      } finally {
+                        if (mounted) setState(() => _isSaving = false);
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -546,10 +560,14 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
-                  child: _isUploadingImages
+                  child: _isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Save Flag Ceremony Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
+                if (_isSaving) ...[
+                  const SizedBox(height: 8),
+                  const Text("Saving document and uploading files...", textAlign: TextAlign.center),
+                ],
               ],
             ),
           ),

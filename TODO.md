@@ -55,3 +55,45 @@ Users could trigger multiple image/file picking operations simultaneously, leadi
 ### Status
 ✅ Changes implemented
 ⏳ Testing pending
+
+## New Feature: Prevent Navigation Until Upload Complete
+
+### Issue
+Users could navigate back to home screen before file uploads to Google Drive/Supabase were complete, leading to incomplete document saving.
+
+### Changes Made
+- Modified save buttons in add screens to await document creation and upload completion
+- Added `_isSaving` boolean flag to track saving state
+- Disabled save button during saving/uploading process
+- Added progress indicator (CircularProgressIndicator) on save button during operation
+- Added status text "Saving document and uploading files..." below the button
+- Ensured navigation only occurs after all uploads are complete or failed
+
+### Files Modified
+- `lib/screens/add_document_screen.dart`
+- `lib/screens/add_flag_ceremony_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
+
+## Fix: Prevent Duplicate Document Codes
+
+### Issue
+Document codes were not unique enough, causing "duplicate key value violates unique constraint" errors when saving to Supabase.
+
+### Root Cause
+Code generation only included date and time up to minutes, allowing duplicates within the same minute.
+
+### Changes Made
+- Updated `_generateCode` methods to include seconds and milliseconds for uniqueness
+- Incoming/Outgoing codes now: `IDL$year-$month-$day-$hour$minute$second-$millisecond`
+- Flag Ceremony codes now: `FR/FL-$month-$day-$year-$hour$minute$second-$millisecond`
+
+### Files Modified
+- `lib/screens/add_document_screen.dart`
+- `lib/screens/add_flag_ceremony_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending

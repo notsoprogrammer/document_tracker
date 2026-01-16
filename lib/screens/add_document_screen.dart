@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
+import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
 import '../utils/snackbar_utils.dart';
 
@@ -55,6 +56,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   // Validation flags
   bool _showValidationErrors = false;
+  bool _isSaving = false;
 
   final List<String> documentTypes = [
     'Memo',
@@ -149,9 +151,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final day = now.day.toString().padLeft(2, '0');
     final hour = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
     final prefix = incoming ? 'IDL' : 'ODL';
 
-    return '$prefix$year-$month-$day-$hour$minute';
+    return '$prefix$year-$month-$day-$hour$minute$second';
   }
 
   void _viewSelectedFiles(BuildContext context) async {
@@ -703,7 +706,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _isUploadingImages ? null : () async {
+                  onPressed: _isSaving ? null : () async {
                     setState(() {
                       _showValidationErrors = true;
                     });
@@ -713,9 +716,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
                         fromToController.text.trim().isNotEmpty) {
-
-                      // Note: File uploads will be handled by CachedDocumentService
-                      // when the document is created. We just pass the local file paths.
 
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
@@ -742,7 +742,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         localFilePaths: _selectedDocumentPaths,
                       );
 
-                      Navigator.pop(context, doc); // Return the document
+                      setState(() => _isSaving = true);
+                      try {
+                        final savedDoc = await CachedDocumentService().createDocument(doc);
+                        Navigator.pop(context, savedDoc);
+                      } catch (e) {
+                        SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
+                      } finally {
+                        if (mounted) setState(() => _isSaving = false);
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -750,10 +758,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
-                  child: _isUploadingImages
+                  child: _isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Save Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
+                if (_isSaving) ...[
+                  const SizedBox(height: 8),
+                  const Text("Saving document and uploading files...", textAlign: TextAlign.center),
+                ],
               ],
             ),
           ),
