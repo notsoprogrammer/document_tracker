@@ -1,7 +1,7 @@
 import '../models/document.dart';
 
 /// Filters documents based on search query.
-/// Searches in title, assignedTo (personnel), person (cpdco staff), remarks, type, office (fromOrTo), status.
+/// Searches in title, assignedTo (personnel), person (cpdco staff), remarks, notes (from history), type, office (fromOrTo), status.
 List<Document> searchDocuments(List<Document> documents, String query) {
   if (query.isEmpty) return documents;
   final lowerQuery = query.toLowerCase();
@@ -11,6 +11,7 @@ List<Document> searchDocuments(List<Document> documents, String query) {
            doc.assignedTo.toLowerCase().contains(lowerQuery) ||
            doc.person.toLowerCase().contains(lowerQuery) ||
            doc.remarks.toLowerCase().contains(lowerQuery) ||
+           doc.history.any((entry) => entry.notes?.toLowerCase().contains(lowerQuery) ?? false) ||
            doc.mode.toLowerCase().contains(lowerQuery) ||
            doc.type.toLowerCase().contains(lowerQuery) ||
            doc.fromOrTo.toLowerCase().contains(lowerQuery) ||

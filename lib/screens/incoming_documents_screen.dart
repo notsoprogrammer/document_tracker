@@ -780,12 +780,22 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Search Documents'),
-        content: TextField(
-          controller: searchController,
-          decoration: const InputDecoration(
-            hintText: 'Enter search query',
-            prefixIcon: Icon(Icons.search),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Search by docs, mode, cpdco staff, other personnel, remarks, notes, type, office, status',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: searchController,
+              decoration: const InputDecoration(
+                hintText: 'Enter search query',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(

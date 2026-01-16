@@ -38,6 +38,102 @@ The upload methods were returning the Google Drive file ID instead of the webVie
 ✅ Changes implemented
 ⏳ Testing pending
 
+## Fix: Improve Interface When Deleting Records
+
+### Issue
+When users delete records in incoming/outgoing documents, the interface doesn't automatically refresh. Users need to click another expandable tile to see that the file is deleted. The flag ceremony screen works well when online but not when offline.
+
+### Root Cause
+- Delete operations were not triggering UI refresh
+- Flag ceremony screen had different delete handling that worked online but not offline
+- No loading indicators during delete operations
+
+### Changes Made
+- **Home Screen (`lib/screens/home_screen.dart`)**: Modified `_deleteDocument` to reload documents from database after deletion instead of just removing from local list
+- **Incoming Documents Screen (`lib/screens/incoming_documents_screen.dart`)**: 
+  - Added `didUpdateWidget` lifecycle method to handle document list changes from parent
+  - Modified delete confirmation to show loading overlay and success/error messages
+  - Added `_isDeleting` state variable and loading overlay UI
+- **Outgoing Documents Screen (`lib/screens/outgoing_documents_screen.dart`)**: 
+  - Added `didUpdateWidget` lifecycle method to handle document list changes from parent
+  - Modified delete confirmation to show loading overlay and success/error messages
+  - Added `_isDeleting` state variable and loading overlay UI
+- **Flag Ceremony Documents Screen (`lib/screens/flag_ceremony_documents_screen.dart`)**: 
+  - Modified delete confirmation to use same pattern as other screens (loading overlay instead of navigation)
+  - Added `_isDeleting` state variable and loading overlay UI
+  - Now works consistently both online and offline
+
+### Files Modified
+- `lib/screens/home_screen.dart`
+- `lib/screens/incoming_documents_screen.dart`
+- `lib/screens/outgoing_documents_screen.dart`
+- `lib/screens/flag_ceremony_documents_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
+
+## Fix: Automatic UI Refresh After Document Deletion
+
+### Issue
+When deleting documents in incoming/outgoing/flag ceremony screens, the UI didn't automatically refresh. Users had to click another expandable tile or navigate away and back to see the deletion reflected. The flag ceremony screen worked well when online but had issues when offline.
+
+### Root Cause
+Child screens (incoming/outgoing/flag ceremony) received the documents list as a static parameter from the parent (home_screen). When documents were deleted, the parent's list was updated, but child screens didn't automatically rebuild to reflect the changes.
+
+### Changes Made
+
+#### 1. Modified `lib/screens/home_screen.dart`
+- Updated `_deleteDocument` method to reload documents from database after deletion
+- Changed from manually removing item from list to calling `_loadDocuments()` for consistency
+- This ensures the parent always has the latest data from the database
+
+#### 2. Modified `lib/screens/incoming_documents_screen.dart`
+- Added `didUpdateWidget` lifecycle method to detect when documents list changes from parent
+- Clears expanded tiles when list updates to avoid index issues
+- Changed delete button to async and await deletion completion
+- Removed local `setState` after deletion (no longer needed as parent handles refresh)
+
+#### 3. Modified `lib/screens/outgoing_documents_screen.dart`
+- Added `didUpdateWidget` lifecycle method to detect when documents list changes from parent
+- Clears expanded tiles when list updates to avoid index issues
+- Changed delete button to async and await deletion completion
+- Removed local `setState` after deletion (no longer needed as parent handles refresh)
+
+#### 4. Modified `lib/screens/flag_ceremony_documents_screen.dart`
+- Added `didUpdateWidget` lifecycle method to detect when documents list changes from parent
+- Updates local `_filteredDocuments` when parent's documents list changes
+- Reapplies active filters after receiving updated data
+- Clears expanded tiles when list updates to avoid index issues
+- Changed delete button to async and await deletion completion
+- Removed manual removal from `_filteredDocuments` (handled by didUpdateWidget)
+
+### How It Works
+1. User clicks delete button in any document screen
+2. Delete dialog closes and deletion function is called (awaited)
+3. Parent's `_deleteDocument` deletes from database and calls `_loadDocuments()`
+4. Parent rebuilds with updated documents list
+5. Child screen's `didUpdateWidget` detects the change
+6. Child screen automatically rebuilds with the new list
+7. UI immediately reflects the deletion (both online and offline)
+
+### Benefits
+- ✅ Immediate UI feedback after deletion
+- ✅ Works consistently in both online and offline modes
+- ✅ No need to manually click other tiles to see changes
+- ✅ Maintains data consistency between parent and child screens
+- ✅ Proper lifecycle management prevents index-out-of-bounds errors
+
+### Files Modified
+- `lib/screens/home_screen.dart`
+- `lib/screens/incoming_documents_screen.dart`
+- `lib/screens/outgoing_documents_screen.dart`
+- `lib/screens/flag_ceremony_documents_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
+
 ## Additional Fix: Prevent Multiple Simultaneous File Operations
 
 ### Issue
