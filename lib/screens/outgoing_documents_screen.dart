@@ -341,304 +341,299 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Container(
-                width: 400,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.edit,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Update Document Status",
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+              child: SingleChildScrollView(
+                child: Container(
+                  width: 400,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
                         children: [
-                          DropdownButtonFormField<String>(
-                            value: selectedStatus,
-                            decoration: InputDecoration(
-                              labelText: "New Status",
-                              prefixIcon: const Icon(Icons.info),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            items: statusOptions.map((String option) {
-                              return DropdownMenuItem<String>(
-                                value: option,
-                                child: Text(option),
-                              );
-                            }).toList(),
-                            onChanged: (String? value) {
-                              setState(() => selectedStatus = value);
-                            },
+                          Icon(
+                            Icons.edit,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          const SizedBox(height: 16),
-                          RawAutocomplete<String>(
-                            textEditingController: officeController,
-                            focusNode: FocusNode(),
-                            optionsBuilder:
-                                (TextEditingValue textEditingValue) {
-                                  if (textEditingValue.text == '') {
-                                    return const Iterable<String>.empty();
-                                  }
-                                  return offices.where((String option) {
-                                    return option.toLowerCase().contains(
-                                      textEditingValue.text.toLowerCase(),
-                                    );
-                                  });
-                                },
-                            onSelected: (String selection) {
-                              setState(() {
-                                officeController.text = selection;
-                              });
-                            },
-                            fieldViewBuilder:
-                                (
-                                  BuildContext context,
-                                  TextEditingController textEditingController,
-                                  FocusNode focusNode,
-                                  VoidCallback onFieldSubmitted,
-                                ) {
-                                  return SizedBox(
-                                    width: 350,
-                                    child: TextField(
-                                      controller: textEditingController,
-                                      focusNode: focusNode,
-                                      decoration: InputDecoration(
-                                        labelText: "Office",
-                                        prefixIcon: const Icon(Icons.business),
-                                        suffixIcon:
-                                            textEditingController
-                                                .text
-                                                .isNotEmpty
-                                            ? IconButton(
-                                                icon: const Icon(Icons.clear),
-                                                onPressed: () {
-                                                  setState(() {
-                                                    textEditingController
-                                                        .clear();
-                                                  });
-                                                },
-                                              )
-                                            : null,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                            optionsViewBuilder:
-                                (
-                                  BuildContext context,
-                                  AutocompleteOnSelected<String> onSelected,
-                                  Iterable<String> options,
-                                ) {
-                                  return Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Material(
-                                      elevation: 4.0,
-                                      child: SizedBox(
-                                        width: 350,
-                                        height: (options.length * 56.0 + 16.0)
-                                            .clamp(0.0, 200.0),
-                                        child: ListView.builder(
-                                          padding: const EdgeInsets.all(8.0),
-                                          itemCount: options.length,
-                                          itemBuilder:
-                                              (
-                                                BuildContext context,
-                                                int index,
-                                              ) {
-                                                final String option = options
-                                                    .elementAt(index);
-                                                return GestureDetector(
-                                                  onTap: () {
-                                                    onSelected(option);
-                                                  },
-                                                  child: ListTile(
-                                                    title: Text(option),
-                                                  ),
-                                                );
-                                              },
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: forwardedToController,
-                            decoration: InputDecoration(
-                              labelText: "Personnel",
-                              prefixIcon: const Icon(Icons.assignment_ind),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          RawAutocomplete<String>(
-                            textEditingController: updatedByController,
-                            focusNode: FocusNode(),
-                            optionsBuilder:
-                                (TextEditingValue textEditingValue) {
-                                  if (textEditingValue.text == '') {
-                                    return const Iterable<String>.empty();
-                                  }
-                                  return cpdcoStaff.where((String option) {
-                                    return option.toLowerCase().contains(
-                                      textEditingValue.text.toLowerCase(),
-                                    );
-                                  });
-                                },
-                            onSelected: (String selection) {
-                              setState(
-                                () => updatedByController.text = selection,
-                              );
-                            },
-                            fieldViewBuilder:
-                                (
-                                  BuildContext context,
-                                  TextEditingController textEditingController,
-                                  FocusNode focusNode,
-                                  VoidCallback onFieldSubmitted,
-                                ) {
-                                  return TextField(
-                                    controller: textEditingController,
-                                    focusNode: focusNode,
-                                    decoration: InputDecoration(
-                                      labelText: "Updated By",
-                                      prefixIcon: const Icon(Icons.person),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                },
-                            optionsViewBuilder:
-                                (
-                                  BuildContext context,
-                                  AutocompleteOnSelected<String> onSelected,
-                                  Iterable<String> options,
-                                ) {
-                                  return Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Material(
-                                      elevation: 4.0,
-                                      child: SizedBox(
-                                        width: 350,
-                                        height: (options.length * 56.0 + 16.0)
-                                            .clamp(0.0, 200.0),
-                                        child: ListView.builder(
-                                          padding: const EdgeInsets.all(8.0),
-                                          itemCount: options.length,
-                                          itemBuilder:
-                                              (
-                                                BuildContext context,
-                                                int index,
-                                              ) {
-                                                final String option = options
-                                                    .elementAt(index);
-                                                return GestureDetector(
-                                                  onTap: () {
-                                                    onSelected(option);
-                                                  },
-                                                  child: ListTile(
-                                                    title: Text(option),
-                                                  ),
-                                                );
-                                              },
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: notesController,
-                            decoration: InputDecoration(
-                              labelText: "Notes (Optional)",
-                              prefixIcon: const Icon(Icons.note),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            maxLines: 3,
+                          const SizedBox(width: 8),
+                          const Text(
+                            "Update Document Status",
+                            style: TextStyle(fontSize: 16),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("Cancel"),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedStatus,
+                        decoration: InputDecoration(
+                          labelText: "New Status",
+                          prefixIcon: const Icon(Icons.info),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.update),
-                          label: const Text(
-                            "Update",
-                            style: TextStyle(fontSize: 10),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () {
-                            if (selectedStatus != null &&
-                                updatedByController.text.isNotEmpty &&
-                                forwardedToController.text.isNotEmpty) {
-                              String combinedNotes =
-                                  "${officeController.text} - ${forwardedToController.text}";
-                              if (notesController.text.isNotEmpty) {
-                                combinedNotes += " | ${notesController.text}";
+                        items: statusOptions.map((String option) {
+                          return DropdownMenuItem<String>(
+                            value: option,
+                            child: Text(option),
+                          );
+                        }).toList(),
+                        onChanged: (String? value) {
+                          setState(() => selectedStatus = value);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      RawAutocomplete<String>(
+                        textEditingController: officeController,
+                        focusNode: FocusNode(),
+                        optionsBuilder:
+                            (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text == '') {
+                                return const Iterable<String>.empty();
                               }
-                              // Always record the status change
-                              widget.updateDocumentStatus(
-                                index,
-                                selectedStatus!,
-                                updatedByController.text,
-                                notes: combinedNotes,
+                              return offices.where((String option) {
+                                return option.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase(),
+                                );
+                              });
+                            },
+                        onSelected: (String selection) {
+                          setState(() {
+                            officeController.text = selection;
+                          });
+                        },
+                        fieldViewBuilder:
+                            (
+                              BuildContext context,
+                              TextEditingController textEditingController,
+                              FocusNode focusNode,
+                              VoidCallback onFieldSubmitted,
+                            ) {
+                              return SizedBox(
+                                width: 350,
+                                child: TextField(
+                                  controller: textEditingController,
+                                  focusNode: focusNode,
+                                  decoration: InputDecoration(
+                                    labelText: "Office",
+                                    prefixIcon: const Icon(Icons.business),
+                                    suffixIcon:
+                                        textEditingController
+                                            .text
+                                            .isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear),
+                                            onPressed: () {
+                                              setState(() {
+                                                textEditingController
+                                                    .clear();
+                                              });
+                                            },
+                                          )
+                                        : null,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               );
-                              // Only record a transfer if the personnel actually changed
-                              if (forwardedToController.text !=
-                                  widget.documents[index].assignedTo) {
-                                widget.transferDocument(
+                            },
+                        optionsViewBuilder:
+                            (
+                              BuildContext context,
+                              AutocompleteOnSelected<String> onSelected,
+                              Iterable<String> options,
+                            ) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4.0,
+                                  child: SizedBox(
+                                    width: 350,
+                                    height: (options.length * 56.0 + 16.0)
+                                        .clamp(0.0, 200.0),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(8.0),
+                                      itemCount: options.length,
+                                      itemBuilder:
+                                          (
+                                            BuildContext context,
+                                            int index,
+                                          ) {
+                                            final String option = options
+                                                .elementAt(index);
+                                            return GestureDetector(
+                                              onTap: () {
+                                                onSelected(option);
+                                              },
+                                              child: ListTile(
+                                                title: Text(option),
+                                              ),
+                                            );
+                                          },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: forwardedToController,
+                        decoration: InputDecoration(
+                          labelText: "Personnel",
+                          prefixIcon: const Icon(Icons.assignment_ind),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      RawAutocomplete<String>(
+                        textEditingController: updatedByController,
+                        focusNode: FocusNode(),
+                        optionsBuilder:
+                            (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text == '') {
+                                return const Iterable<String>.empty();
+                              }
+                              return cpdcoStaff.where((String option) {
+                                return option.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase(),
+                                );
+                              });
+                            },
+                        onSelected: (String selection) {
+                          setState(
+                            () => updatedByController.text = selection,
+                          );
+                        },
+                        fieldViewBuilder:
+                            (
+                              BuildContext context,
+                              TextEditingController textEditingController,
+                              FocusNode focusNode,
+                              VoidCallback onFieldSubmitted,
+                            ) {
+                              return TextField(
+                                controller: textEditingController,
+                                focusNode: focusNode,
+                                decoration: InputDecoration(
+                                  labelText: "Updated By",
+                                  prefixIcon: const Icon(Icons.person),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              );
+                            },
+                        optionsViewBuilder:
+                            (
+                              BuildContext context,
+                              AutocompleteOnSelected<String> onSelected,
+                              Iterable<String> options,
+                            ) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4.0,
+                                  child: SizedBox(
+                                    width: 350,
+                                    height: (options.length * 56.0 + 16.0)
+                                        .clamp(0.0, 200.0),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(8.0),
+                                      itemCount: options.length,
+                                      itemBuilder:
+                                          (
+                                            BuildContext context,
+                                            int index,
+                                          ) {
+                                            final String option = options
+                                                .elementAt(index);
+                                            return GestureDetector(
+                                              onTap: () {
+                                                onSelected(option);
+                                              },
+                                              child: ListTile(
+                                                title: Text(option),
+                                              ),
+                                            );
+                                          },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: notesController,
+                        decoration: InputDecoration(
+                          labelText: "Notes (Optional)",
+                          prefixIcon: const Icon(Icons.note),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.update),
+                            label: const Text(
+                              "Update",
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () {
+                              if (selectedStatus != null &&
+                                  updatedByController.text.isNotEmpty &&
+                                  forwardedToController.text.isNotEmpty) {
+                                String combinedNotes =
+                                    "${officeController.text} - ${forwardedToController.text}";
+                                if (notesController.text.isNotEmpty) {
+                                  combinedNotes += " | ${notesController.text}";
+                                }
+                                // Always record the status change
+                                widget.updateDocumentStatus(
                                   index,
-                                  forwardedToController.text,
+                                  selectedStatus!,
                                   updatedByController.text,
                                   notes: combinedNotes,
                                 );
+                                // Only record a transfer if the personnel actually changed
+                                if (forwardedToController.text !=
+                                    widget.documents[index].assignedTo) {
+                                  widget.transferDocument(
+                                    index,
+                                    forwardedToController.text,
+                                    updatedByController.text,
+                                    notes: combinedNotes,
+                                  );
+                                }
+                                Navigator.of(
+                                  context,
+                                ).popUntil((route) => route.isFirst);
                               }
-                              Navigator.of(
-                                context,
-                              ).popUntil((route) => route.isFirst);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
