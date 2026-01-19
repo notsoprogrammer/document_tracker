@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'services/auto_sync_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/enhanced_sync_service.dart';
 import 'app.dart';
 
 void main() async {
@@ -18,6 +19,9 @@ void main() async {
 
   // Initialize auto-sync service
   await AutoSyncService.initialize();
+
+  // Initialize enhanced sync service for UI status updates
+  await EnhancedSyncService().initialize();
 
   runApp(const DocTrackerApp());
 }
