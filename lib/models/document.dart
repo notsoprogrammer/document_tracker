@@ -187,7 +187,7 @@ class Document {
     } else {
       // For outgoing documents, add initial creation entry
       history.add(HistoryEntry(
-        action: 'Document Created and forwarded to ${json['from_or_to']} c/o ${json['addressed_to']}',
+        action: 'Created and forwarded to ${json['from_or_to']} c/o ${json['addressed_to']}',
         person: json['person'],
         timestamp: DateTime.parse(json['created_at']),
       ));

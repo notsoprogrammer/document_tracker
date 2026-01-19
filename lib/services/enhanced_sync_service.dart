@@ -56,6 +56,7 @@ class EnhancedSyncService {
   final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
   SyncStatus _currentStatus = SyncStatus.idle;
   bool _isInitialized = false;
+  bool _isDisposed = false;
 
   /// Stream of sync status changes
   Stream<SyncStatus> get syncStatusStream => _syncStatusController.stream;
@@ -65,7 +66,7 @@ class EnhancedSyncService {
 
   /// Initialize the enhanced sync service
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized || _isDisposed) return;
 
     try {
       // Initialize connectivity service
@@ -83,19 +84,27 @@ class EnhancedSyncService {
 
   /// Update sync status and notify listeners
   void _updateSyncStatus(SyncStatus status) {
+    if (_isDisposed) return;
+
     _currentStatus = status;
-    _syncStatusController.add(status);
-    debugPrint('Sync status updated: ${status.message}');
+    if (!_syncStatusController.isClosed) {
+      _syncStatusController.add(status);
+      debugPrint('Sync status updated: ${status.message}');
+    }
   }
 
   /// Callback for when internet connection is restored
   void _onReconnection() {
+    if (_isDisposed) return;
+
     debugPrint('Internet reconnected! Starting auto-sync...');
     performSync();
   }
 
   /// Perform sync operation with status updates
   Future<void> performSync() async {
+    if (_isDisposed) return;
+
     try {
       final cachedService = CachedDocumentService();
 
@@ -127,9 +136,13 @@ class EnhancedSyncService {
           color: Color(0xFF4CAF50),
         ));
         // Auto-hide after 3 seconds
-        Future.delayed(const Duration(seconds: 3), () {
-          _updateSyncStatus(SyncStatus.idle);
-        });
+        if (!_isDisposed) {
+          Future.delayed(const Duration(seconds: 3), () {
+            if (!_isDisposed) {
+              _updateSyncStatus(SyncStatus.idle);
+            }
+          });
+        }
         return;
       }
 
@@ -161,9 +174,13 @@ class EnhancedSyncService {
       ));
 
       // Auto-hide after 3 seconds
-      Future.delayed(const Duration(seconds: 3), () {
-        _updateSyncStatus(SyncStatus.idle);
-      });
+      if (!_isDisposed) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (!_isDisposed) {
+            _updateSyncStatus(SyncStatus.idle);
+          }
+        });
+      }
 
     } catch (e) {
       debugPrint('Error in sync: $e');
@@ -174,14 +191,20 @@ class EnhancedSyncService {
       ));
 
       // Auto-hide error after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
-        _updateSyncStatus(SyncStatus.idle);
-      });
+      if (!_isDisposed) {
+        Future.delayed(const Duration(seconds: 5), () {
+          if (!_isDisposed) {
+            _updateSyncStatus(SyncStatus.idle);
+          }
+        });
+      }
     }
   }
 
   /// Process pending file uploads with status updates
   Future<void> _processPendingUploads() async {
+    if (_isDisposed) return;
+
     try {
       final queueManager = UploadQueueManager();
       final pendingUploads = queueManager.getAllItems().where((item) => item['status'] == 'pending').toList();
@@ -210,6 +233,8 @@ class EnhancedSyncService {
 
   /// Sync unsynced documents to Supabase
   Future<void> _syncToSupabase(List<Document> unsyncedDocuments) async {
+    if (_isDisposed) return;
+
     try {
       debugPrint('Syncing ${unsyncedDocuments.length} documents to Supabase...');
 
@@ -217,6 +242,8 @@ class EnhancedSyncService {
       int successCount = 0;
 
       for (int i = 0; i < unsyncedDocuments.length; i++) {
+        if (_isDisposed) break;
+
         final doc = unsyncedDocuments[i];
 
         // Update progress
@@ -245,12 +272,16 @@ class EnhancedSyncService {
 
   /// Sync unsynced documents to Google Drive
   Future<void> _syncToGoogleDrive(List<Document> unsyncedDocuments) async {
+    if (_isDisposed) return;
+
     try {
       debugPrint('Syncing ${unsyncedDocuments.length} documents to Google Drive...');
 
       int successCount = 0;
 
       for (final doc in unsyncedDocuments) {
+        if (_isDisposed) break;
+
         try {
           // Upload file if present
           if (doc.filePath != null) {
@@ -274,18 +305,26 @@ class EnhancedSyncService {
 
   /// Manually trigger sync
   Future<void> triggerSync() async {
+    if (_isDisposed) return;
+
     debugPrint('Manual sync triggered');
     await performSync();
   }
 
   /// Dispose the service
   void dispose() {
+    _isDisposed = true;
     ConnectivityService().unregisterReconnectionCallback(_onReconnection);
-    _syncStatusController.close();
+    if (!_syncStatusController.isClosed) {
+      _syncStatusController.close();
+    }
     _isInitialized = false;
     debugPrint('EnhancedSyncService disposed');
   }
 
   /// Check if service is initialized
   bool get isInitialized => _isInitialized;
+
+  /// Check if service is disposed
+  bool get isDisposed => _isDisposed;
 }
