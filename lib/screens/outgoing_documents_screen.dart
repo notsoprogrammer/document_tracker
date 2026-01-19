@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
+import '../widgets/connectivity_banner.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -32,8 +32,6 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   late List<Document> _filteredDocuments;
   bool _isLoading = true;
-  late final Connectivity _connectivity = Connectivity();
-  bool _isOnline = true;
   final List<String> cpdcoStaff = [
     'Sir Arnie',
     'Rex',
@@ -117,12 +115,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
         });
       }
     });
-    _checkConnectivity();
-    _connectivity.onConnectivityChanged.listen((result) {
-      setState(() {
-        _isOnline = result != ConnectivityResult.none;
-      });
-    });
   }
 
   @override
@@ -136,13 +128,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
         _updateFilteredDocuments();
       });
     }
-  }
-
-  Future<void> _checkConnectivity() async {
-    final result = await _connectivity.checkConnectivity();
-    setState(() {
-      _isOnline = result != ConnectivityResult.none;
-    });
   }
 
   void _updateFilteredDocuments() {
@@ -942,8 +927,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return ConnectivityBanner(
+      child: Scaffold(
+        appBar: AppBar(
         title: const Text("Outgoing Documents"),
         backgroundColor: const Color(0xFF2196F3), // Blue complementing orange
         foregroundColor: Colors.white,
@@ -1056,11 +1042,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       });
                     },
                     leading: CircleAvatar(
-                      backgroundColor: !_isOnline
-                          ? Colors.red
-                          : const Color(0xFF2196F3),
-                      child: Icon(
-                        !_isOnline ? Icons.sync : Icons.arrow_upward,
+                      backgroundColor: const Color(0xFF2196F3),
+                      child: const Icon(
+                        Icons.arrow_upward,
                         color: Colors.white,
                         size: 20,
                       ),
@@ -1432,6 +1416,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 );
               },
             ),
+      ),
     );
   }
 }
