@@ -1189,9 +1189,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   final originalIndex = mapEntry.key;
                                   final entry = mapEntry.value;
                                   String office = doc.fromOrTo;
-                                  String personnel = originalIndex == 0
-                                      ? 'Original Assignee'
-                                      : doc.assignedTo;
+                                  String personnel = doc.assignedTo;
                                   String? additionalNotes;
 
                                   // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).

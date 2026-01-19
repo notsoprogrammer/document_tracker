@@ -73,7 +73,23 @@ class Document {
     List<String>? localImagePaths,
     List<String>? localFilePaths,
     this.needsSync = false,
-  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [];
+  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
+    if (this.history.isEmpty) {
+      if (incoming) {
+        this.history.add(HistoryEntry(
+          action: 'Document Received',
+          person: person,
+          timestamp: DateTime.now(),
+        ));
+      } else {
+        this.history.add(HistoryEntry(
+          action: 'Created and forwarded to $fromOrTo c/o $assignedTo',
+          person: person,
+          timestamp: DateTime.now(),
+        ));
+      }
+    }
+  }
 
   void addHistoryEntry(String action, String person, {String? notes, String? personnel}) {
     // Skip adding history entries for flag ceremony documents
