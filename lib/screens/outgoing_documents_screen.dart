@@ -13,6 +13,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
   // final Function(int, Document) editDocument;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
+  final VoidCallback? onRefresh;
 
   const OutgoingDocumentsScreen({
     super.key,
@@ -22,6 +23,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
     // required this.editDocument,
     required this.deleteDocument,
     required this.syncDocument,
+    this.onRefresh,
   });
 
   @override
@@ -1049,10 +1051,24 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                         size: 20,
                       ),
                     ),
-                    title: Text(
-                      "${doc.type} - ${doc.title}",
-                      style: const TextStyle(fontWeight: FontWeight.w400),
-                    ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "${doc.type} - ${doc.title}",
+                                style: const TextStyle(fontWeight: FontWeight.w400),
+                              ),
+                            ),
+                            if (doc.needsSync) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.sync,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                            ],
+                          ],
+                        ),
                     subtitle: Row(
                       children: [
                         Icon(

@@ -12,6 +12,7 @@ class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final Function(int, String, String, {String? notes}) updateDocumentStatus;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
+  final VoidCallback? onRefresh;
 
   const FlagCeremonyDocumentsScreen({
     super.key,
@@ -20,6 +21,7 @@ class FlagCeremonyDocumentsScreen extends StatefulWidget {
     required this.updateDocumentStatus,
     required this.deleteDocument,
     required this.syncDocument,
+    this.onRefresh,
   });
 
   @override

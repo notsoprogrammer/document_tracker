@@ -334,119 +334,125 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-            ],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Image.asset(
-                'assets/image/officeLogo.png',
-                height: 80,
-                width: 80,
-              ),
-              const SizedBox(height: 16),
-            Text(
-              "City Planning and Development Coordinator's Office\nFile Tracking System",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
-              ),
+      body: RefreshIndicator(
+        onRefresh: _loadDocuments,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              ],
             ),
-              const SizedBox(height: 40),
-              Column(
+          ),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
+                  const SizedBox(height: 20),
+                  Image.asset(
+                    'assets/image/officeLogo.png',
+                    height: 80,
+                    width: 80,
+                  ),
+                  const SizedBox(height: 16),
+                Text(
+                  "City Planning and Development Coordinator's Office\nFile Tracking System",
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
+                  ),
+                ),
+                  const SizedBox(height: 40),
+                  Column(
                     children: [
-                      Expanded(
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Incoming Documents",
-                          const Color(0xFFFFB74D), // Pastel orange
-                          () {
-                            Navigator.push(
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildFolderButton(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => IncomingDocumentsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                              Icons.folder,
+                              "Incoming Documents",
+                              const Color(0xFFFFB74D), // Pastel orange
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => IncomingDocumentsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildFolderButton(
+                              context,
+                              Icons.folder,
+                              "Outgoing Documents",
+                              const Color(0xFF2196F3), // Blue complementing orange
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OutgoingDocumentsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Outgoing Documents",
-                          const Color(0xFF2196F3), // Blue complementing orange
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => OutgoingDocumentsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.43,
+                          child: _buildFolderButton(
+                            context,
+                            Icons.folder,
+                            "Flag Ceremony",
+                            const Color(0xFF4EC377), // Soft green
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FlagCeremonyDocumentsScreen(
+                                    documents: documents,
+                                    transferDocument: _transferDocument,
+                                    updateDocumentStatus: _updateDocumentStatus,
+                                    deleteDocument: _deleteDocument,
+                                    syncDocument: _syncDocument,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.43,
-                      child: _buildFolderButton(
-                        context,
-                        Icons.folder,
-                        "Flag Ceremony",
-                        const Color(0xFF4EC377), // Soft green
-                        () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FlagCeremonyDocumentsScreen(
-                                documents: documents,
-                                transferDocument: _transferDocument,
-                                updateDocumentStatus: _updateDocumentStatus,
-                                deleteDocument: _deleteDocument,
-                                syncDocument: _syncDocument,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

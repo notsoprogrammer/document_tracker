@@ -193,22 +193,8 @@ class Document {
       }
     }
 
-    if (json['incoming'] == true) {
-      // For incoming documents, create a simple history entry
-      history.add(HistoryEntry(
-        action: 'Document Received',
-        person: json['person'],
-        timestamp: DateTime.parse(json['created_at']),
-      ));
-    } else {
-      // For outgoing documents, add initial creation entry
-      history.add(HistoryEntry(
-        action: 'Created and forwarded to ${json['from_or_to']} c/o ${json['addressed_to']}',
-        person: json['person'],
-        timestamp: DateTime.parse(json['created_at']),
-      ));
-
-      // For outgoing documents, parse the history from the TEXT field
+    // For outgoing documents, parse the history from the TEXT field
+    if (json['incoming'] != true) {
       final historyRaw = json['history'];
       String? historyText;
       if (historyRaw is String) {

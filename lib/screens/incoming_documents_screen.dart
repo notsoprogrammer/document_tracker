@@ -14,6 +14,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
   // final Function(int, Document) editDocument;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
+  final VoidCallback? onRefresh;
 
   const IncomingDocumentsScreen({
     super.key,
@@ -23,6 +24,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
     // required this.editDocument,
     required this.deleteDocument,
     required this.syncDocument,
+    this.onRefresh,
   });
 
   @override
@@ -1163,9 +1165,23 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
                             size: 20,
                           ),
                         ),
-                        title: Text(
-                          "${doc.type} - ${doc.title}",
-                          style: const TextStyle(fontWeight: FontWeight.w400),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "${doc.type} - ${doc.title}",
+                                style: const TextStyle(fontWeight: FontWeight.w400),
+                              ),
+                            ),
+                            if (doc.needsSync) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.sync,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
