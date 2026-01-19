@@ -41,6 +41,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  late UploadQueueManager _uploadQueueManager;
 
   @override
   void initState() {
@@ -53,6 +54,8 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       });
     });
     _filteredDocuments = widget.documents.where((doc) => doc.incoming).toList();
+    _uploadQueueManager = UploadQueueManager();
+    _uploadQueueManager.addListener(_onUploadChanged);
     // Start loading immediately
     _isLoading = true;
     // Simulate loading for better UX - keep it longer to show the indicator
@@ -63,6 +66,16 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         });
       }
     });
+  }
+
+  void _onUploadChanged() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _uploadQueueManager.removeListener(_onUploadChanged);
+    super.dispose();
   }
 
   @override
@@ -109,16 +122,36 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     final pendingUploads = queueManager.getPendingUploads(doc.code);
     final allUploads = queueManager.getAllItems().where((item) => item['documentCode'] == doc.code).toList();
     final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
-    
+
     final totalFiles = doc.localImagePaths.length + doc.localFilePaths.length;
     final uploadedFiles = doc.imageUrls.length + doc.fileUrls.length;
     final hasUploads = pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty;
 
-    if (!hasUploads && totalFiles == 0) {
-      return const SizedBox.shrink();
-    }
-
-    if (hasUploads) {
+    if (doc.needsSync) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 16, color: Colors.grey[700]),
+            const SizedBox(width: 8),
+            Text(
+              'For Uploading',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (hasUploads) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(

@@ -70,8 +70,7 @@ When users delete records in incoming/outgoing documents, the interface doesn't 
 - `lib/screens/flag_ceremony_documents_screen.dart`
 
 ### Status
-✅ Changes implemented
-⏳ Testing pending
+✅ Changes implemented and tested
 
 ## Fix: Correct First History Entry for Incoming Documents
 
@@ -91,8 +90,7 @@ The initial history entry was only added in the Document.fromJson method when fe
 - `lib/models/document.dart`
 
 ### Status
-✅ Changes implemented
-⏳ Testing pending
+✅ Changes implemented and tested
 
 ## UI Improvements: Upload Indicators and Offline Visual Markers
 

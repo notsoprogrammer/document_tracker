@@ -1101,7 +1101,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     vertical: 8,
                   ),
                   elevation: 2,
-                  color: doc.needsSync ? Colors.yellow[100] : null,
+                  color: doc.needsSync ? Colors.grey[100] : null,
                   child: ExpansionTile(
                     onExpansionChanged: (expanded) {
                       setState(() {
@@ -1138,36 +1138,29 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             ],
                           ],
                         ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    subtitle: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.output,
-                              size: 16,
-                              color: const Color(0xFF2196F3),
-                            ),
-                            const SizedBox(width: 4),
-                            Text("${doc.code}  "),
-                            if (_expandedTiles.contains(index))
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 16),
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: doc.code));
-                                  SnackbarUtils.showInfoSnackBar(
-                                    context,
-                                    'Code copied to clipboard',
-                                  );
-                                },
-                                tooltip: 'Copy Code',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                          ],
+                        Icon(
+                          Icons.output,
+                          size: 16,
+                          color: const Color(0xFF2196F3),
                         ),
-                        const SizedBox(height: 4),
-                        _buildUploadStatusIndicator(doc),
+                        const SizedBox(width: 4),
+                        Text("${doc.code}  "),
+                        if (_expandedTiles.contains(index))
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 16),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: doc.code));
+                              SnackbarUtils.showInfoSnackBar(
+                                context,
+                                'Code copied to clipboard',
+                              );
+                            },
+                            tooltip: 'Copy Code',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
                       ],
                     ),
                     children: [

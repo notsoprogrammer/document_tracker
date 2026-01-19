@@ -254,7 +254,7 @@ class _FlagCeremonyDocumentsScreenState
                         vertical: 8,
                       ),
                       elevation: 2,
-                      color: document.needsSync ? Colors.yellow[100] : null,
+                      color: document.needsSync ? Colors.grey[100] : null,
                       child: ExpansionTile(
                         onExpansionChanged: (expanded) {
                           setState(() {
