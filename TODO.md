@@ -73,6 +73,80 @@ When users delete records in incoming/outgoing documents, the interface doesn't 
 ✅ Changes implemented
 ⏳ Testing pending
 
+## Fix: Correct First History Entry for Incoming Documents
+
+### Issue
+The first history entry saved to Supabase for incoming documents was incorrectly using the outgoing format ("Created and forwarded to ${json['from_or_to']} c/o ${json['addressed_to']}") instead of "Document Received".
+
+### Root Cause
+The initial history entry was only added in the Document.fromJson method when fetching from the database, but not when creating new documents. This meant that when saving a new document, no initial history entry was inserted into the history_entries table.
+
+### Changes Made
+- Modified `Document` constructor to add initial history entry based on document type:
+  - For incoming documents: "Document Received"
+  - For outgoing documents: "Created and forwarded to $fromOrTo c/o $assignedTo"
+- This ensures the correct first entry is saved to Supabase when creating new documents
+
+### Files Modified
+- `lib/models/document.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
+
+## UI Improvements: Upload Indicators and Offline Visual Markers
+
+### Issue
+- Upload status indicators were inconsistent across screens
+- No visual distinction for offline-created records
+- No pull-to-refresh functionality in document screens
+- Duplicate "View Image" buttons in outgoing screen
+- Missing "Complete" state for upload indicators in incoming screen
+
+### Changes Made
+
+#### 1. Modified Document Constructor (`lib/models/document.dart`)
+- Added initial history entry logic for new documents
+
+#### 2. Updated Home Screen (`lib/screens/home_screen.dart`)
+- Added RefreshIndicator for pull-to-refresh
+- Added global upload status indicator showing current uploads
+- Modified folder buttons to show document counts and unsynced badges
+- Added onRefresh callbacks to all document screens
+
+#### 3. Updated Incoming Documents Screen (`lib/screens/incoming_documents_screen.dart`)
+- Changed offline record background color to Colors.yellow[100]
+- Added RefreshIndicator wrapper
+- Added "Complete" state to upload status indicator
+
+#### 4. Updated Outgoing Documents Screen (`lib/screens/outgoing_documents_screen.dart`)
+- Changed offline record background color to Colors.yellow[100]
+- Added RefreshIndicator wrapper
+- Changed subtitle to Column layout for better upload indicator placement
+- Removed duplicate "View Image" button
+
+#### 5. Updated Flag Ceremony Documents Screen (`lib/screens/flag_ceremony_documents_screen.dart`)
+- Changed offline record background color to Colors.yellow[100]
+- Added RefreshIndicator wrapper
+
+### Benefits
+- ✅ Consistent upload status indicators across all screens
+- ✅ Visual markers for offline-created records (yellow background)
+- ✅ Pull-to-refresh functionality in all document folders
+- ✅ Improved UI layout for upload indicators
+- ✅ Removed duplicate buttons
+
+### Files Modified
+- `lib/models/document.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/incoming_documents_screen.dart`
+- `lib/screens/outgoing_documents_screen.dart`
+- `lib/screens/flag_ceremony_documents_screen.dart`
+
+### Status
+✅ Changes implemented
+⏳ Testing pending
+
 ## Fix: Automatic UI Refresh After Document Deletion
 
 ### Issue

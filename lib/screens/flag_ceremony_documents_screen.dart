@@ -188,242 +188,250 @@ class _FlagCeremonyDocumentsScreenState
           ),
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-            ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          if (widget.onRefresh != null) {
+            widget.onRefresh!();
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              ],
+            ),
           ),
-        ),
-        child: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
-                      'Loading documents...',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ],
-                ),
-              )
-            : _filteredDocuments.isEmpty
-            ? const Center(
-                child: Text(
-                  'No Flag Ceremony documents found',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 16,
-                ),
-                itemCount: _filteredDocuments.length,
-                itemBuilder: (context, index) {
-                  final document = _filteredDocuments[index];
-                  final originalIndex = widget.documents.indexOf(document);
-                  final queueManager = UploadQueueManager();
-                  final pendingUploads = queueManager.getPendingUploads(
-                    document.code,
-                  );
-                  final uploadingUploads = queueManager
-                      .getAllItems()
-                      .where(
-                        (item) =>
-                            item['documentCode'] == document.code &&
-                            item['status'] == 'uploading',
-                      )
-                      .toList();
+          child: _isLoading
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading documents...',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                )
+              : _filteredDocuments.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No Flag Ceremony documents found',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 16,
+                  ),
+                  itemCount: _filteredDocuments.length,
+                  itemBuilder: (context, index) {
+                    final document = _filteredDocuments[index];
+                    final originalIndex = widget.documents.indexOf(document);
+                    final queueManager = UploadQueueManager();
+                    final pendingUploads = queueManager.getPendingUploads(
+                      document.code,
+                    );
+                    final uploadingUploads = queueManager
+                        .getAllItems()
+                        .where(
+                          (item) =>
+                              item['documentCode'] == document.code &&
+                              item['status'] == 'uploading',
+                        )
+                        .toList();
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    elevation: 2,
-                    child: ExpansionTile(
-                      onExpansionChanged: (expanded) {
-                        setState(() {
-                          if (expanded) {
-                            _expandedTiles.add(index);
-                          } else {
-                            _expandedTiles.remove(index);
-                          }
-                        });
-                      },
-                      leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF4EC377),
-                        child: const Icon(
-                          Icons.flag,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      title: Text(
-                        "${document.type}",
-                        style: const TextStyle(fontWeight: FontWeight.w400),
-                      ),
-                      subtitle: Row(
-                        children: [
-                          Text("${document.code}  "),
-                          if (_expandedTiles.contains(index))
-                            IconButton(
-                              icon: const Icon(Icons.copy, size: 16),
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: document.code),
-                                );
-                                SnackbarUtils.showInfoSnackBar(
-                                  context,
-                                  'Code copied to clipboard',
-                                );
-                              },
-                              tooltip: 'Copy Code',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                        ],
-                      ),
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.3),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(12),
-                              bottomRight: Radius.circular(12),
-                            ),
+                      elevation: 2,
+                      color: document.needsSync ? Colors.yellow[100] : null,
+                      child: ExpansionTile(
+                        onExpansionChanged: (expanded) {
+                          setState(() {
+                            if (expanded) {
+                              _expandedTiles.add(index);
+                            } else {
+                              _expandedTiles.remove(index);
+                            }
+                          });
+                        },
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF4EC377),
+                          child: const Icon(
+                            Icons.flag,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildDetailRow(
-                                Icons.calendar_today,
-                                "Date",
-                                document.fromOrTo,
+                        ),
+                        title: Text(
+                          "${document.type}",
+                          style: const TextStyle(fontWeight: FontWeight.w400),
+                        ),
+                        subtitle: Row(
+                          children: [
+                            Text("${document.code}  "),
+                            if (_expandedTiles.contains(index))
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16),
+                                onPressed: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: document.code),
+                                  );
+                                  SnackbarUtils.showInfoSnackBar(
+                                    context,
+                                    'Code copied to clipboard',
+                                  );
+                                },
+                                tooltip: 'Copy Code',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
                               ),
-                              const SizedBox(height: 8),
-                              _buildDetailRow(
-                                Icons.person,
-                                "Recorded by",
-                                document.person,
+                          ],
+                        ),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
                               ),
-                              const SizedBox(height: 8),
-                              _buildDetailRow(
-                                Icons.info,
-                                "Status",
-                                document.status,
-                              ),
-                              if (document.remarks.isNotEmpty) ...[
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildDetailRow(
+                                  Icons.calendar_today,
+                                  "Date",
+                                  document.fromOrTo,
+                                ),
                                 const SizedBox(height: 8),
                                 _buildDetailRow(
-                                  Icons.comment,
-                                  "Remarks",
-                                  document.remarks,
+                                  Icons.person,
+                                  "Recorded by",
+                                  document.person,
+                                ),
+                                const SizedBox(height: 8),
+                                _buildDetailRow(
+                                  Icons.info,
+                                  "Status",
+                                  document.status,
+                                ),
+                                if (document.remarks.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.comment,
+                                    "Remarks",
+                                    document.remarks,
+                                  ),
+                                ],
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.center,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.delete),
+                                      label: const Text("Delete"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          218,
+                                          87,
+                                          78,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          _confirmDelete(originalIndex),
+                                    ),
+                                    if (document.imageUrls.isNotEmpty ||
+                                        document.localImagePaths.isNotEmpty)
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.image),
+                                        label: const Text("View Image"),
+                                        onPressed: () => _showImageDialog(
+                                          context,
+                                          document.imageUrls.isNotEmpty
+                                              ? document.imageUrls
+                                              : document.localImagePaths,
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    if (document.filePath != null ||
+                                        document.fileUrls.isNotEmpty)
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.attach_file),
+                                        label: Text(
+                                          "View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}",
+                                        ),
+                                        onPressed: () {
+                                          final allFiles = <String>[];
+                                          if (document.filePath != null) {
+                                            allFiles.add(document.filePath!);
+                                          }
+                                          allFiles.addAll(document.fileUrls);
+                                          if (allFiles.length == 1) {
+                                            _viewFile(allFiles[0]);
+                                          } else {
+                                            _showFileDialog(context, document);
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
-                              const SizedBox(height: 16),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.center,
-                                children: [
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.delete),
-                                    label: const Text("Delete"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(
-                                        255,
-                                        218,
-                                        87,
-                                        78,
-                                      ),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () =>
-                                        _confirmDelete(originalIndex),
-                                  ),
-                                  if (document.imageUrls.isNotEmpty ||
-                                      document.localImagePaths.isNotEmpty)
-                                    ElevatedButton.icon(
-                                      icon: const Icon(Icons.image),
-                                      label: const Text("View Image"),
-                                      onPressed: () => _showImageDialog(
-                                        context,
-                                        document.imageUrls.isNotEmpty
-                                            ? document.imageUrls
-                                            : document.localImagePaths,
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  if (document.filePath != null ||
-                                      document.fileUrls.isNotEmpty)
-                                    ElevatedButton.icon(
-                                      icon: const Icon(Icons.attach_file),
-                                      label: Text(
-                                        "View File${document.filePath != null && document.fileUrls.isNotEmpty ? 's' : ''}",
-                                      ),
-                                      onPressed: () {
-                                        final allFiles = <String>[];
-                                        if (document.filePath != null) {
-                                          allFiles.add(document.filePath!);
-                                        }
-                                        allFiles.addAll(document.fileUrls);
-                                        if (allFiles.length == 1) {
-                                          _viewFile(allFiles[0]);
-                                        } else {
-                                          _showFileDialog(context, document);
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-      
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+          ),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
+import '../services/upload_queue_manager.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -156,6 +157,73 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     } else {
       return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
     }
+  }
+
+  Widget _buildUploadStatusIndicator(Document doc) {
+    final queueManager = UploadQueueManager();
+    final pendingUploads = queueManager.getPendingUploads(doc.code);
+    final allUploads = queueManager.getAllItems().where((item) => item['documentCode'] == doc.code).toList();
+    final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
+
+    final totalFiles = doc.localImagePaths.length + doc.localFilePaths.length;
+    final uploadedFiles = doc.imageUrls.length + doc.fileUrls.length;
+    final hasUploads = pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty;
+
+    if (!hasUploads && totalFiles == 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (hasUploads) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Uploading ${uploadedFiles}/${totalFiles} files...',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (totalFiles > 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Text(
+          'Upload Complete',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.green[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -1033,6 +1101,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     vertical: 8,
                   ),
                   elevation: 2,
+                  color: doc.needsSync ? Colors.yellow[100] : null,
                   child: ExpansionTile(
                     onExpansionChanged: (expanded) {
                       setState(() {
@@ -1069,29 +1138,36 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                             ],
                           ],
                         ),
-                    subtitle: Row(
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.output,
-                          size: 16,
-                          color: const Color(0xFF2196F3),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.output,
+                              size: 16,
+                              color: const Color(0xFF2196F3),
+                            ),
+                            const SizedBox(width: 4),
+                            Text("${doc.code}  "),
+                            if (_expandedTiles.contains(index))
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16),
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: doc.code));
+                                  SnackbarUtils.showInfoSnackBar(
+                                    context,
+                                    'Code copied to clipboard',
+                                  );
+                                },
+                                tooltip: 'Copy Code',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text("${doc.code}  "),
-                        if (_expandedTiles.contains(index))
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 16),
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: doc.code));
-                              SnackbarUtils.showInfoSnackBar(
-                                context,
-                                'Code copied to clipboard',
-                              );
-                            },
-                            tooltip: 'Copy Code',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
+                        const SizedBox(height: 4),
+                        _buildUploadStatusIndicator(doc),
                       ],
                     ),
                     children: [
@@ -1368,24 +1444,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     onPressed: () => _showImageDialog(context, doc.imageUrls),
                                     style: ElevatedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
-                                if (doc.imageUrls.isNotEmpty)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.image),
-                                    label: const Text("View Image"),
-                                    onPressed: () => _showImageDialog(
-                                      context,
-                                      doc.imageUrls,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),

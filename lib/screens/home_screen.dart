@@ -390,6 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       updateDocumentStatus: _updateDocumentStatus,
                                       deleteDocument: _deleteDocument,
                                       syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
                                     ),
                                   ),
                                 );
@@ -413,6 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       updateDocumentStatus: _updateDocumentStatus,
                                       deleteDocument: _deleteDocument,
                                       syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
                                     ),
                                   ),
                                 );
@@ -441,6 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     updateDocumentStatus: _updateDocumentStatus,
                                     deleteDocument: _deleteDocument,
                                     syncDocument: _syncDocument,
+                                    onRefresh: _loadDocuments,
                                   ),
                                 ),
                               );

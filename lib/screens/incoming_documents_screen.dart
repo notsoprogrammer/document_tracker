@@ -149,6 +149,23 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ],
         ),
       );
+    } else if (totalFiles > 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Text(
+          'Upload Complete',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.green[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
     }
 
     return const SizedBox.shrink();
@@ -1086,407 +1103,415 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading documents...', style: TextStyle(fontSize: 16)),
-                ],
-              ),
-            )
-          : _filteredDocuments.isEmpty
-          ? Column(
-            children: [
-              _buildGlobalUploadStatusIndicator(),
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.document_scanner,
-                        size: 80,
-                        color: const Color(0xFFFFB74D).withOpacity(0.5),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No incoming documents yet",
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Incoming documents will appear here",
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          if (widget.onRefresh != null) {
+            widget.onRefresh!();
+          }
+        },
+        child: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading documents...', style: TextStyle(fontSize: 16)),
+                  ],
                 ),
-              ),
-            ],
-          )
-          : Column(
-            children: [
-              _buildGlobalUploadStatusIndicator(),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: _filteredDocuments.length,
-                  itemBuilder: (context, index) {
-                    final doc = _filteredDocuments[index];
-                    final originalIndex = widget.documents.indexOf(doc);
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      elevation: 2,
-                      child: ExpansionTile(
-                        onExpansionChanged: (expanded) {
-                          setState(() {
-                            if (expanded) {
-                              _expandedTiles.add(index);
-                            } else {
-                              _expandedTiles.remove(index);
-                            }
-                          });
-                        },
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFFFB74D),
-                          child: const Icon(
-                            Icons.arrow_downward,
-                            color: Colors.white,
-                            size: 20,
+              )
+            : _filteredDocuments.isEmpty
+            ? Column(
+              children: [
+                _buildGlobalUploadStatusIndicator(),
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.document_scanner,
+                          size: 80,
+                          color: const Color(0xFFFFB74D).withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No incoming documents yet",
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Incoming documents will appear here",
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.6),
                           ),
                         ),
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                "${doc.type} - ${doc.title}",
-                                style: const TextStyle(fontWeight: FontWeight.w400),
-                              ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+            : Column(
+              children: [
+                _buildGlobalUploadStatusIndicator(),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: _filteredDocuments.length,
+                    itemBuilder: (context, index) {
+                      final doc = _filteredDocuments[index];
+                      final originalIndex = widget.documents.indexOf(doc);
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  elevation: 2,
+                  color: doc.needsSync ? Colors.yellow[100] : null,
+                  child: ExpansionTile(
+                          onExpansionChanged: (expanded) {
+                            setState(() {
+                              if (expanded) {
+                                _expandedTiles.add(index);
+                              } else {
+                                _expandedTiles.remove(index);
+                              }
+                            });
+                          },
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFFFFB74D),
+                            child: const Icon(
+                              Icons.arrow_downward,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                            if (doc.needsSync) ...[
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.sync,
-                                size: 16,
-                                color: Colors.orange,
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "${doc.type} - ${doc.title}",
+                                  style: const TextStyle(fontWeight: FontWeight.w400),
+                                ),
                               ),
-                            ],
-                          ],
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
+                              if (doc.needsSync) ...[
+                                const SizedBox(width: 8),
                                 Icon(
-                                  Icons.input,
+                                  Icons.sync,
                                   size: 16,
-                                  color: const Color(0xFFFFB74D),
+                                  color: Colors.orange,
                                 ),
-                                const SizedBox(width: 4),
-                                Text("${doc.code}  "),
-                                if (_expandedTiles.contains(index))
-                                  IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    onPressed: () {
-                                      Clipboard.setData(ClipboardData(text: doc.code));
-                                      SnackbarUtils.showInfoSnackBar(
-                                        context,
-                                        'Code copied to clipboard',
-                                      );
-                                    },
-                                    tooltip: 'Copy Code',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
                               ],
-                            ),
-                            const SizedBox(height: 4),
-                            _buildUploadStatusIndicator(doc),
-                          ],
-                        ),
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceVariant.withOpacity(0.3),
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildDetailRow(Icons.person, "From", doc.fromOrTo),
-                                const SizedBox(height: 8),
-                                _buildDetailRow(Icons.send, "Mode", doc.mode),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildDetailRow(
-                                        Icons.assignment_ind,
-                                        "Assigned To",
-                                        doc.assignedTo,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.swap_horiz),
-                                      onPressed: () => _showTransferDialog(
-                                        context,
-                                        originalIndex,
-                                      ),
-                                      tooltip: "Transfer Document",
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildDetailRow(
-                                        Icons.info,
-                                        "Status",
-                                        doc.status,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _showStatusUpdateDialog(
-                                        context,
-                                        originalIndex,
-                                      ),
-                                      tooltip: "Update Status",
-                                    ),
-                                  ],
-                                ),
-                                if (doc.imageUrls.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                ],
-
-                                const SizedBox(height: 8),
-                                _buildDetailRow(
-                                  Icons.comment,
-                                  "Remarks",
-                                  doc.remarks,
-                                ),
-                                const SizedBox(height: 8),
-                                _buildDetailRow(
-                                  Icons.receipt,
-                                  "Received by",
-                                  doc.person,
-                                ),
-                                const SizedBox(height: 16),
-                                ExpansionTile(
-                                  leading: const Icon(Icons.history),
-                                  title: Text(
-                                    "Document History (" +
-                                        (doc.history.isEmpty
-                                            ? '0'
-                                            : doc.history
-                                                  .asMap()
-                                                  .entries
-                                                  .where(
-                                                    (me) =>
-                                                        me.key == 0 ||
-                                                        me.value.action.startsWith(
-                                                          'Status changed to ',
-                                                        ) ||
-                                                        me.value.action.startsWith(
-                                                          'Transferred to ',
-                                                        ),
-                                                  )
-                                                  .length
-                                                  .toString()) +
-                                        ")",
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.input,
+                                    size: 16,
+                                    color: const Color(0xFFFFB74D),
                                   ),
-                                  children: (() {
-                                    final entries = doc.history;
-                                    if (entries.isEmpty) {
-                                      return [
-                                        const Padding(
-                                          padding: EdgeInsets.all(16),
-                                          child: Text("No history available"),
+                                  const SizedBox(width: 4),
+                                  Text("${doc.code}  "),
+                                  if (_expandedTiles.contains(index))
+                                    IconButton(
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      onPressed: () {
+                                        Clipboard.setData(ClipboardData(text: doc.code));
+                                        SnackbarUtils.showInfoSnackBar(
+                                          context,
+                                          'Code copied to clipboard',
+                                        );
+                                      },
+                                      tooltip: 'Copy Code',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              _buildUploadStatusIndicator(doc),
+                            ],
+                          ),
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDetailRow(Icons.person, "From", doc.fromOrTo),
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildDetailRow(
+                                          Icons.assignment_ind,
+                                          "Assigned To",
+                                          doc.assignedTo,
                                         ),
-                                      ];
-                                    }
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.swap_horiz),
+                                        onPressed: () => _showTransferDialog(
+                                          context,
+                                          originalIndex,
+                                        ),
+                                        tooltip: "Transfer Document",
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildDetailRow(
+                                          Icons.info,
+                                          "Status",
+                                          doc.status,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => _showStatusUpdateDialog(
+                                          context,
+                                          originalIndex,
+                                        ),
+                                        tooltip: "Update Status",
+                                      ),
+                                    ],
+                                  ),
+                                  if (doc.imageUrls.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                  ],
 
-                                    final visible = entries
-                                        .asMap()
-                                        .entries
-                                        .where(
-                                          (me) =>
-                                              me.key == 0 ||
-                                              me.value.action.startsWith(
-                                                'Status changed to ',
-                                              ) ||
-                                              me.value.action.startsWith(
-                                                'Transferred to ',
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.comment,
+                                    "Remarks",
+                                    doc.remarks,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.receipt,
+                                    "Received by",
+                                    doc.person,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ExpansionTile(
+                                    leading: const Icon(Icons.history),
+                                    title: Text(
+                                      "Document History (" +
+                                          (doc.history.isEmpty
+                                              ? '0'
+                                              : doc.history
+                                                    .asMap()
+                                                    .entries
+                                                    .where(
+                                                      (me) =>
+                                                          me.key == 0 ||
+                                                          me.value.action.startsWith(
+                                                            'Status changed to ',
+                                                          ) ||
+                                                          me.value.action.startsWith(
+                                                            'Transferred to ',
+                                                          ),
+                                                    )
+                                                    .length
+                                                    .toString()) +
+                                          ")",
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    children: (() {
+                                      final entries = doc.history;
+                                      if (entries.isEmpty) {
+                                        return [
+                                          const Padding(
+                                            padding: EdgeInsets.all(16),
+                                            child: Text("No history available"),
+                                          ),
+                                        ];
+                                      }
+
+                                      final visible = entries
+                                          .asMap()
+                                          .entries
+                                          .where(
+                                            (me) =>
+                                                me.key == 0 ||
+                                                me.value.action.startsWith(
+                                                  'Status changed to ',
+                                                ) ||
+                                                me.value.action.startsWith(
+                                                  'Transferred to ',
+                                                ),
+                                          )
+                                          .toList();
+
+                                      return visible.map((mapEntry) {
+                                        final entry = mapEntry.value;
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(
+                                                Icons.circle,
+                                                size: 12,
+                                                color: const Color(0xFFFFB74D),
                                               ),
-                                        )
-                                        .toList();
-
-                                    return visible.map((mapEntry) {
-                                      final entry = mapEntry.value;
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              Icons.circle,
-                                              size: 12,
-                                              color: const Color(0xFFFFB74D),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    entry.action,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurface
-                                                          .withOpacity(0.6),
-                                                    ),
-                                                  ),
-                                                  if (entry.notes != null &&
-                                                      entry.notes!.isNotEmpty) ...[
-                                                    const SizedBox(height: 4),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
                                                     Text(
-                                                      "Notes: ${entry.notes}",
+                                                      entry.action,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
                                                       style: TextStyle(
                                                         fontSize: 12,
-                                                        fontStyle: FontStyle.italic,
                                                         color: Theme.of(context)
                                                             .colorScheme
                                                             .onSurface
-                                                            .withOpacity(0.7),
+                                                            .withOpacity(0.6),
                                                       ),
                                                     ),
+                                                    if (entry.notes != null &&
+                                                        entry.notes!.isNotEmpty) ...[
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        "Notes: ${entry.notes}",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontStyle: FontStyle.italic,
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurface
+                                                              .withOpacity(0.7),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ],
-                                                ],
+                                                ),
                                               ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList();
+                                    })(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.delete),
+                                        label: const Text("Delete"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            218,
+                                            87,
+                                            78,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        onPressed: () => _confirmDelete(
+                                          originalIndex,
+                                        ),
+                                      ),
+                                      if (doc.imageUrls.isNotEmpty)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.image),
+                                          label: const Text("View Image"),
+                                          onPressed: () => _showImageDialog(
+                                            context,
+                                            doc.imageUrls,
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
                                             ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList();
-                                  })(),
-                                ),
-                                const SizedBox(height: 16),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  alignment: WrapAlignment.center,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      icon: const Icon(Icons.delete),
-                                      label: const Text("Delete"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                          255,
-                                          218,
-                                          87,
-                                          78,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      onPressed: () => _confirmDelete(
-                                        originalIndex,
-                                      ),
-                                    ),
-                                    if (doc.imageUrls.isNotEmpty)
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.image),
-                                        label: const Text("View Image"),
-                                        onPressed: () => _showImageDialog(
-                                          context,
-                                          doc.imageUrls,
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    if (doc.filePath != null ||
-                                        doc.fileUrls.isNotEmpty)
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.attach_file),
-                                        label: Text(
-                                          "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
-                                        ),
-                                        onPressed: () {
-                                          final allFiles = <String>[];
-                                          if (doc.filePath != null) {
-                                            allFiles.add(doc.filePath!);
-                                          }
-                                          allFiles.addAll(doc.fileUrls);
-                                          if (allFiles.length == 1) {
-                                            _viewFile(allFiles[0]);
-                                          } else {
-                                            _showFileDialog(context, doc);
-                                          }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                                      if (doc.filePath != null ||
+                                          doc.fileUrls.isNotEmpty)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.attach_file),
+                                          label: Text(
+                                            "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
                                           ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                          onPressed: () {
+                                            final allFiles = <String>[];
+                                            if (doc.filePath != null) {
+                                              allFiles.add(doc.filePath!);
+                                            }
+                                            allFiles.addAll(doc.fileUrls);
+                                            if (allFiles.length == 1) {
+                                              _viewFile(allFiles[0]);
+                                            } else {
+                                              _showFileDialog(context, doc);
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        
                       ),
                     );
                   },
@@ -1494,6 +1519,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
               ),
             ],
           ),
+      ),
       ),
     );
   }
