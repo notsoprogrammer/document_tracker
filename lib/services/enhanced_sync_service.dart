@@ -122,10 +122,7 @@ class EnhancedSyncService {
         color: Color(0xFF2196F3),
       ));
 
-      // Process any pending file uploads first
-      await _processPendingUploads();
-
-      // Refetch documents after upload processing to get updated URLs
+      // Get all unsynced documents
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
 
@@ -157,11 +154,11 @@ class EnhancedSyncService {
         total: unsyncedDocuments.length,
       ));
 
-      // Sync to Supabase
+      // Sync to Supabase first
       await _syncToSupabase(unsyncedDocuments);
 
-      // Sync to Google Drive if needed
-      await _syncToGoogleDrive(unsyncedDocuments);
+      // Then process any pending file uploads (now that documents exist in Supabase)
+      await _processPendingUploads();
 
       // Process any new pending uploads that might have been created during sync
       await _processPendingUploads();

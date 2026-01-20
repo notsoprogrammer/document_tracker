@@ -83,44 +83,32 @@ class CachedDocumentService {
       // Queue files for upload if they exist
       await _queueFilesForUpload(document);
 
-      // Process uploads immediately if online
+      // Process uploads in the background if online
       if (await isOnline) {
         try {
-          await processPendingUploads();
+          // Start uploads in background - don't wait for completion
+          processPendingUploads();
         } catch (e) {
-          debugPrint('Failed to process pending uploads: $e');
+          debugPrint('Failed to start background uploads: $e');
         }
       }
 
-      // Fetch the updated document after uploads (to get URLs)
-      final updatedDocuments = await _localDb.fetchDocuments();
-      final updatedDocument = updatedDocuments.firstWhere(
-        (doc) => doc.code == document.code,
-        orElse: () => document,
-      );
-
-      // If online, sync to remote only if uploads completed
+      // If online, sync to remote immediately (regardless of upload status)
       if (await isOnline) {
-        if (updatedDocument.localImagePaths.isEmpty && updatedDocument.localFilePaths.isEmpty) {
-          try {
-            final remoteDoc = await _remoteDb.createDocument(updatedDocument);
-            // Update local with any remote changes (like IDs)
-            return remoteDoc;
-          } catch (e) {
-            print('Failed to sync creation to remote: $e');
-            // Mark as needing sync since remote failed
-            await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
-            return updatedDocument.copyWith(needsSync: true);
-          }
-        } else {
-          // Uploads not completed, mark for later sync
-          await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
-          return updatedDocument.copyWith(needsSync: true);
+        try {
+          final remoteDoc = await _remoteDb.createDocument(document);
+          // Update local with any remote changes (like IDs)
+          return remoteDoc;
+        } catch (e) {
+          print('Failed to sync creation to remote: $e');
+          // Mark as needing sync since remote failed
+          await _localDb.updateDocument(document.code, {'needs_sync': true});
+          return document.copyWith(needsSync: true);
         }
       } else {
         // Mark as needing sync if offline
-        await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
-        return updatedDocument.copyWith(needsSync: true);
+        await _localDb.updateDocument(document.code, {'needs_sync': true});
+        return document.copyWith(needsSync: true);
       }
     } catch (e) {
       print('Error creating document: $e');
