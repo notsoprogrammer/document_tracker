@@ -87,6 +87,8 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   }
 
   void _onUploadStatusChanged() {
+    if (!mounted) return;
+
     final queueManager = UploadQueueManager();
     final pendingUploads = queueManager.getPendingUploads(codeController.text);
     final uploadingUploads = queueManager.getAllItems().where((item) =>
@@ -109,9 +111,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
     // If all uploads are done and we were saving, pop the screen
     if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
       _isSaving = false;
-      if (mounted) {
-        Navigator.pop(context, null); // Document was already saved
-      }
+      Navigator.pop(context, null); // Document was already saved
     }
   }
 

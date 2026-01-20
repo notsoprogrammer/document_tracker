@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'dart:developer' as developer;
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
@@ -45,6 +44,12 @@ class CachedDocumentService {
           for (var localDoc in localDocuments) {
             if (!remoteMap.containsKey(localDoc.code)) {
               mergedDocuments.add(localDoc);
+            } else {
+              // If local document exists in remote and is marked as needing sync, mark as synced
+              if (localDoc.needsSync) {
+                await _localDb.updateDocument(localDoc.code, {'needs_sync': 0});
+                debugPrint('Marked local document ${localDoc.code} as synced (already exists in remote)');
+              }
             }
           }
 
@@ -94,15 +99,21 @@ class CachedDocumentService {
         orElse: () => document,
       );
 
-      // If online, sync to remote
+      // If online, sync to remote only if uploads completed
       if (await isOnline) {
-        try {
-          final remoteDoc = await _remoteDb.createDocument(updatedDocument);
-          // Update local with any remote changes (like IDs)
-          return remoteDoc;
-        } catch (e) {
-          print('Failed to sync creation to remote: $e');
-          // Mark as needing sync since remote failed
+        if (updatedDocument.localImagePaths.isEmpty && updatedDocument.localFilePaths.isEmpty) {
+          try {
+            final remoteDoc = await _remoteDb.createDocument(updatedDocument);
+            // Update local with any remote changes (like IDs)
+            return remoteDoc;
+          } catch (e) {
+            print('Failed to sync creation to remote: $e');
+            // Mark as needing sync since remote failed
+            await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
+            return updatedDocument.copyWith(needsSync: true);
+          }
+        } else {
+          // Uploads not completed, mark for later sync
           await _localDb.updateDocument(updatedDocument.code, {'needs_sync': true});
           return updatedDocument.copyWith(needsSync: true);
         }

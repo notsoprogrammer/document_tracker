@@ -125,7 +125,7 @@ class EnhancedSyncService {
       // Process any pending file uploads first
       await _processPendingUploads();
 
-      // Get all unsynced documents
+      // Refetch documents after upload processing to get updated URLs
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
 
@@ -246,6 +246,12 @@ class EnhancedSyncService {
 
         final doc = unsyncedDocuments[i];
 
+        // Skip documents that still have local paths (uploads not completed)
+        if (doc.localImagePaths.isNotEmpty || doc.localFilePaths.isNotEmpty) {
+          debugPrint('Skipping sync for ${doc.code} - uploads not completed');
+          continue;
+        }
+
         // Update progress
         _updateSyncStatus(SyncStatus(
           message: 'Syncing documents... ($successCount/${unsyncedDocuments.length})',
@@ -256,7 +262,17 @@ class EnhancedSyncService {
         ));
 
         try {
-          await supabaseService.createDocument(doc);
+          // Check if document already exists remotely
+          final existingDoc = await supabaseService.fetchDocumentByCode(doc.code);
+          if (existingDoc != null) {
+            // Update existing document
+            await supabaseService.updateDocument(doc.code, doc.toJson());
+            debugPrint('Updated existing document ${doc.code} in Supabase');
+          } else {
+            // Create new document
+            await supabaseService.createDocument(doc);
+            debugPrint('Created new document ${doc.code} in Supabase');
+          }
           await SQLiteDatabaseService().updateDocument(doc.code, {'needs_sync': 0});
           successCount++;
         } catch (e) {
