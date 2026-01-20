@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
+import '../widgets/connectivity_banner.dart';
 
 class FlagCeremonyScreen extends StatefulWidget {
   const FlagCeremonyScreen({super.key});
@@ -45,25 +46,30 @@ class _FlagCeremonyScreenState extends State<FlagCeremonyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Flag Ceremony Records"),
+    return ConnectivityBanner(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Flag Ceremony Records"),
+        ),
+        body: RefreshIndicator(
+          onRefresh: _loadDocuments,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : documents.isEmpty
+                  ? const Center(child: Text("No flag ceremony records found."))
+                  : ListView.builder(
+                      itemCount: documents.length,
+                      itemBuilder: (context, index) {
+                        final doc = documents[index];
+                        return ListTile(
+                          title: Text(doc.code),
+                          subtitle: Text(doc.remarks.isNotEmpty ? doc.remarks : 'No remarks'),
+                          trailing: Text(doc.status),
+                        );
+                      },
+                    ),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : documents.isEmpty
-              ? const Center(child: Text("No flag ceremony records found."))
-              : ListView.builder(
-                  itemCount: documents.length,
-                  itemBuilder: (context, index) {
-                    final doc = documents[index];
-                    return ListTile(
-                      title: Text(doc.code),
-                      subtitle: Text(doc.remarks.isNotEmpty ? doc.remarks : 'No remarks'),
-                      trailing: Text(doc.status),
-                    );
-                  },
-                ),
     );
   }
 }

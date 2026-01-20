@@ -35,6 +35,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   late List<Document> _filteredDocuments;
   bool _isLoading = true;
+  late UploadQueueManager _uploadQueueManager;
   final List<String> cpdcoStaff = [
     'Sir Arnie',
     'Rex',
@@ -110,14 +111,26 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     _filteredDocuments = widget.documents
         .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
         .toList();
-    // Simulate loading for better UX
-    Future.delayed(const Duration(milliseconds: 500), () {
+    _uploadQueueManager = UploadQueueManager();
+    _uploadQueueManager.addListener(_onUploadChanged);
+    // Simulate loading for better UX - keep it longer to show the indicator
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
     });
+  }
+
+  void _onUploadChanged() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _uploadQueueManager.removeListener(_onUploadChanged);
+    super.dispose();
   }
 
   @override
@@ -157,6 +170,55 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     } else {
       return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
     }
+  }
+
+  Widget _buildGlobalUploadStatusIndicator() {
+    final queueManager = UploadQueueManager();
+    final allUploads = queueManager.getAllItems();
+    final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
+    final pendingUploads = allUploads.where((item) => item['status'] == 'pending').toList();
+
+    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final totalUploading = uploadingUploads.length;
+    final totalPending = pendingUploads.length;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              totalUploading > 0
+                  ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
+                  : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.orange[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildUploadStatusIndicator(Document doc) {
@@ -202,23 +264,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               ),
             ),
           ],
-        ),
-      );
-    } else if (totalFiles > 0) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: Text(
-          'Upload Complete',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.green[700],
-            fontWeight: FontWeight.w500,
-          ),
         ),
       );
     }
@@ -1047,54 +1092,64 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading documents...', style: TextStyle(fontSize: 16)),
-                ],
-              ),
-            )
-          : _filteredDocuments.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.document_scanner,
-                    size: 80,
-                    color: const Color(0xFF2196F3).withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
-                        ? "No outgoing documents yet"
-                        : "No documents match your search/filter",
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
-                        ? "Outgoing documents will appear here"
-                        : "Try adjusting your search or filter criteria",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          if (widget.onRefresh != null) {
+            widget.onRefresh!();
+          }
+        },
+        child: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading documents...', style: TextStyle(fontSize: 16)),
+                  ],
+                ),
+              )
+            : _filteredDocuments.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.document_scanner,
+                      size: 80,
+                      color: const Color(0xFF2196F3).withOpacity(0.5),
                     ),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 80),
-              itemCount: _filteredDocuments.length,
-              itemBuilder: (context, index) {
-                final doc = _filteredDocuments[index];
-                final originalIndex = widget.documents.indexOf(doc);
+                    const SizedBox(height: 16),
+                    Text(
+                      _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
+                          ? "No outgoing documents yet"
+                          : "No documents match your search/filter",
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _filteredDocuments.isEmpty && _searchQuery.isEmpty && _startDate == null && _endDate == null
+                          ? "Outgoing documents will appear here"
+                          : "Try adjusting your search or filter criteria",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+              children: [
+                _buildGlobalUploadStatusIndicator(),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: _filteredDocuments.length,
+                    itemBuilder: (context, index) {
+                      final doc = _filteredDocuments[index];
+                      final originalIndex = widget.documents.indexOf(doc);
                 return Card(
                   margin: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1103,384 +1158,404 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   elevation: 2,
                   color: doc.needsSync ? Colors.grey[100] : null,
                   child: ExpansionTile(
-                    onExpansionChanged: (expanded) {
-                      setState(() {
-                        if (expanded) {
-                          _expandedTiles.add(index);
-                        } else {
-                          _expandedTiles.remove(index);
-                        }
-                      });
-                    },
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFF2196F3),
-                      child: const Icon(
-                        Icons.arrow_upward,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                "${doc.type} - ${doc.title}",
-                                style: const TextStyle(fontWeight: FontWeight.w400),
-                              ),
+                          onExpansionChanged: (expanded) {
+                            setState(() {
+                              if (expanded) {
+                                _expandedTiles.add(index);
+                              } else {
+                                _expandedTiles.remove(index);
+                              }
+                            });
+                          },
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFF2196F3),
+                            child: const Icon(
+                              Icons.arrow_upward,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                            if (doc.needsSync) ...[
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.sync,
-                                size: 16,
-                                color: Colors.orange,
-                              ),
-                            ],
-                          ],
-                        ),
-                    subtitle: Row(
-                      children: [
-                        Icon(
-                          Icons.output,
-                          size: 16,
-                          color: const Color(0xFF2196F3),
-                        ),
-                        const SizedBox(width: 4),
-                        Text("${doc.code}  "),
-                        if (_expandedTiles.contains(index))
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 16),
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: doc.code));
-                              SnackbarUtils.showInfoSnackBar(
-                                context,
-                                'Code copied to clipboard',
-                              );
-                            },
-                            tooltip: 'Copy Code',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
                           ),
-                      ],
-                    ),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(12),
-                            bottomRight: Radius.circular(12),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildDetailRow(Icons.person, "To", doc.fromOrTo),
-                            const SizedBox(height: 8),
-                            _buildDetailRow(Icons.send, "Mode", doc.mode),
-                            const SizedBox(height: 8),
-                            _buildDetailRow(
-                              Icons.assignment_ind,
-                              "Forwarded To",
-                              doc.assignedTo,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildDetailRow(
-                                    Icons.info,
-                                    "Status",
-                                    doc.status,
-                                  ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "${doc.type} - ${doc.title}",
+                                  style: const TextStyle(fontWeight: FontWeight.w400),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () => _showStatusUpdateDialog(
-                                    context,
-                                    originalIndex,
-                                  ),
-                                  tooltip: "Update Status",
+                              ),
+                              if (doc.needsSync) ...[
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.sync,
+                                  size: 16,
+                                  color: Colors.orange,
                                 ),
                               ],
-                            ),
-                            if (doc.imageUrls.isNotEmpty) ...[
-                              const SizedBox(height: 8),
                             ],
-
-                            const SizedBox(height: 8),
-                            _buildDetailRow(
-                              Icons.comment,
-                              "Remarks",
-                              doc.remarks,
+                          ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.output,
+                              size: 16,
+                              color: const Color(0xFF2196F3),
                             ),
-                            const SizedBox(height: 8),
-                            _buildDetailRow(
-                              Icons.send,
-                              "Released by",
-                              doc.person,
-                            ),
-                            const SizedBox(height: 16),
-                            ExpansionTile(
-                              leading: const Icon(Icons.history),
-                              // compute visible entries (creation + status changes)
-                              title: Text(
-                                "Document History (" +
-                                    (doc.history.isEmpty
-                                        ? '0'
-                                        : doc.history
-                                              .asMap()
-                                              .entries
-                                              .where(
-                                                (me) =>
-                                                    me.key == 0 ||
-                                                    me.value.action.startsWith(
-                                                      'Status changed to ',
-                                                    ),
-                                              )
-                                              .length
-                                              .toString()) +
-                                    ")",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                            const SizedBox(width: 4),
+                            Text("${doc.code}  "),
+                            if (_expandedTiles.contains(index))
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16),
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: doc.code));
+                                  SnackbarUtils.showInfoSnackBar(
+                                    context,
+                                    'Code copied to clipboard',
+                                  );
+                                },
+                                tooltip: 'Copy Code',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        _buildUploadStatusIndicator(doc),
+                      ],
+                    ),
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
                                 ),
                               ),
-                              children: (() {
-                                final entries = doc.history;
-                                if (entries.isEmpty) {
-                                  return [
-                                    const Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Text("No history available"),
-                                    ),
-                                  ];
-                                }
-
-                                // Only include the creation entry (index 0), status-change entries, and transfer entries.
-                                final visible = entries.asMap().entries.where((
-                                  me,
-                                ) {
-                                  return me.key == 0 ||
-                                      me.value.action.startsWith(
-                                        'Status changed to ',
-                                      );
-                                }).toList();
-
-                                return visible.map((mapEntry) {
-                                  final originalIndex = mapEntry.key;
-                                  final entry = mapEntry.value;
-                                  String office = doc.fromOrTo;
-                                  String personnel = doc.assignedTo;
-                                  String? additionalNotes;
-
-                                  // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
-                                  if (entry.notes != null &&
-                                      entry.notes!.isNotEmpty) {
-                                    final parts = entry.notes!.split('|');
-                                    if (originalIndex == 0) {
-                                      // Creation: notes = "office|personnel"
-                                      if (parts.length >= 2) {
-                                        office = parts[0].trim();
-                                        personnel = parts[1].trim();
-                                      }
-                                    } else {
-                                      // Status change: notes = "office - personnel|additional"
-                                      final officePersonnelStr = parts[0]
-                                          .trim();
-                                      final sepIndex = officePersonnelStr
-                                          .lastIndexOf(' - ');
-                                      if (sepIndex != -1) {
-                                        office = officePersonnelStr
-                                            .substring(0, sepIndex)
-                                            .trim();
-                                        personnel = officePersonnelStr
-                                            .substring(sepIndex + 3)
-                                            .trim();
-                                      } else {
-                                        final officePersonnel =
-                                            officePersonnelStr.split(' - ');
-                                        if (officePersonnel.length >= 2) {
-                                          office = officePersonnel[0].trim();
-                                          personnel = officePersonnel[1].trim();
-                                        }
-                                      }
-                                      if (parts.length > 1) {
-                                        additionalNotes = parts
-                                            .sublist(1)
-                                            .join('|')
-                                            .trim();
-                                      }
-                                    }
-                                  } else if (originalIndex == 0 && entry.action.startsWith('Document Created')) {
-                                    // For outgoing creation entry without notes, parse from action
-                                    final action = entry.action;
-                                    final match = RegExp(r'Document Created and forwarded to (.+) c/o (.+)').firstMatch(action);
-                                    if (match != null) {
-                                      office = match.group(1)!.trim();
-                                      personnel = match.group(2)!.trim();
-                                    }
-                                  }
-
-                                  String mainLine;
-                                  final byLine =
-                                      "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
-                                  if (originalIndex == 0) {
-                                    // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
-                                    mainLine =
-                                        "Created and forwarded to $office c/o $personnel";
-                                  } else {
-                                    // Status change: format as "(Status) c/o (office) - (personnel)"
-                                    final status = entry.action.replaceFirst(
-                                      'Status changed to ',
-                                      '',
-                                    );
-                                    mainLine = "$status: $office - $personnel";
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          size: 12,
-                                          color: const Color(0xFF2196F3),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDetailRow(Icons.person, "To", doc.fromOrTo),
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.assignment_ind,
+                                    "Forwarded To",
+                                    doc.assignedTo,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildDetailRow(
+                                          Icons.info,
+                                          "Status",
+                                          doc.status,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => _showStatusUpdateDialog(
+                                          context,
+                                          originalIndex,
+                                        ),
+                                        tooltip: "Update Status",
+                                      ),
+                                    ],
+                                  ),
+                                  if (doc.imageUrls.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                  ],
+
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.comment,
+                                    "Remarks",
+                                    doc.remarks,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildDetailRow(
+                                    Icons.send,
+                                    "Released by",
+                                    doc.person,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ExpansionTile(
+                                    leading: const Icon(Icons.history),
+                                    // compute visible entries (creation + status changes)
+                                    title: Text(
+                                      "Document History (" +
+                                          (doc.history.isEmpty
+                                              ? '0'
+                                              : doc.history
+                                                    .asMap()
+                                                    .entries
+                                                    .where(
+                                                      (me) =>
+                                                          me.key == 0 ||
+                                                          me.value.action.startsWith(
+                                                            'Status changed to ',
+                                                          ),
+                                                    )
+                                                    .length
+                                                    .toString()) +
+                                          ")",
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    children: (() {
+                                      final entries = doc.history;
+                                      if (entries.isEmpty) {
+                                        return [
+                                          const Padding(
+                                            padding: EdgeInsets.all(16),
+                                            child: Text("No history available"),
+                                          ),
+                                        ];
+                                      }
+
+                                      // Only include the creation entry (index 0), status-change entries, and transfer entries.
+                                      final visible = entries.asMap().entries.where((
+                                        me,
+                                      ) {
+                                        return me.key == 0 ||
+                                            me.value.action.startsWith(
+                                              'Status changed to ',
+                                            );
+                                      }).toList();
+
+                                      return visible.map((mapEntry) {
+                                        final originalIndex = mapEntry.key;
+                                        final entry = mapEntry.value;
+                                        String office = doc.fromOrTo;
+                                        String personnel = doc.assignedTo;
+                                        String? additionalNotes;
+
+                                        // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
+                                        if (entry.notes != null &&
+                                            entry.notes!.isNotEmpty) {
+                                          final parts = entry.notes!.split('|');
+                                          if (originalIndex == 0) {
+                                            // Creation: notes = "office|personnel"
+                                            if (parts.length >= 2) {
+                                              office = parts[0].trim();
+                                              personnel = parts[1].trim();
+                                            }
+                                          } else {
+                                            // Status change: notes = "office - personnel|additional"
+                                            final officePersonnelStr = parts[0]
+                                                .trim();
+                                            final sepIndex = officePersonnelStr
+                                                .lastIndexOf(' - ');
+                                            if (sepIndex != -1) {
+                                              office = officePersonnelStr
+                                                  .substring(0, sepIndex)
+                                                  .trim();
+                                              personnel = officePersonnelStr
+                                                  .substring(sepIndex + 3)
+                                                  .trim();
+                                            } else {
+                                              final officePersonnel =
+                                                  officePersonnelStr.split(' - ');
+                                              if (officePersonnel.length >= 2) {
+                                                office = officePersonnel[0].trim();
+                                                personnel = officePersonnel[1].trim();
+                                              }
+                                            }
+                                            if (parts.length > 1) {
+                                              additionalNotes = parts
+                                                  .sublist(1)
+                                                  .join('|')
+                                                  .trim();
+                                            }
+                                          }
+                                        } else if (originalIndex == 0 && entry.action.startsWith('Document Created')) {
+                                          // For outgoing creation entry without notes, parse from action
+                                          final action = entry.action;
+                                          final match = RegExp(r'Document Created and forwarded to (.+) c/o (.+)').firstMatch(action);
+                                          if (match != null) {
+                                            office = match.group(1)!.trim();
+                                            personnel = match.group(2)!.trim();
+                                          }
+                                        }
+
+                                        String mainLine;
+                                        final byLine =
+                                            "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
+                                        if (originalIndex == 0) {
+                                          // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
+                                          mainLine =
+                                              "Created and forwarded to $office c/o $personnel";
+                                        } else {
+                                          // Status change: format as "(Status) c/o (office) - (personnel)"
+                                          final status = entry.action.replaceFirst(
+                                            'Status changed to ',
+                                            '',
+                                          );
+                                          mainLine = "$status: $office - $personnel";
+                                        }
+
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                          child: Row(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                mainLine,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
+                                              Icon(
+                                                Icons.circle,
+                                                size: 12,
+                                                color: const Color(0xFF2196F3),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      mainLine,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      byLine,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurface
+                                                            .withOpacity(0.8),
+                                                      ),
+                                                    ),
+                                                    if (additionalNotes != null &&
+                                                        additionalNotes
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 6),
+                                                      Text(
+                                                        "Notes: $additionalNotes",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontStyle: FontStyle.italic,
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurface
+                                                              .withOpacity(0.7),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                byLine,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface
-                                                      .withOpacity(0.8),
-                                                ),
-                                              ),
-                                              if (additionalNotes != null &&
-                                                  additionalNotes
-                                                      .isNotEmpty) ...[
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  "Notes: $additionalNotes",
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontStyle: FontStyle.italic,
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurface
-                                                        .withOpacity(0.7),
-                                                  ),
-                                                ),
-                                              ],
                                             ],
                                           ),
+                                        );
+                                      }).toList();
+                                    })(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.delete),
+                                        label: const Text("Delete"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            218,
+                                            87,
+                                            78,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList();
-                              })(),
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.delete),
-                                  label: const Text("Delete"),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color.fromARGB(
-                                      255,
-                                      218,
-                                      87,
-                                      78,
-                                    ),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: () => _confirmDelete(originalIndex),
-                                ),
-                                if (doc.imageUrls.isNotEmpty)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.image),
-                                    label: const Text("View Image"),
-                                    onPressed: () => _showImageDialog(context, doc.imageUrls),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                        onPressed: () => _confirmDelete(
+                                          originalIndex,
+                                        ),
                                       ),
-                                    ),
+                                      if (doc.imageUrls.isNotEmpty)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.image),
+                                          label: const Text("View Image"),
+                                          onPressed: () => _showImageDialog(
+                                            context,
+                                            doc.imageUrls,
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                      if (doc.filePath != null ||
+                                          doc.fileUrls.isNotEmpty)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.attach_file),
+                                          label: Text(
+                                            "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
+                                          ),
+                                          onPressed: () {
+                                            final allFiles = <String>[];
+                                            if (doc.filePath != null) {
+                                              allFiles.add(doc.filePath!);
+                                            }
+                                            allFiles.addAll(doc.fileUrls);
+                                            if (allFiles.length == 1) {
+                                              _viewFile(allFiles[0]);
+                                            } else {
+                                              _showFileDialog(context, doc);
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                if (doc.filePath != null ||
-                                    doc.fileUrls.isNotEmpty)
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.attach_file),
-                                    label: Text(
-                                      "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
-                                    ),
-                                    onPressed: () {
-                                      final allFiles = <String>[];
-                                      if (doc.filePath != null) {
-                                        allFiles.add(doc.filePath!);
-                                      }
-                                      allFiles.addAll(doc.fileUrls);
-                                      if (allFiles.length == 1) {
-                                        _viewFile(allFiles[0]);
-                                      } else {
-                                        _showFileDialog(context, doc);
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
-                        ),
+                        
                       ),
-                    ],
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+                ),
+              ],
             ),
+      ),
       ),
     );
   }
