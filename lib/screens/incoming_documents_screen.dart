@@ -15,6 +15,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
+  final Future<void> Function() syncAllDocuments;
 
   const IncomingDocumentsScreen({
     super.key,
@@ -25,6 +26,7 @@ class IncomingDocumentsScreen extends StatefulWidget {
     required this.deleteDocument,
     required this.syncDocument,
     this.onRefresh,
+    required this.syncAllDocuments,
   });
 
   @override
@@ -117,92 +119,43 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     }
   }
 
-  Widget _buildUploadStatusIndicator(Document doc) {
-    final queueManager = UploadQueueManager();
-    final pendingUploads = queueManager.getPendingUploads(doc.code);
-    final allUploads = queueManager.getAllItems().where((item) => item['documentCode'] == doc.code).toList();
-    final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
+Widget _buildUploadStatusIndicator(Document doc) {
+  final queueManager = UploadQueueManager();
+  final allUploads = queueManager.getAllItems()
+      .where((item) => item['documentCode'] == doc.code)
+      .toList();
+  final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
 
-    final totalFiles = doc.localImagePaths.length + doc.localFilePaths.length;
-    final uploadedFiles = doc.imageUrls.length + doc.fileUrls.length;
-    final hasUploads = pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty;
+  final totalFiles = doc.localImagePaths.length + doc.localFilePaths.length;
+  final uploadedFiles = doc.imageUrls.length + doc.fileUrls.length;
 
-    if (doc.needsSync) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+  // Only show banner when uploading
+  if (uploadingUploads.isNotEmpty) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule, size: 16, color: Colors.grey[700]),
-            const SizedBox(width: 8),
-            Text(
-              'For Uploading',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    } else if (hasUploads) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orange.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Uploading ${uploadedFiles}/${totalFiles} files...',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.orange[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-    } else if (totalFiles > 0) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: Text(
-          'Upload Complete',
-          style: TextStyle(
+        const SizedBox(width: 8),
+        Text(
+          'Uploading $uploadedFiles/$totalFiles files...',
+          style: const TextStyle(
             fontSize: 12,
-            color: Colors.green[700],
+            color: Colors.orange,
             fontWeight: FontWeight.w500,
           ),
         ),
-      );
-    }
-
-    return const SizedBox.shrink();
+      ],
+    );
   }
+  return const SizedBox.shrink();
+}
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
@@ -1092,6 +1045,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         title: const Text("Incoming Documents"),
         backgroundColor: const Color(0xFFFFB74D), // Pastel orange
         foregroundColor: Colors.white,
+
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(80),
           child: Padding(
@@ -1554,6 +1508,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           ),
       ),
       ),
-    );
+      );
+
   }
 }

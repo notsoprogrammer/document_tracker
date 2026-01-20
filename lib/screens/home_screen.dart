@@ -391,6 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       deleteDocument: _deleteDocument,
                                       syncDocument: _syncDocument,
                                       onRefresh: _loadDocuments,
+                                      syncAllDocuments: _syncAllDocuments,
                                     ),
                                   ),
                                 );

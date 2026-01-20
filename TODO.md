@@ -113,9 +113,15 @@ The initial history entry was only added in the Document.fromJson method when fe
 - Added onRefresh callbacks to all document screens
 
 #### 3. Updated Incoming Documents Screen (`lib/screens/incoming_documents_screen.dart`)
-- Changed offline record background color to Colors.yellow[100]
-- Added RefreshIndicator wrapper
-- Added "Complete" state to upload status indicator
+- ✅ Removed sync button from AppBar actions
+- ✅ Added ConnectivityService import and state tracking
+- ✅ Updated `_buildUploadStatusIndicator()` with consistent offline indicator logic (Grey 'For Uploading' when offline, Orange 'Uploading...' when active, Green 'Upload Complete' when finished)
+- ✅ Removed `_buildGlobalUploadStatusIndicator()` method
+- ✅ Removed global upload status indicator from body
+- ✅ Wrapped document list in RefreshIndicator
+- ✅ Removed yellow background color from cards (doc.needsSync ? Colors.yellow[100] : null)
+- ✅ Removed sync icon from title
+- ✅ Ensured RefreshIndicator calls `widget.onRefresh`
 
 #### 4. Updated Outgoing Documents Screen (`lib/screens/outgoing_documents_screen.dart`)
 - Changed offline record background color to Colors.yellow[100]
@@ -142,7 +148,8 @@ The initial history entry was only added in the Document.fromJson method when fe
 - `lib/screens/flag_ceremony_documents_screen.dart`
 
 ### Status
-✅ Changes implemented
+✅ Incoming screen changes completed
+⏳ Outgoing and Flag Ceremony screens pending
 ⏳ Testing pending
 
 ## Fix: Automatic UI Refresh After Document Deletion
