@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
+import '../utils/date_time_utils.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
-import 'flag_ceremony_screen.dart';
 import 'add_flag_ceremony_screen.dart';
 import 'flag_ceremony_documents_screen.dart';
 import 'delete_history_screen.dart';
@@ -109,33 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'Dari',
   ];
 
-  String _generateCode(bool incoming) {
-    final now = DateTime.now();
-    final year = now.year;
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final timestamp = now.millisecondsSinceEpoch.toString().substring(8); // Last 4 digits
-    final prefix = incoming ? 'IDL' : 'ODL';
-    return '$prefix$year-$month-$day-$timestamp';
-  }
-
-  Future<void> _addDocument(Document doc) async {
-    try {
-      // Add initial history entry
-      final historyAction = doc.incoming ? 'Document Received' : 'Created and forwarded to ${doc.fromOrTo} c/o ${doc.assignedTo}';
-      doc.addHistoryEntry(historyAction, doc.person, notes: "${doc.fromOrTo}|${doc.assignedTo}");
-
-      // Save to cached service (handles both local and remote)
-      final savedDoc = await _documentService.createDocument(doc);
-
-      setState(() {
-        documents.add(savedDoc);
-      });
-    } catch (e) {
-      print('Error adding document: $e');
-      // Could show error snackbar here
-    }
-  }
 
   Future<void> _transferDocument(int index, String newAssignee, String transferredBy, {String? notes}) async {
     try {
@@ -153,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Transferred to $newAssignee',
         person: transferredBy,
-        timestamp: DateTime.now(),
+        timestamp: getPhilippineTime(),
         notes: notes,
       ), personnel: transferredBy);
 
@@ -179,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Status changed to $newStatus',
         person: updatedBy,
-        timestamp: DateTime.now(),
+        timestamp: getPhilippineTime(),
         notes: notes,
       ), personnel: updatedBy);
 
@@ -230,35 +201,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
-  }
-
-  String _formatDateTimeForStorage(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
-  }
 
   void _showAddMenu(BuildContext context) {
     showModalBottomSheet(
@@ -548,26 +490,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCompactAddOption(BuildContext context, IconData icon, String title, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 4),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
+ 
 
   void _showForm(BuildContext context, bool incoming) async {
     await Navigator.push(

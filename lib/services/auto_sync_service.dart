@@ -5,6 +5,7 @@ import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
 import 'connectivity_service.dart';
+import '../utils/date_time_utils.dart';
 
 /// Auto-sync service to handle unsynced documents periodically and when online
 class AutoSyncService {
@@ -223,7 +224,7 @@ class AutoSyncService {
             'status': remoteDoc.status,
             'image_urls': remoteDoc.imageUrls,
             'file_urls': remoteDoc.fileUrls,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': getPhilippineTime().toIso8601String(),
             'needs_sync': 0, // Mark as synced
           });
           updatedCount++;

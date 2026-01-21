@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../utils/date_time_utils.dart';
 
 class HistoryEntry {
   final String action;
@@ -81,13 +82,13 @@ class Document {
         this.history.add(HistoryEntry(
           action: 'Document Received',
           person: person,
-          timestamp: DateTime.now(),
+          timestamp: getPhilippineTime(),
         ));
       } else {
         this.history.add(HistoryEntry(
           action: 'Created and forwarded to $fromOrTo c/o $assignedTo',
           person: person,
-          timestamp: DateTime.now(),
+          timestamp: getPhilippineTime(),
         ));
       }
     }
@@ -100,7 +101,7 @@ class Document {
     history.add(HistoryEntry(
       action: action,
       person: person,
-      timestamp: DateTime.now(),
+      timestamp: getPhilippineTime(),
       notes: notes,
       personnel: personnel,
     ));

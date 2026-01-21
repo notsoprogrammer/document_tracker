@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../models/document.dart';
+import '../utils/date_time_utils.dart';
 
 class SQLiteDatabaseService {
   static final SQLiteDatabaseService _instance = SQLiteDatabaseService._internal();
@@ -154,8 +155,8 @@ class SQLiteDatabaseService {
     docData['file_urls'] = jsonEncode(docData['file_urls']);
     docData['local_image_paths'] = jsonEncode(docData['local_image_paths'] ?? []);
     docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
-    docData['created_at'] = DateTime.now().toIso8601String();
-    docData['updated_at'] = DateTime.now().toIso8601String();
+    docData['created_at'] = getPhilippineTime().toIso8601String();
+    docData['updated_at'] = getPhilippineTime().toIso8601String();
 
     await db.insert('documents', docData, conflictAlgorithm: ConflictAlgorithm.replace);
 
@@ -189,7 +190,7 @@ class SQLiteDatabaseService {
     if (updates.containsKey('local_file_paths')) {
       updates['local_file_paths'] = jsonEncode(updates['local_file_paths']);
     }
-    updates['updated_at'] = DateTime.now().toIso8601String();
+    updates['updated_at'] = getPhilippineTime().toIso8601String();
     await db.update('documents', updates, where: 'code = ?', whereArgs: [documentCode]);
   }
 
@@ -240,7 +241,7 @@ class SQLiteDatabaseService {
       'deleted_by': deletedBy,
       'doc_code': docCode,
       'title': title,
-      'deleted_at': DateTime.now().toIso8601String(),
+      'deleted_at': getPhilippineTime().toIso8601String(),
       'synced': 0,
     });
   }
