@@ -1192,8 +1192,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         }
 
                                         String mainLine;
-                                        final byLine =
-                                            "by: ${entry.person}";
                                         if (originalIndex == 0) {
                                           // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
                                           mainLine =

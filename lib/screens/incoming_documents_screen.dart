@@ -457,7 +457,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
     final cabinetController = TextEditingController();
-    final updatedByController = TextEditingController();
     final notesController = TextEditingController();
 
     final List<String> statusOptions = [
@@ -472,19 +471,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
       'Urgent',
     ];
 
-    final List<String> cpdcoStaff = [
-      'Arnie',
-      'Rex',
-      'Floro',
-      'Arlene',
-      'Sharmaine',
-      'Path',
-      'Jess',
-      'Emie',
-      'Pau',
-      'Chris',
-      'Wena',
-    ];
+
 
     showDialog(
       context: context,
