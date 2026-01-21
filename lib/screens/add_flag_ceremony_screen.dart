@@ -24,8 +24,6 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   DateTime? selectedDate;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
-  String? selectedPerson;
-  bool isCustomPerson = false;
 
   // File handling
   List<String> _selectedImagePaths = [];
@@ -531,36 +529,15 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Autocomplete<String>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text == '') {
-                              return const Iterable<String>.empty();
-                            }
-                            return cpdcoStaff.where((String option) {
-                              return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                            });
-                          },
-                          onSelected: (String selection) {
-                            personController.text = selection;
-                          },
-                          fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
-                            fieldTextEditingController.text = personController.text;
-                            return TextField(
-                              controller: fieldTextEditingController,
-                              focusNode: fieldFocusNode,
-                              decoration: InputDecoration(
-                                labelText: "Recorded by",
-                                hintText: "Start typing to see suggestions",
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Theme.of(context).colorScheme.surface,
-                                errorText: _showValidationErrors && personController.text.trim().isEmpty ? "This field is required" : null,
-                              ),
-                              onChanged: (value) {
-                                personController.text = value;
-                              },
-                            );
-                          },
+                        TextField(
+                          controller: personController,
+                          decoration: InputDecoration(
+                            labelText: "Recorded by",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          readOnly: true,
                         ),
                       ],
                     ),
