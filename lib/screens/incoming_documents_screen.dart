@@ -102,6 +102,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
+        specificDate: _specificDate,
       );
     });
   }
@@ -803,23 +804,24 @@ Widget _buildUploadStatusIndicator(Document doc) {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _specificDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      dialogSetState(() {});
-                      setState(() {
-                        _specificDate = picked;
-                        _startDate = picked;
-                        _endDate = picked;
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _specificDate ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    dialogSetState(() {});
+                    setState(() {
+                      _specificDate = picked;
+                      _startDate = null;
+                      _endDate = null;
+                      _updateFilteredDocuments();
+                    });
+                    Navigator.pop(context);
+                  }
+                },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -847,8 +849,8 @@ Widget _buildUploadStatusIndicator(Document doc) {
                       dialogSetState(() {});
                       setState(() {
                         _startDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
+                        _updateFilteredDocuments();
                       });
                     }
                   },
@@ -879,8 +881,8 @@ Widget _buildUploadStatusIndicator(Document doc) {
                       dialogSetState(() {});
                       setState(() {
                         _endDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
+                        _updateFilteredDocuments();
                       });
                     }
                   },
@@ -896,22 +898,11 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   _specificDate = null;
                   _startDate = null;
                   _endDate = null;
+                  _updateFilteredDocuments();
                 });
                 Navigator.pop(context);
               },
               child: const Text("Clear All"),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.filter_list),
-              label: const Text("Apply"),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-              },
             ),
           ],
         ),

@@ -155,6 +155,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
+        specificDate: _specificDate,
       );
     });
   }
@@ -795,8 +796,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       setState(() {});
                       this.setState(() {
                         _specificDate = picked;
-                        _startDate = picked;
-                        _endDate = picked;
+                        _startDate = null;
+                        _endDate = null;
+                        _updateFilteredDocuments();
                       });
                       Navigator.pop(context);
                     }
@@ -828,8 +830,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       setState(() {});
                       this.setState(() {
                         _startDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
+                        _updateFilteredDocuments();
                       });
                     }
                   },
@@ -860,8 +862,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       setState(() {});
                       this.setState(() {
                         _endDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
+                        _updateFilteredDocuments();
                       });
                     }
                   },
@@ -877,22 +879,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   _specificDate = null;
                   _startDate = null;
                   _endDate = null;
+                  _updateFilteredDocuments();
                 });
                 Navigator.pop(context);
               },
               child: const Text("Clear All"),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.filter_list),
-              label: const Text("Apply"),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-              },
             ),
           ],
         ),
