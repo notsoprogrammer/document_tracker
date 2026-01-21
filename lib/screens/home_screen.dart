@@ -265,11 +265,11 @@ class _HomeScreenState extends State<HomeScreen> {
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
-                Theme.of(context).colorScheme.primary,
-                Theme.of(context).colorScheme.primaryContainer,
+                const Color.fromARGB(255, 228, 239, 252), // Soft pastel pink
+                const Color.fromARGB(255, 124, 196, 238), // Lighter pastel pink
               ],
             ),
           ),
