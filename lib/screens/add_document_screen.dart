@@ -195,13 +195,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   }
 
   String _generateCode(bool incoming) {
-    final now = DateTime.now();
-    final year = now.year;
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    final second = now.second.toString().padLeft(2, '0');
+    final nowUtc = DateTime.now().toUtc();
+    final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
+
+    final year = phTime.year;
+    final month = phTime.month.toString().padLeft(2, '0');
+    final day = phTime.day.toString().padLeft(2, '0');
+    final hour = phTime.hour.toString().padLeft(2, '0');
+    final minute = phTime.minute.toString().padLeft(2, '0');
+    final second = phTime.second.toString().padLeft(2, '0');
     final prefix = incoming ? 'IDL' : 'ODL';
 
     return '$prefix$year-$month-$day-$hour$minute$second';
@@ -212,14 +214,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       final parts = path.split('.');
       if (parts.length <= 1) return false;
       final extension = parts.last.toLowerCase();
-      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
     }).toList();
 
     final otherFiles = _selectedImagePaths.where((path) {
       final parts = path.split('.');
       if (parts.length <= 1) return true;
       final extension = parts.last.toLowerCase();
-      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
     }).toList();
 
     if (imageFiles.isNotEmpty) {

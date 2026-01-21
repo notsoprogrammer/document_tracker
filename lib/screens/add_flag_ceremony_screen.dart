@@ -41,7 +41,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
   bool _isImage(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(ext);
   }
 
   bool _isDocument(String fileName) {
@@ -127,15 +127,18 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   }
 
   String _generateCode() {
-    if (selectedCeremonyType == null || selectedDate == null) return '-'; // Default format
+    if (selectedCeremonyType == null || selectedDate == null) return '-';
 
-    final now = DateTime.now();
+    // Force PH timezone (UTC+8) if needed
+    final nowUtc = DateTime.now().toUtc();
+    final phTime = nowUtc.add(const Duration(hours: 8));
+
     final month = selectedDate!.month.toString().padLeft(2, '0');
     final day = selectedDate!.day.toString().padLeft(2, '0');
     final year = selectedDate!.year.toString();
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    final second = now.second.toString().padLeft(2, '0');
+    final hour = phTime.hour.toString().padLeft(2, '0');
+    final minute = phTime.minute.toString().padLeft(2, '0');
+    final second = phTime.second.toString().padLeft(2, '0');
 
     final prefix = selectedCeremonyType == 'Flag Raising' ? 'FR' : 'FL';
 
@@ -147,14 +150,14 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       final parts = path.split('.');
       if (parts.length <= 1) return false;
       final extension = parts.last.toLowerCase();
-      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
     }).toList();
 
     final otherFiles = _selectedImagePaths.where((path) {
       final parts = path.split('.');
       if (parts.length <= 1) return true;
       final extension = parts.last.toLowerCase();
-      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
     }).toList();
 
     if (imageFiles.isNotEmpty) {
@@ -386,7 +389,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
-                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png','heic'],
                                     allowMultiple: false,
                                     withData: true,
                                   );
