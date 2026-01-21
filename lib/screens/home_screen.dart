@@ -262,50 +262,67 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
         title: const Text("FileTrack Hub"),
-        leading: IconButton(
-          icon: const Icon(Icons.sync),
-          onPressed: _syncAllDocuments,
-          tooltip: 'Sync All Documents',
-        ),
-        actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.menu,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                size: 20,
-              ),
-            ),
-            onPressed: () => _showSidebar(context),
-            tooltip: 'More Options',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadDocuments,
-        child: Container(
+        flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primaryContainer,
               ],
             ),
           ),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_outlined),
+            onSelected: (value) {
+              if (value == 'sync') {
+                _syncAllDocuments();
+              } else if (value == 'more') {
+                _showSidebar(context);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'sync',
+                child: ListTile(
+                  leading: Icon(Icons.sync_outlined),
+                  title: Text('Sync All Documents'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'more',
+                child: ListTile(
+                  leading: Icon(Icons.more_horiz_outlined),
+                  title: Text('More Options'),
+                ),
+        ),
+      ],
+    ),
+  ],
+),
+backgroundColor: Colors.transparent,
+body: Container(
+  height: double.infinity,
+  width: double.infinity,
+  decoration: BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFFFDF6EC),
+        Color(0xFFE3F2FD),
+        Color(0xFFE8F5E9),
+      ],
+    ),
+  ),
+  child: Stack(
+    children: [
+      RefreshIndicator(
+        onRefresh: _loadDocuments,
+        child: Container(
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
@@ -320,95 +337,92 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 80,
                   ),
                   const SizedBox(height: 16),
-                Text(
-                  "City Planning and Development Coordinator's Office\nFile Tracking System",
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
+                  Text(
+                    "City Planning and Development Coordinator's Office\nFile Tracking System",
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
                   const SizedBox(height: 40),
-                  Column(
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildFolderButton(
+                      SizedBox(
+                        width: 150,
+                        child: _buildFolderButton(
+                          context,
+                          Icons.folder,
+                          "Incoming Documents",
+                          const Color(0xFFFFB74D), // Pastel orange
+                          () {
+                            Navigator.push(
                               context,
-                              Icons.folder,
-                              "Incoming Documents",
-                              const Color(0xFFFFB74D), // Pastel orange
-                              () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => IncomingDocumentsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                      syncAllDocuments: _syncAllDocuments,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildFolderButton(
-                              context,
-                              Icons.folder,
-                              "Outgoing Documents",
-                              const Color(0xFF2196F3), // Blue complementing orange
-                              () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => OutgoingDocumentsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.43,
-                          child: _buildFolderButton(
-                            context,
-                            Icons.folder,
-                            "Flag Ceremony",
-                            const Color(0xFF4EC377), // Soft green
-                            () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FlagCeremonyDocumentsScreen(
-                                    documents: documents,
-                                    transferDocument: _transferDocument,
-                                    updateDocumentStatus: _updateDocumentStatus,
-                                    deleteDocument: _deleteDocument,
-                                    syncDocument: _syncDocument,
-                                    onRefresh: _loadDocuments,
-                                  ),
+                              MaterialPageRoute(
+                                builder: (context) => IncomingDocumentsScreen(
+                                  documents: documents,
+                                  transferDocument: _transferDocument,
+                                  updateDocumentStatus: _updateDocumentStatus,
+                                  deleteDocument: _deleteDocument,
+                                  syncDocument: _syncDocument,
+                                  onRefresh: _loadDocuments,
+                                  syncAllDocuments: _syncAllDocuments,
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 150,
+                        child: _buildFolderButton(
+                          context,
+                          Icons.folder,
+                          "Outgoing Documents",
+                          const Color(0xFF2196F3), // Blue complementing orange
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => OutgoingDocumentsScreen(
+                                  documents: documents,
+                                  transferDocument: _transferDocument,
+                                  updateDocumentStatus: _updateDocumentStatus,
+                                  deleteDocument: _deleteDocument,
+                                  syncDocument: _syncDocument,
+                                  onRefresh: _loadDocuments,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 150,
+                        child: _buildFolderButton(
+                          context,
+                          Icons.folder,
+                          "Flag Ceremony",
+                          const Color(0xFF4EC377), // Soft green
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FlagCeremonyDocumentsScreen(
+                                  documents: documents,
+                                  transferDocument: _transferDocument,
+                                  updateDocumentStatus: _updateDocumentStatus,
+                                  deleteDocument: _deleteDocument,
+                                  syncDocument: _syncDocument,
+                                  onRefresh: _loadDocuments,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -419,6 +433,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      Align(
+        alignment: Alignment.bottomLeft,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            "by: Margaux🌻",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              // fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _showAddMenu(context),
           backgroundColor: Theme.of(context).colorScheme.primary,
@@ -432,36 +462,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   Widget _buildFolderButton(BuildContext context, IconData icon, String title, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 48, color: Colors.white),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: EdgeInsets.zero,
+        elevation: 4,
+      ),
+      child: Card(
+        color: color,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            children: [
+              Icon(icon, size: 48, color: Colors.white),
+              Icon(Icons.arrow_forward, size: 16, color: Colors.white.withOpacity(0.7)),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -516,65 +546,68 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showSidebar(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.more_horiz,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Options',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Menu Items
-            ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                ListTile(
-                  leading: Icon(
-                    Icons.history,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: const Text('Delete History'),
-                  subtitle: const Text('View deletion logs'),
-                  onTap: () {
-                    Navigator.pop(context); // Close bottom sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DeleteHistoryScreen(),
-                      ),
-                    );
-                  },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      builder: (context) => Material(
+        elevation: 8,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                // Add more menu items here if needed
-              ],
-            ),
-          ],
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.more_horiz,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Options',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Menu Items
+              ...ListTile.divideTiles(
+                context: context,
+                tiles: [
+                  ListTile(
+                    leading: Icon(
+                      Icons.history,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    title: const Text('Delete History'),
+                    subtitle: const Text('View deletion logs'),
+                    onTap: () {
+                      Navigator.pop(context); // Close bottom sheet
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DeleteHistoryScreen(),
+                        ),
+                      );
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  ),
+                  // Add more menu items here if needed
+                ],
+              ).toList(),
+            ],
+          ),
         ),
       ),
     );
