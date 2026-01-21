@@ -234,7 +234,7 @@ class Document {
                 // Assuming format like "Today 14:30" or "Yesterday 14:30" or "1 days ago" or "12/25/2023"
                 if (timeStr.startsWith('Today') || timeStr.startsWith('Yesterday')) {
                   final time = timeStr.split(' ')[1];
-                  final now = DateTime.now();
+                  final now = getPhilippineTime();
                   final today = DateTime(now.year, now.month, now.day);
                   if (timeStr.startsWith('Yesterday')) {
                     timestamp = today.subtract(const Duration(days: 1));
@@ -248,7 +248,7 @@ class Document {
                   ));
                 } else if (timeStr.contains('days ago')) {
                   final days = int.parse(timeStr.split(' ')[0]);
-                  timestamp = DateTime.now().subtract(Duration(days: days));
+                  timestamp = getPhilippineTime().subtract(Duration(days: days));
                 } else if (timeStr.contains('/')) {
                   // Assume MM/DD/YYYY format
                   final dateParts = timeStr.split('/');

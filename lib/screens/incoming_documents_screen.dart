@@ -106,7 +106,17 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     });
   }
 
-
+  String _formatDateTime(DateTime dateTime) {
+    // Timestamps are already in Philippine time
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final amPm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$month/$day/$year $displayHour:$minute $amPm';
+  }
 
 Widget _buildUploadStatusIndicator(Document doc) {
   final queueManager = UploadQueueManager();
@@ -1277,6 +1287,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           .toList();
 
                                       return visible.map((mapEntry) {
+                                        final originalIndex = mapEntry.key;
                                         final entry = mapEntry.value;
                                         return Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -1305,7 +1316,9 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                       ),
                                                     ),
                                                     Text(
-                                                      "by ${entry.person}",
+                                                      originalIndex == 0
+                                                          ? "by: ${entry.person}"
+                                                          : "by: ${entry.person} | ${_formatDateTime(entry.timestamp)}",
                                                       style: TextStyle(
                                                         fontSize: 12,
                                                         color: Theme.of(context)

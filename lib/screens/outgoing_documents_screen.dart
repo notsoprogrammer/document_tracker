@@ -159,6 +159,18 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     });
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    // Timestamps are already in Philippine time
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final amPm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$month/$day/$year $displayHour:$minute $amPm';
+  }
+
 
 
   Widget _buildGlobalUploadStatusIndicator() {
@@ -1280,7 +1292,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                      byLine,
+                                                      originalIndex == 0
+                                                          ? "by: ${entry.person}"
+                                                          : "by: ${entry.person} | ${_formatDateTime(entry.timestamp)}",
                                                       style: TextStyle(
                                                         fontSize: 13,
                                                         color: Theme.of(context)
