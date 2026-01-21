@@ -4,6 +4,7 @@ import 'dart:io';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../widgets/sync_banner.dart';
+import '../utils/delete_utils.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -192,19 +193,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteDocument(int index) async {
-    try {
-      final documentCode = documents[index].code;
-
-      // Delete through cached service (handles both local and remote)
-      await _documentService.deleteDocument(documentCode);
-
-      // Remove from local list
+    final success = await confirmAndDeleteRecord(context, documents[index], _documentService);
+    if (success) {
       setState(() {
         documents.removeAt(index);
       });
-    } catch (e) {
-      print('Error deleting document: $e');
-      // Could show error snackbar here
     }
   }
 

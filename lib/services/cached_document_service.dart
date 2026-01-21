@@ -8,6 +8,7 @@ import 'google_drive_service.dart';
 import 'upload_queue_manager.dart';
 import '../models/document.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/auth_service.dart';
 
 class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
@@ -138,13 +139,22 @@ class CachedDocumentService {
 
   Future<void> deleteDocument(String documentCode) async {
     try {
+      // Get the document details before deleting for logging
+      final localDocs = await _localDb.fetchDocuments();
+      final document = localDocs.firstWhere((doc) => doc.code == documentCode);
+
       // Delete locally first
       await _localDb.deleteDocument(documentCode);
 
-      // If online, sync to remote
+      // If online, sync to remote and log
       if (await isOnline) {
         try {
           await _remoteDb.deleteDocument(documentCode);
+          // Log the deletion
+          final username = await AuthService.getUsername();
+          if (username != null) {
+            await _remoteDb.logDeletedRecord(username, documentCode, document.title ?? documentCode);
+          }
         } catch (e) {
           print('Failed to sync deletion to remote: $e');
           // Deletion is done locally, will sync later

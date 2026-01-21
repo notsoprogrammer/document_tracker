@@ -96,6 +96,14 @@ class SupabaseService {
     await _client.from('documents').delete().eq('code', documentCode);
   }
 
+  Future<void> logDeletedRecord(String deletedBy, String docCode, String title) async {
+    await _client.from('deleted_records').insert({
+      'deleted_by': deletedBy,
+      'doc_code': docCode,
+      'title': title,
+    });
+  }
+
   // History operations - simplified to work with existing table structure
   Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
     await _client.from('history_entries').insert({
