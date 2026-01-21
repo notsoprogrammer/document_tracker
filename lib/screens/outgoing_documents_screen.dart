@@ -115,6 +115,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     _filteredDocuments = widget.documents
         .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
         .toList();
+    _filteredDocuments.sort((a, b) {
+      final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+      final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+      return bDate.compareTo(aDate);
+    });
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     // Simulate loading for better UX - keep it longer to show the indicator
