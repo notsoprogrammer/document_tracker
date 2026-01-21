@@ -8,6 +8,7 @@ import '../services/upload_queue_manager.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/auth_service.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -46,6 +47,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
+  String? _username;
 
   @override
   void initState() {
@@ -60,6 +62,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     _filteredDocuments = widget.documents.where((doc) => doc.incoming).toList();
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
+    _loadUsername();
     // Start loading immediately
     _isLoading = true;
     // Simulate loading for better UX - keep it longer to show the indicator
@@ -525,76 +528,16 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   ),
                 ],
                 const SizedBox(height: 16),
-                RawAutocomplete<String>(
-                  textEditingController: updatedByController,
-                  focusNode: FocusNode(),
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    if (textEditingValue.text == '') {
-                      return const Iterable<String>.empty();
-                    }
-                    return cpdcoStaff.where((String option) {
-                      return option.toLowerCase().contains(
-                        textEditingValue.text.toLowerCase(),
-                      );
-                    });
-                  },
-                  onSelected: (String selection) {
-                    setState(() => updatedByController.text = selection);
-                  },
-                  fieldViewBuilder:
-                      (
-                        BuildContext context,
-                        TextEditingController textEditingController,
-                        FocusNode focusNode,
-                        VoidCallback onFieldSubmitted,
-                      ) {
-                        return TextField(
-                          controller: textEditingController,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: "Updated By",
-                            prefixIcon: const Icon(Icons.person),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      },
-                  optionsViewBuilder:
-                      (
-                        BuildContext context,
-                        AutocompleteOnSelected<String> onSelected,
-                        Iterable<String> options,
-                      ) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: Material(
-                            elevation: 4.0,
-                            child: SizedBox(
-                              width: 350,
-                              height: (options.length * 56.0 + 16.0).clamp(
-                                0.0,
-                                200.0,
-                              ),
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(8.0),
-                                itemCount: options.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final String option = options.elementAt(
-                                    index,
-                                  );
-                                  return GestureDetector(
-                                    onTap: () {
-                                      onSelected(option);
-                                    },
-                                    child: ListTile(title: Text(option)),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                TextField(
+                  controller: TextEditingController(text: _username),
+                  decoration: InputDecoration(
+                    labelText: "Updated By",
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  readOnly: true,
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -626,7 +569,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
               ),
               onPressed: () {
                 if (selectedStatus != null &&
-                    updatedByController.text.isNotEmpty) {
+                    _username != null && _username!.isNotEmpty) {
                   String? combinedNotes = notesController.text.isNotEmpty
                       ? notesController.text
                       : null;
@@ -639,7 +582,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   widget.updateDocumentStatus(
                     index,
                     selectedStatus!,
-                    updatedByController.text,
+                    _username!,
                     notes: combinedNotes,
                   );
                   Navigator.of(context).popUntil((route) => route.isFirst);
@@ -761,6 +704,15 @@ Widget _buildUploadStatusIndicator(Document doc) {
       await launchUrl(uri);
     } else {
       // Handle error
+    }
+  }
+
+  Future<void> _loadUsername() async {
+    final username = await AuthService.getUsername();
+    if (username != null && username.isNotEmpty) {
+      setState(() {
+        _username = username;
+      });
     }
   }
 
