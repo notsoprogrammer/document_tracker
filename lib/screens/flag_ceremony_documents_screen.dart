@@ -5,6 +5,8 @@ import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
+import '../utils/delete_utils.dart';
+import '../services/cached_document_service.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -486,8 +488,21 @@ class _FlagCeremonyDocumentsScreenState
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          onPressed: () =>
-                                              _confirmDelete(originalIndex),
+                                          onPressed: () async {
+                                            final deleted = await confirmAndDeleteRecord(
+                                              context,
+                                              document,
+                                              CachedDocumentService(),
+                                            );
+                                            if (deleted && mounted) {
+                                              setState(() {
+                                                _filteredDocuments.removeAt(index);
+                                              });
+                                              if (widget.onRefresh != null) {
+                                                widget.onRefresh!();
+                                              }
+                                            }
+                                          },
                                         ),
                                         if (document.imageUrls.isNotEmpty ||
                                             document.localImagePaths.isNotEmpty)
@@ -563,33 +578,6 @@ class _FlagCeremonyDocumentsScreenState
     );
   }
 
-  void _confirmDelete(int originalIndex) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Document'),
-        content: const Text('Sure??? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              widget.deleteDocument(originalIndex);
-              setState(() {
-                _filteredDocuments.removeWhere(
-                  (doc) => widget.documents.indexOf(doc) == originalIndex,
-                );
-              });
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
     showDialog(
