@@ -7,6 +7,7 @@ import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
+import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -147,6 +148,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     super.initState();
     codeController.text = _generateCode(widget.incoming);
     _setupUploadListener();
+    _loadUsername();
+  }
+
+  Future<void> _loadUsername() async {
+    final username = await AuthService.getUsername();
+    if (username != null && username.isNotEmpty) {
+      personController.text = username;
+    }
   }
 
   void _setupUploadListener() {

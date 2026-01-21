@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'widgets/auth_wrapper.dart';
 
 class DocTrackerApp extends StatelessWidget {
   const DocTrackerApp({super.key});
@@ -37,7 +37,10 @@ class DocTrackerApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: const HomeScreen(),
+      home: const AuthWrapper(),
+      routes: {
+        '/home': (context) => const AuthWrapper(), // Since AuthWrapper handles showing HomeScreen
+      },
     );
   }
 }
