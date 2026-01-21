@@ -38,39 +38,6 @@ Future<bool> confirmAndDeleteRecord(BuildContext context, Document document, Cac
                   style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 16),
-                // Online/Offline status indicator
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isOnline ? Colors.green[50] : Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isOnline ? Colors.green[200]! : Colors.orange[200]!,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isOnline ? Icons.cloud_done : Icons.cloud_off,
-                        size: 20,
-                        color: isOnline ? Colors.green[700] : Colors.orange[700],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          isOnline
-                              ? 'Online: Document will be deleted immediately'
-                              : 'Offline: Document will be marked for deletion and synced when online',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isOnline ? Colors.green[900] : Colors.orange[900],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
                 TextField(
                   controller: controller,
                   decoration: const InputDecoration(
@@ -134,8 +101,8 @@ Future<bool> confirmAndDeleteRecord(BuildContext context, Document document, Cac
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete document: ${e.toString()}'),
-            backgroundColor: Colors.red[700],
+            content: Text('Failed to delete record: No internet connection, please try again'),
+            backgroundColor: const Color.fromARGB(255, 208, 90, 90),
             duration: const Duration(seconds: 4),
           ),
         );
