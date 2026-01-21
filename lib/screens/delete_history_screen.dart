@@ -36,18 +36,16 @@ class _DeleteHistoryScreenState extends State<DeleteHistoryScreen> {
   }
 
   String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
+    // Convert UTC timestamp to device's local timezone
+    final localDateTime = dateTime.toLocal();
+    final hour = localDateTime.hour;
+    final minute = localDateTime.minute.toString().padLeft(2, '0');
+    final amPm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final month = localDateTime.month.toString().padLeft(2, '0');
+    final day = localDateTime.day.toString().padLeft(2, '0');
+    final year = localDateTime.year;
+    return '$month/$day/$year $displayHour:$minute $amPm';
   }
 
   @override
