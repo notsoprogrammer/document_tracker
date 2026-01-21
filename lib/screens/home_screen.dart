@@ -262,6 +262,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
         title: const Text("FileTrack Hub"),
+        leading: IconButton(
+          icon: const Icon(Icons.sync),
+          onPressed: _syncAllDocuments,
+          tooltip: 'Sync All Documents',
+        ),
         actions: [
           IconButton(
             icon: Container(
@@ -285,12 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onPressed: () => _showSidebar(context),
             tooltip: 'More Options',
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: _syncAllDocuments,
-            tooltip: 'Sync All Documents',
           ),
         ],
       ),
@@ -515,91 +514,67 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSidebar(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => Align(
-        alignment: Alignment.centerRight,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.7,
-            height: MediaQuery.of(context).size.height,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(16),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(-5, 0),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.more_horiz,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Options',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.more_horiz,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Options',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                ],
+              ),
+            ),
+            // Menu Items
+            ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                ListTile(
+                  leading: Icon(
+                    Icons.history,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
-                // Menu Items
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          Icons.history,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        title: const Text('Delete History'),
-                        subtitle: const Text('View deletion logs'),
-                        onTap: () {
-                          Navigator.pop(context); // Close sidebar
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DeleteHistoryScreen(),
-                            ),
-                          );
-                        },
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  title: const Text('Delete History'),
+                  subtitle: const Text('View deletion logs'),
+                  onTap: () {
+                    Navigator.pop(context); // Close bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DeleteHistoryScreen(),
                       ),
-                      // Add more menu items here if needed
-                    ],
+                    );
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 ),
+                // Add more menu items here if needed
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
