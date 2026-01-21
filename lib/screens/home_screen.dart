@@ -336,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               child: Icon(
-                Icons.more_vert,
+                Icons.menu,
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
                 size: 20,
               ),

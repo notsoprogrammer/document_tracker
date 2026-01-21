@@ -159,20 +159,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     });
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
 
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
-  }
 
   Widget _buildGlobalUploadStatusIndicator() {
     final queueManager = UploadQueueManager();
@@ -745,74 +732,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
-  void _showSearchDialog(BuildContext context) {
-    final searchController = TextEditingController(text: _searchQuery);
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                "Search by docs,mode, cpdco staff, other personnel, remarks, notes, type, office, status",
-                style: const TextStyle(fontSize: 14),
-                overflow: TextOverflow.visible, // allow wrapping
-                softWrap: true,
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 16),
-              TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: "Type here to search",
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = '';
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Clear"),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.search),
-            label: const Text("Search"),
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              setState(() {
-                _searchQuery = searchController.text;
-              });
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showFilterDialog(BuildContext context) {
     showDialog(
@@ -964,52 +884,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-  void _showDeleteConfirmation(BuildContext context, int index) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.delete, color: Colors.red),
-            const SizedBox(width: 8),
-            const Text("Delete Document", style: TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: const Text(
-          "Sure naaa??? This action cannot be undone.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.delete),
-            label: const Text("Delete", style: TextStyle(fontSize: 10)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              widget.deleteDocument(index);
-              setState(() {
-                // The documents list will be updated by the parent, so we just need to rebuild
-                // Navigator.of(context).popUntil((route) => route.isFirst);
-              });
-            },
-          ),
-        ],
       ),
     );
   }
@@ -1364,7 +1238,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
                                         String mainLine;
                                         final byLine =
-                                            "by: ${entry.person} | Time: ${_formatDateTime(entry.timestamp)}";
+                                            "by: ${entry.person}";
                                         if (originalIndex == 0) {
                                           // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
                                           mainLine =

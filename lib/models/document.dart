@@ -54,6 +54,7 @@ class Document {
   final List<String> localImagePaths; // Local image file paths (for offline uploads)
   final List<String> localFilePaths; // Local file paths (for offline uploads)
   bool needsSync; // Indicates if document was added offline and needs syncing
+  final DateTime? createdAt;
 
   Document({
     required this.code,
@@ -73,6 +74,7 @@ class Document {
     List<String>? localImagePaths,
     List<String>? localFilePaths,
     this.needsSync = false,
+    this.createdAt,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
@@ -288,6 +290,7 @@ class Document {
       localImagePaths: localImagePaths,
       localFilePaths: localFilePaths,
       needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
   }
 
@@ -321,6 +324,7 @@ class Document {
       'local_image_paths': localImagePaths,
       'local_file_paths': localFilePaths,
       'needs_sync': needsSync,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 
@@ -342,6 +346,7 @@ class Document {
     List<String>? localImagePaths,
     List<String>? localFilePaths,
     bool? needsSync,
+    DateTime? createdAt,
   }) {
     return Document(
       code: code ?? this.code,
@@ -361,6 +366,7 @@ class Document {
       localImagePaths: localImagePaths ?? this.localImagePaths,
       localFilePaths: localFilePaths ?? this.localFilePaths,
       needsSync: needsSync ?? this.needsSync,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

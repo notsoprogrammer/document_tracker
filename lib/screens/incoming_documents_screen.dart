@@ -106,20 +106,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     });
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
 
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
-  }
 
 Widget _buildUploadStatusIndicator(Document doc) {
   final queueManager = UploadQueueManager();
@@ -766,47 +753,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
     }
   }
 
-  void _showSearchDialog(BuildContext context) {
-    final searchController = TextEditingController(text: _searchQuery);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Documents'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Search by docs, mode, cpdco staff, other personnel, remarks, notes, type, office, status',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                hintText: 'Enter search query',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = searchController.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showFilterDialog(BuildContext context, StateSetter setState) {
     showDialog(
@@ -1358,7 +1305,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                       ),
                                                     ),
                                                     Text(
-                                                      "by ${entry.person} • ${_formatDateTime(entry.timestamp)}",
+                                                      "by ${entry.person}",
                                                       style: TextStyle(
                                                         fontSize: 12,
                                                         color: Theme.of(context)
