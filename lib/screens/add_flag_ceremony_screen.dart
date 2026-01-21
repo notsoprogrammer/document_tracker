@@ -86,7 +86,9 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   Future<void> _loadUsername() async {
     final username = await AuthService.getUsername();
     if (username != null && username.isNotEmpty) {
-      personController.text = username;
+      setState(() {
+        personController.text = username;
+      });
     }
   }
 
