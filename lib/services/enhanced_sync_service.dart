@@ -157,6 +157,9 @@ class EnhancedSyncService {
       // Sync to Supabase first
       await _syncToSupabase(unsyncedDocuments);
 
+      // Sync pending deletions
+      await _syncPendingDeletions();
+
       // Then process any pending file uploads (now that documents exist in Supabase)
       await _processPendingUploads();
 
@@ -280,6 +283,39 @@ class EnhancedSyncService {
       debugPrint('Supabase sync completed: $successCount/${unsyncedDocuments.length} documents synced');
     } catch (e) {
       debugPrint('Error in Supabase sync: $e');
+    }
+  }
+
+  /// Sync pending deletions to Supabase
+  Future<void> _syncPendingDeletions() async {
+    if (_isDisposed) return;
+
+    try {
+      final cachedService = CachedDocumentService();
+      final pendingDeletions = await SQLiteDatabaseService().getPendingDeletions();
+
+      if (pendingDeletions.isEmpty) {
+        debugPrint('No pending deletions to sync');
+        return;
+      }
+
+      debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
+
+      // Update status: Syncing deletions
+      _updateSyncStatus(SyncStatus(
+        message: 'Syncing ${pendingDeletions.length} pending deletions...',
+        isActive: true,
+        color: const Color(0xFFFF9800),
+        progress: 0,
+        total: pendingDeletions.length,
+      ));
+
+      // Use the cached service method to sync pending deletions
+      await cachedService.syncPendingDeletions();
+
+      debugPrint('Pending deletions sync completed');
+    } catch (e) {
+      debugPrint('Error syncing pending deletions: $e');
     }
   }
 

@@ -20,10 +20,10 @@ class SQLiteDatabaseService {
 
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'documents_v4.db');
+    String path = join(documentsDirectory.path, 'documents_v5.db');
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -49,6 +49,7 @@ class SQLiteDatabaseService {
         local_image_paths TEXT,
         local_file_paths TEXT,
         needs_sync INTEGER,
+        deleted_pending_sync INTEGER DEFAULT 0,
         created_at TEXT,
         updated_at TEXT
       )
@@ -65,6 +66,18 @@ class SQLiteDatabaseService {
         notes TEXT,
         personnel TEXT,
         FOREIGN KEY (document_code) REFERENCES documents (code)
+      )
+    ''');
+
+    // Pending deletions table
+    await db.execute('''
+      CREATE TABLE pending_deletions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deleted_by TEXT NOT NULL,
+        doc_code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        deleted_at TEXT NOT NULL,
+        synced INTEGER DEFAULT 0
       )
     ''');
   }
@@ -87,11 +100,40 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
+    if (oldVersion < 5) {
+      // Add deleted_pending_sync column to documents table
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN deleted_pending_sync INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column might already exist
+      }
+      
+      // Create pending_deletions table
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS pending_deletions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deleted_by TEXT NOT NULL,
+            doc_code TEXT NOT NULL,
+            title TEXT NOT NULL,
+            deleted_at TEXT NOT NULL,
+            synced INTEGER DEFAULT 0
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
+      }
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('documents');
+    // Exclude documents marked as deleted_pending_sync
+    final List<Map<String, dynamic>> maps = await db.query(
+      'documents',
+      where: 'deleted_pending_sync = ?',
+      whereArgs: [0],
+    );
 
     List<Document> documents = [];
     for (var map in maps) {
@@ -185,6 +227,60 @@ class SQLiteDatabaseService {
     final db = await database;
     await db.delete('history_entries');
     await db.delete('documents');
+  }
+
+  // Pending deletions methods
+  Future<void> addPendingDeletion({
+    required String deletedBy,
+    required String docCode,
+    required String title,
+  }) async {
+    final db = await database;
+    await db.insert('pending_deletions', {
+      'deleted_by': deletedBy,
+      'doc_code': docCode,
+      'title': title,
+      'deleted_at': DateTime.now().toIso8601String(),
+      'synced': 0,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingDeletions() async {
+    final db = await database;
+    return await db.query(
+      'pending_deletions',
+      where: 'synced = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<void> markDeletionAsSynced(int deletionId) async {
+    final db = await database;
+    await db.update(
+      'pending_deletions',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [deletionId],
+    );
+  }
+
+  Future<void> markDocumentAsDeletedPending(String documentCode) async {
+    final db = await database;
+    await db.update(
+      'documents',
+      {'deleted_pending_sync': 1},
+      where: 'code = ?',
+      whereArgs: [documentCode],
+    );
+  }
+
+  Future<void> deletePendingDeletionRecord(int deletionId) async {
+    final db = await database;
+    await db.delete(
+      'pending_deletions',
+      where: 'id = ?',
+      whereArgs: [deletionId],
+    );
   }
 
   Future<void> close() async {

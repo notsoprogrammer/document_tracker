@@ -142,27 +142,100 @@ class CachedDocumentService {
       // Get the document details before deleting for logging
       final localDocs = await _localDb.fetchDocuments();
       final document = localDocs.firstWhere((doc) => doc.code == documentCode);
+      final username = await AuthService.getUsername();
 
-      // Delete locally first
-      await _localDb.deleteDocument(documentCode);
-
-      // If online, sync to remote and log
+      // Check if online
       if (await isOnline) {
+        // Online: Delete immediately and log to Supabase
         try {
+          // Delete from remote first
           await _remoteDb.deleteDocument(documentCode);
-          // Log the deletion
-          final username = await AuthService.getUsername();
+          
+          // Log the deletion to Supabase
           if (username != null) {
             await _remoteDb.logDeletedRecord(username, documentCode, document.title ?? documentCode);
           }
+          
+          // Delete locally after successful remote deletion
+          await _localDb.deleteDocument(documentCode);
+          
+          debugPrint('Document $documentCode deleted successfully (online)');
         } catch (e) {
-          print('Failed to sync deletion to remote: $e');
-          // Deletion is done locally, will sync later
+          print('Failed to delete from remote: $e');
+          rethrow;
         }
+      } else {
+        // Offline: Mark as deleted_pending_sync and add to pending_deletions
+        debugPrint('Device is offline - marking document $documentCode for deletion');
+        
+        // Mark document as deleted_pending_sync (hides it from UI)
+        await _localDb.markDocumentAsDeletedPending(documentCode);
+        
+        // Add to pending deletions table
+        if (username != null) {
+          await _localDb.addPendingDeletion(
+            deletedBy: username,
+            docCode: documentCode,
+            title: document.title ?? documentCode,
+          );
+        }
+        
+        debugPrint('Document $documentCode marked for deletion (offline)');
       }
     } catch (e) {
       print('Error deleting document: $e');
       rethrow;
+    }
+  }
+
+  /// Sync pending deletions to Supabase
+  Future<void> syncPendingDeletions() async {
+    if (!(await isOnline)) {
+      debugPrint('Device is offline - skipping pending deletions sync');
+      return;
+    }
+
+    try {
+      final pendingDeletions = await _localDb.getPendingDeletions();
+      
+      if (pendingDeletions.isEmpty) {
+        debugPrint('No pending deletions to sync');
+        return;
+      }
+
+      debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
+      int successCount = 0;
+
+      for (final deletion in pendingDeletions) {
+        try {
+          final docCode = deletion['doc_code'] as String;
+          final deletedBy = deletion['deleted_by'] as String;
+          final title = deletion['title'] as String;
+          final deletionId = deletion['id'] as int;
+
+          // Delete from Supabase
+          await _remoteDb.deleteDocument(docCode);
+          
+          // Log the deletion to Supabase
+          await _remoteDb.logDeletedRecord(deletedBy, docCode, title);
+          
+          // Actually delete the document from local SQLite
+          await _localDb.deleteDocument(docCode);
+          
+          // Mark deletion as synced (or delete the pending deletion record)
+          await _localDb.deletePendingDeletionRecord(deletionId);
+          
+          successCount++;
+          debugPrint('Synced deletion for document $docCode');
+        } catch (e) {
+          debugPrint('Failed to sync deletion for ${deletion['doc_code']}: $e');
+          // Continue with next deletion
+        }
+      }
+
+      debugPrint('Synced $successCount of ${pendingDeletions.length} pending deletions');
+    } catch (e) {
+      debugPrint('Error syncing pending deletions: $e');
     }
   }
 
