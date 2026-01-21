@@ -118,4 +118,14 @@ class SupabaseService {
     // Return empty list for now - history is handled by Document model
     return [];
   }
+
+  Future<List<Map<String, dynamic>>> fetchDeletedRecords() async {
+    try {
+      final response = await _client.from('deleted_records').select('*').order('deleted_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error fetching deleted records: $e');
+      return [];
+    }
+  }
 }
