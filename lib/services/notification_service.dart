@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import '../utils/date_time_utils.dart';
 
 class NotificationService {
@@ -11,6 +12,8 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
+    tz.initializeTimeZones(); // ✅ initialize timezone database
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -31,8 +34,6 @@ class NotificationService {
     required String body,
     required DateTime scheduledDate,
   }) async {
-    final tz.TZDateTime scheduledTZDateTime = tz.TZDateTime.from(scheduledDate, tz.local);
-
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'compliance_channel',
@@ -40,7 +41,6 @@ class NotificationService {
       channelDescription: 'Notifications for document compliance deadlines',
       importance: Importance.max,
       priority: Priority.high,
-      showWhen: false,
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -51,13 +51,14 @@ class NotificationService {
       iOS: iOSPlatformChannelSpecifics,
     );
 
+    // ✅ Schedule instead of immediate show
     await _flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
       body,
-      scheduledTZDateTime,
+      tz.TZDateTime.from(scheduledDate, tz.local),
       platformChannelSpecifics,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
@@ -82,12 +83,10 @@ class NotificationService {
     await cancelAllNotifications(existingIds);
 
     final now = getPhilippineTime();
-    final deadlineInPh = tz.TZDateTime.from(deadline, tz.local);
-
     List<Map<String, dynamic>> notifications = [];
 
-    // If deadline is more than 2 days away, schedule reminder at 9 AM the day before
-    if (deadline.difference(now).inDays > 2) {
+    // ✅ Reminder at 9 AM the day before deadline
+    if (deadline.difference(now).inDays >= 1) {
       final reminderDate = deadline.subtract(const Duration(days: 1));
       final reminderTime = DateTime(
         reminderDate.year,
@@ -99,19 +98,20 @@ class NotificationService {
       notifications.add({
         'id': _generateNotificationId(documentCode, 'reminder'),
         'title': '📑 Compliance Reminder',
-        'body': 'Document $documentCode deadline tomorrow.',
+        'body': 'Document $documentCode deadline on '
+            '${deadline.toLocal()}',
         'scheduledDate': reminderTime,
       });
     }
 
-    // Schedule notification 12 hours before deadline
-    final twelveHoursBefore = deadline.subtract(const Duration(hours: 12));
-    if (twelveHoursBefore.isAfter(now)) {
+    // ✅ Notification 2 hours before deadline
+    final twoHoursBefore = deadline.subtract(const Duration(hours: 2));
+    if (twoHoursBefore.isAfter(now)) {
       notifications.add({
         'id': _generateNotificationId(documentCode, 'deadline'),
         'title': '📑 Compliance Reminder',
         'body': 'Document $documentCode deadline in 2 hours.',
-        'scheduledDate': twelveHoursBefore,
+        'scheduledDate': twoHoursBefore,
       });
     }
 
@@ -131,7 +131,6 @@ class NotificationService {
   }
 
   int _generateNotificationId(String documentCode, String type) {
-    // Generate unique ID based on document code and type
     return '${documentCode.hashCode}${type.hashCode}'.hashCode.abs();
   }
 }

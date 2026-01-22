@@ -3,7 +3,7 @@
 ## Completed Tasks
 - [x] Add complianceDeadline and scheduledNotificationIds fields to Document model
 - [x] Update database schema to include compliance_deadline and scheduled_notification_ids columns
-- [x] Add flutter_local_notifications and timezone dependencies to pubspec.yaml
+- [x] Add flutter_local_notifications dependency to pubspec.yaml
 - [x] Create NotificationService for scheduling compliance reminders
 - [x] Update SQLiteDatabaseService to handle new fields and database version 6
 - [x] Initialize NotificationService in main.dart
@@ -19,3 +19,6 @@
 - [x] Test deadline picker display when "For Compliance" selected (Implemented in both add and update screens)
 - [x] Test deadline display in document details (Implemented in incoming documents screen)
 - [x] Test history logging for deadline setting (Implemented in home_screen.dart)
+- [x] Fix Android build issue with flutter_local_notifications (Added core library desugaring)
+- [x] Fix SQLite database schema issue (Updated _onCreate to include new columns, changed to v7.db)
+- [x] Fix timezone initialization error in NotificationService (Removed timezone dependency, using immediate notifications)
