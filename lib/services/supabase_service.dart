@@ -154,7 +154,7 @@ class SupabaseService {
       // Group by document_code and get the most recent notification per document
       final response = await _client
           .from('notifications_history')
-          .select('*, documents!inner(title, compliance_assignee)')
+          .select('*, documents!inner(title, compliance_assignee, status)')
           .order('created_at', ascending: false);
 
       print('Notification history response: $response');

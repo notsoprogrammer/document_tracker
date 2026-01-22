@@ -51,20 +51,22 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     return '$month/$day/$year $displayHour:$minute $amPm';
   }
 
-  String _getStatusIcon(String status) {
-    switch (status) {
-      case 'scheduled':
-        return '⏰';
-      case 'shown':
-        return '✅';
-      case 'cancelled':
-        return '❌';
+  String _getDocumentStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+
+      case 'for compliance':
+        return '🚨';
+      case 'filed':
+        return '🗃️';
+
       case 'completed':
-        return '🎉';
+        return '✅';
       default:
-        return '❓';
+        return '📄';
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -128,9 +130,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                 Row(
                                   children: [
                                     Text(
-                                      _getStatusIcon(log['status']),
+                                      _getDocumentStatusIcon(log['documents']?['status'] ?? ''),
                                       style: const TextStyle(fontSize: 20),
                                     ),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         log['documents']?['title'] ?? log['document_code'] ?? 'Unknown Document',
@@ -140,7 +143,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                       ),
                                     ),
                                     Text(
-                                      log['status'] ?? 'unknown',
+                                      log['documents']?['status'] ?? 'unknown',
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             color: Theme.of(context).colorScheme.primary,
                                           ),
