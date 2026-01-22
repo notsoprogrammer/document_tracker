@@ -72,6 +72,10 @@ class NotificationService {
       if (await Permission.notification.isDenied) {
         await Permission.notification.request();
       }
+      // Request exact alarm permission for Android API 31+
+      if (await Permission.scheduleExactAlarm.isDenied) {
+        await Permission.scheduleExactAlarm.request();
+      }
     }
   }
 
@@ -79,7 +83,7 @@ class NotificationService {
   /* -----------------------------------------------------------
    * SCHEDULING
    * ---------------------------------------------------------*/
-  Future<void> schedule({
+  Future<bool> schedule({
     required int id,
     required String title,
     required String body,
@@ -89,7 +93,7 @@ class NotificationService {
 
     if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) {
       debugPrint('⚠️ Skipped scheduling (past date): $tzDate');
-      return;
+      return false;
     }
 
     // Check if exact alarms are permitted on Android
@@ -101,7 +105,7 @@ class NotificationService {
 
       if (canScheduleExact != true) {
         debugPrint('⚠️ Cannot schedule exact notifications. Permission not granted.');
-        return;
+        return false;
       }
     }
 
@@ -120,18 +124,23 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tzDate,
-      notificationDetails,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-
-    debugPrint('✅ Scheduled notification [$id] at $tzDate');
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        tzDate,
+        notificationDetails,
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint('✅ Scheduled notification [$id] at $tzDate');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to schedule notification [$id]: $e');
+      return false;
+    }
   }
 
   /* -----------------------------------------------------------
@@ -148,43 +157,108 @@ class NotificationService {
     final now = tz.TZDateTime.now(tz.local);
     final List<int> newIds = [];
 
-    // 📅 9AM day before
-    final dayBefore = tz.TZDateTime(
-      tz.local,
-      deadline.year,
-      deadline.month,
-      deadline.day - 1,
-      9,
-    );
-
-    if (dayBefore.isAfter(now)) {
-      final id = _generateId(documentCode, 'day_before');
-      await schedule(
-        id: id,
-        title: '📑 Compliance Reminder',
-        body: 'Document $documentCode deadline is tomorrow.',
-        scheduledDate: dayBefore,
-      );
-      newIds.add(id);
-    }
-
-    // ⏰ 2 hours before
-    final twoHoursBefore =
+    // ⏰ 1 day before
+    final oneDayBefore =
         tz.TZDateTime.from(deadline, tz.local)
-            .subtract(const Duration(hours: 2));
+            .subtract(const Duration(days: 1));
 
-    if (twoHoursBefore.isAfter(now)) {
-      final id = _generateId(documentCode, 'two_hours');
-      await schedule(
+    if (oneDayBefore.isAfter(now)) {
+      final id = _generateId(documentCode, 'one_day');
+      final success = await schedule(
         id: id,
         title: '📑 Compliance Reminder',
         body:
-            'Document $documentCode (assigned to $assignedTo) is due in 2 hours.',
-        scheduledDate: twoHoursBefore,
+            'Document $documentCode (assigned to $assignedTo) is due in 1 day.',
+        scheduledDate: oneDayBefore,
       );
-      newIds.add(id);
+      if (success) {
+        newIds.add(id);
+        debugPrint('Scheduled 1-day reminder for $documentCode at $oneDayBefore');
+      }
+    } else {
+      debugPrint('Skipped 1-day reminder for $documentCode (past date: $oneDayBefore)');
     }
 
+    // ⏰ 5 hours before
+    final fiveHoursBefore =
+        tz.TZDateTime.from(deadline, tz.local)
+            .subtract(const Duration(hours: 5));
+
+    if (fiveHoursBefore.isAfter(now)) {
+      final id = _generateId(documentCode, 'five_hours');
+      final success = await schedule(
+        id: id,
+        title: '📑 Compliance Reminder',
+        body:
+            'Document $documentCode (assigned to $assignedTo) is due in 5 hours.',
+        scheduledDate: fiveHoursBefore,
+      );
+      if (success) {
+        newIds.add(id);
+        debugPrint('Scheduled 5-hour reminder for $documentCode at $fiveHoursBefore');
+      }
+    } else {
+      debugPrint('Skipped 5-hour reminder for $documentCode (past date: $fiveHoursBefore)');
+    }
+
+    // ⏰ At deadline
+    final atDeadline = tz.TZDateTime.from(deadline, tz.local);
+
+    if (atDeadline.isAfter(now)) {
+      final timeToDeadline = atDeadline.difference(now);
+      if (timeToDeadline.inMinutes <= 5) {
+        // For very short deadlines, show immediate notification
+        await _plugin.show(
+          _generateId(documentCode, 'deadline'),
+          '🚨 Compliance Deadline',
+          'Document $documentCode (assigned to $assignedTo) is due NOW!',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              channelDescription: _channelDesc,
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+        );
+        debugPrint('Showed immediate deadline notification for $documentCode');
+      } else {
+        final id = _generateId(documentCode, 'deadline');
+        final success = await schedule(
+          id: id,
+          title: '🚨 Compliance Deadline',
+          body:
+              'Document $documentCode (assigned to $assignedTo) is due NOW!',
+          scheduledDate: atDeadline,
+        );
+        if (success) {
+          newIds.add(id);
+          debugPrint('Scheduled deadline reminder for $documentCode at $atDeadline');
+        }
+      }
+    } else {
+      debugPrint('Skipped deadline reminder for $documentCode (past date: $atDeadline)');
+    }
+
+    // Add a test notification in 30 seconds if deadline is within 1 hour
+    final timeToDeadline = atDeadline.difference(now);
+    if (timeToDeadline.inHours < 1 && timeToDeadline.inSeconds > 0) {
+      final testTime = now.add(const Duration(seconds: 30));
+      final testId = _generateId(documentCode, 'test_30s');
+      final success = await schedule(
+        id: testId,
+        title: 'Test Notification',
+        body: 'This is a test notification 30 seconds after setting For Compliance.',
+        scheduledDate: testTime,
+      );
+      if (success) {
+        newIds.add(testId);
+        debugPrint('Scheduled test notification for $documentCode at $testTime');
+      }
+    }
+
+    debugPrint('Total notifications scheduled for $documentCode: ${newIds.length}');
     return newIds;
   }
 

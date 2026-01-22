@@ -292,6 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) => const DeleteHistoryScreen(),
                   ),
                 );
+              } else if (value == 'test_notification') {
+                _testNotification();
               }
             },
             itemBuilder: (context) => [
@@ -307,6 +309,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.history),
                   title: Text('Delete History'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'test_notification',
+                child: ListTile(
+                  leading: Icon(Icons.notifications),
+                  title: Text('Test Notification'),
                 ),
               ),
             ],
@@ -639,6 +648,20 @@ Positioned(
     );
     // Reload documents since the add screen handles saving and uploads
     await _loadDocuments();
+  }
+
+  Future<void> _testNotification() async {
+    try {
+      final notificationService = NotificationService();
+      await notificationService.showTestNotification();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test notification sent!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send test notification: $e')),
+      );
+    }
   }
 
 
