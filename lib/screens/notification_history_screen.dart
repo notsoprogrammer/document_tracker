@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
+import '../utils/snackbar_utils.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
   const NotificationHistoryScreen({super.key});
@@ -129,10 +131,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                       _getStatusIcon(log['status']),
                                       style: const TextStyle(fontSize: 20),
                                     ),
-                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        log['notification_type'] ?? 'Unknown',
+                                        log['documents']?['title'] ?? log['document_code'] ?? 'Unknown Document',
                                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -147,23 +148,47 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  'Document: ${log['document_code'] ?? 'N/A'}',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Scheduled: ${_formatDateTime(log['scheduled_time'])}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Code: ${log['document_code'] ?? 'N/A'}',
+                                          style: Theme.of(context).textTheme.bodyMedium,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        GestureDetector(
+                                          onTap: () {
+                                            Clipboard.setData(
+                                              ClipboardData(text: log['document_code'] ?? ''),
+                                            );
+                                            SnackbarUtils.showInfoSnackBar(
+                                              context,
+                                              'Code copied to clipboard',
+                                            );
+                                          },
+                                          child: Icon(
+                                            Icons.copy,
+                                            size: 16,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (log['documents']?['compliance_assignee'] != null)
+                                      Text(
+                                        'Assignee: ${log['documents']['compliance_assignee']}',
+                                        style: Theme.of(context).textTheme.bodyMedium,
                                       ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Created: ${_formatDateTime(log['created_at'])}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      ),
+                                    Text(
+                                      'Scheduled: ${_formatDateTime(log['scheduled_time'])}',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

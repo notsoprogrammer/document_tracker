@@ -37,8 +37,23 @@ CREATE TABLE IF NOT EXISTS notifications_history (
     scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
     status TEXT NOT NULL DEFAULT 'scheduled',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY (document_code) REFERENCES documents(code) ON DELETE CASCADE
 );
+
+-- Add foreign key constraint if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'fk_notifications_history_document_code'
+        AND table_name = 'notifications_history'
+    ) THEN
+        ALTER TABLE notifications_history
+        ADD CONSTRAINT fk_notifications_history_document_code
+        FOREIGN KEY (document_code) REFERENCES documents(code) ON DELETE CASCADE;
+    END IF;
+END $$;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_documents_code ON documents(code);

@@ -149,8 +149,28 @@ class SupabaseService {
 
   Future<List<Map<String, dynamic>>> fetchNotificationsHistory() async {
     try {
-      final response = await _client.from('notifications_history').select('*').order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response);
+      print('Fetching notification history from Supabase...');
+      // Join with documents table to get title and compliance_assignee
+      // Group by document_code and get the most recent notification per document
+      final response = await _client
+          .from('notifications_history')
+          .select('*, documents!inner(title, compliance_assignee)')
+          .order('created_at', ascending: false);
+
+      print('Notification history response: $response');
+
+      // Group by document_code and take the most recent notification per document
+      final grouped = <String, Map<String, dynamic>>{};
+      for (final item in response) {
+        final docCode = item['document_code'] as String;
+        if (!grouped.containsKey(docCode)) {
+          grouped[docCode] = item;
+        }
+      }
+
+      final result = grouped.values.toList();
+      print('Grouped notification history: $result');
+      return result;
     } catch (e) {
       print('Error fetching notification history: $e');
       return [];
