@@ -1,0 +1,629 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/document.dart';
+import '../services/cached_document_service.dart';
+import '../services/google_drive_service.dart';
+import '../services/upload_queue_manager.dart';
+import '../services/auth_service.dart';
+import '../utils/snackbar_utils.dart';
+class AddAttendanceMovScreen extends StatefulWidget {
+  const AddAttendanceMovScreen({super.key});
+
+  @override
+  State<AddAttendanceMovScreen> createState() => _AddAttendanceMovScreenState();
+}
+
+class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
+  final ImagePicker _picker = ImagePicker();
+  final GoogleDriveService _driveService = GoogleDriveService();
+  final codeController = TextEditingController();
+  String? selectedType;
+  DateTime? selectedDate;
+  final titleController = TextEditingController();
+  final remarksController = TextEditingController();
+  final personController = TextEditingController();
+
+  // File handling
+  List<String> _selectedImagePaths = [];
+  List<String> _selectedDocumentPaths = [];
+  List<String> _uploadedImageUrls = [];
+  List<String> _uploadedDocumentUrls = [];
+  bool _isUploadingImages = false;
+  bool _isPickingImage = false;
+  bool _isPickingFile = false;
+  String _uploadStatus = '';
+  int _totalUploads = 0;
+  int _completedUploads = 0;
+
+  bool _isImage(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(ext);
+  }
+
+  bool _isDocument(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png'].contains(ext);
+  }
+
+  // Validation flags
+  bool _showValidationErrors = false;
+  bool _isSaving = false;
+
+  final List<String> types = [
+    'Attendance',
+    'MOVs',
+  ];
+
+  final List<String> cpdcoStaff = [
+    'Sir Arnie',
+    'Rex',
+    'Floro',
+    'Arlene',
+    'Sharmaine',
+    'Path',
+    'Jess',
+    'Emie',
+    'Pau',
+    'Chris',
+    'Wena',
+    'N/A',
+    'Arlyn',
+    'Dari',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    codeController.text = _generateCode();
+    _setupUploadListener();
+    _loadUsername();
+  }
+
+  Future<void> _loadUsername() async {
+    final username = await AuthService.getUsername();
+    if (username != null && username.isNotEmpty) {
+      setState(() {
+        personController.text = username;
+      });
+    }
+  }
+
+  void _setupUploadListener() {
+    final queueManager = UploadQueueManager();
+    queueManager.addListener(_onUploadStatusChanged);
+  }
+
+  void _onUploadStatusChanged() {
+    if (!mounted) return;
+
+    final queueManager = UploadQueueManager();
+    final pendingUploads = queueManager.getPendingUploads(codeController.text);
+    final uploadingUploads = queueManager.getAllItems().where((item) =>
+      item['documentCode'] == codeController.text && item['status'] == 'uploading'
+    ).toList();
+    final completedUploads = queueManager.getAllItems().where((item) =>
+      item['documentCode'] == codeController.text && item['status'] == 'completed'
+    ).toList();
+
+    setState(() {
+      _totalUploads = _selectedImagePaths.length + _selectedDocumentPaths.length;
+      _completedUploads = completedUploads.length;
+      _uploadStatus = uploadingUploads.isNotEmpty
+        ? 'Uploading ${uploadingUploads.length} file(s)...'
+        : pendingUploads.isEmpty
+          ? 'All uploads completed'
+          : 'Preparing uploads...';
+    });
+
+    // If all uploads are done and we were saving, pop the screen
+    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
+      _isSaving = false;
+      Navigator.pop(context, null); // Document was already saved
+    }
+  }
+
+  String _generateCode() {
+    if (selectedType == null || selectedDate == null) return '-';
+
+    // Force PH timezone (UTC+8) if needed
+    final nowUtc = DateTime.now().toUtc();
+    final phTime = nowUtc.add(const Duration(hours: 8));
+
+    final month = selectedDate!.month.toString().padLeft(2, '0');
+    final day = selectedDate!.day.toString().padLeft(2, '0');
+    final year = selectedDate!.year.toString();
+    final hour = phTime.hour.toString().padLeft(2, '0');
+    final minute = phTime.minute.toString().padLeft(2, '0');
+    final second = phTime.second.toString().padLeft(2, '0');
+
+    final prefix = selectedType == 'Attendance' ? 'AT' : 'MV';
+
+    return '$prefix-$month-$day-$year-$hour$minute$second';
+  }
+
+  void _viewSelectedFiles(BuildContext context) async {
+    final imageFiles = _selectedImagePaths.where((path) {
+      final parts = path.split('.');
+      if (parts.length <= 1) return false;
+      final extension = parts.last.toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
+    }).toList();
+
+    final otherFiles = _selectedImagePaths.where((path) {
+      final parts = path.split('.');
+      if (parts.length <= 1) return true;
+      final extension = parts.last.toLowerCase();
+      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
+    }).toList();
+
+    if (imageFiles.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: PageView.builder(
+                    itemCount: imageFiles.length,
+                    itemBuilder: (context, index) {
+                      return InteractiveViewer(
+                        child: Image.file(
+                          File(imageFiles[index]),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(child: Text('Failed to load image'));
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final filePath in otherFiles) {
+      final normalizedPath = filePath.replaceAll('\\', '/');
+      final uri = Uri.file(normalizedPath);
+      if (await launchUrl(uri)) {
+        // Successfully launched
+      } else {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not open file: ${filePath.split('\\').last.split('/').last}');
+      }
+    }
+
+    if (imageFiles.isEmpty && otherFiles.isEmpty) {
+      SnackbarUtils.showErrorSnackBar(context, 'No files selected to view');
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+        codeController.text = _generateCode();
+      });
+    }
+  }
+
+  void _onTypeChanged(String? value) {
+    setState(() {
+      selectedType = value;
+      codeController.text = _generateCode();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Add Attendance & MOVs Document"),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  elevation: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Basic Information",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedType,
+                          decoration: InputDecoration(
+                            labelText: "Type",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && selectedType == null ? "Type is required" : null,
+                          ),
+                          items: types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                          onChanged: _onTypeChanged,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: titleController,
+                          decoration: InputDecoration(
+                            labelText: "Activity",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Activity is required" : null,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () => _selectDate(context),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: "Date",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                              errorText: _showValidationErrors && selectedDate == null ? "Date is required" : null,
+                              suffixIcon: const Icon(Icons.calendar_today),
+                            ),
+                            child: Text(
+                              selectedDate != null
+                                  ? "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}"
+                                  : "Select date",
+                              style: TextStyle(
+                                color: selectedDate != null
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: codeController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Document Code",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          readOnly: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Card(
+                  elevation: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Attachments",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: (_isUploadingImages || _isPickingImage) ? null : () async {
+                                  int currentImageCount = _selectedImagePaths.where(_isImage).length;
+                                  if (currentImageCount >= 10) {
+                                    SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+                                    return;
+                                  }
+                                  setState(() => _isPickingImage = true);
+                                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+                                  if (image != null && image.path.isNotEmpty) {
+                                    setState(() {
+                                      _selectedImagePaths.add(image.path);
+                                      _isPickingImage = false;
+                                    });
+                                    // ScaffoldMessenger.of(context).showSnackBar(
+                                    //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
+                                    // );
+                                  } else {
+                                    setState(() => _isPickingImage = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                  }
+                                },
+                                icon: const Icon(Icons.camera_alt),
+                                label: const Text("Take Picture"),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: (_isUploadingImages || _isPickingFile || _selectedDocumentPaths.isNotEmpty) ? null : () async {
+                                  setState(() => _isPickingFile = true);
+                                  FilePickerResult? result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png','heic'],
+                                    allowMultiple: false,
+                                    withData: true,
+                                  );
+                                  if (result != null && result.files.isNotEmpty) {
+                                    final file = result.files.first;
+                                    String? filePath = file.path;
+                                    if (filePath == null || filePath.isEmpty) {
+                                      if (file.bytes != null) {
+                                        final tempDir = Directory.systemTemp;
+                                        final tempFile = File('${tempDir.path}/${file.name}');
+                                        await tempFile.writeAsBytes(file.bytes!);
+                                        filePath = tempFile.path;
+                                      }
+                                    }
+
+                                    if (filePath != null && filePath.isNotEmpty) {
+                                      final fileSize = File(filePath).lengthSync();
+                                      if (fileSize > 50 * 1024 * 1024) {
+                                        setState(() => _isPickingFile = false);
+                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
+                                      } else {
+                                        if (_isImage(file.name)) {
+                                          int currentImageCount = _selectedImagePaths.where(_isImage).length;
+                                          if (currentImageCount >= 10) {
+                                            setState(() => _isPickingFile = false);
+                                            SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+                                            return;
+                                          }
+                                          setState(() {
+                                            _selectedImagePaths.add(filePath!);
+                                            _isPickingFile = false;
+                                          });
+                                          SnackbarUtils.showSuccessSnackBar(context, 'Image added: ${file.name}');
+                                        } else {
+                                          setState(() {
+                                            _selectedDocumentPaths.add(filePath!);
+                                            _isPickingFile = false;
+                                          });
+                                          SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
+                                        }
+                                      }
+                                    } else {
+                                      setState(() => _isPickingFile = false);
+                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
+                                    }
+                                  } else {
+                                    setState(() => _isPickingFile = false);
+                                    SnackbarUtils.showErrorSnackBar(context, 'No file selected');
+                                  }
+                                },
+                                icon: const Icon(Icons.attach_file),
+                                label: const Text("Pick File"),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_selectedImagePaths.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _viewSelectedFiles(context),
+                            child: Text(
+                              "View Selected Images (${_selectedImagePaths.length})",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_selectedDocumentPaths.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            "${_selectedDocumentPaths.length} file(s) selected",
+                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedDocumentPaths.map((path) {
+                              final fileName = path.split('\\').last.split('/').last;
+                              return Chip(
+                                label: Text(fileName),
+                                onDeleted: () {
+                                  setState(() => _selectedDocumentPaths.remove(path));
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        if (_isPickingImage) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Capturing image..."),
+                        ],
+                        if (_isPickingFile) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Selecting file..."),
+                        ],
+                        if (_isUploadingImages) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const Text("Uploading images to Google Drive..."),
+                        ],
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: remarksController,
+                          decoration: InputDecoration(
+                            labelText: "Remarks",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Card(
+                  elevation: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Processing Information",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: personController,
+                          decoration: InputDecoration(
+                            labelText: "Recorded by",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                          readOnly: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _isSaving ? null : () async {
+                    setState(() {
+                      _showValidationErrors = true;
+                    });
+
+                    if (selectedType != null && selectedDate != null && personController.text.trim().isNotEmpty && titleController.text.trim().isNotEmpty) {
+                      final String code = codeController.text;
+                      final String type = titleController.text.trim();
+                      final String dateStr = "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}";
+                      final String remarks = remarksController.text;
+                      final String person = personController.text;
+
+                      final doc = Document(
+                        code: code,
+                        type: type,
+                        fromOrTo: dateStr,
+                        mode: 'Attendance & MOVs',
+                        assignedTo: person,
+                        filePath: null,
+                        remarks: remarks,
+                        person: person,
+                        incoming: false, // Attendance & MOVs is neither incoming nor outgoing
+                        status: 'Completed',
+                        imageUrls: _uploadedImageUrls,
+                        fileUrls: _uploadedDocumentUrls,
+                        localImagePaths: _selectedImagePaths,
+                        localFilePaths: _selectedDocumentPaths,
+                      );
+
+                      setState(() => _isSaving = true);
+                      try {
+                        await CachedDocumentService().createDocument(doc);
+                        // If no files to upload, pop immediately
+                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
+                        }
+                        // Otherwise, wait for uploads to complete
+                      } catch (e) {
+                        SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
+                        if (mounted) setState(() => _isSaving = false);
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                  child: _isSaving
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("Save Attendance & MOVs Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+                if (_isSaving) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: _totalUploads > 0 ? _completedUploads / _totalUploads : null,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_uploadStatus, textAlign: TextAlign.center),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
