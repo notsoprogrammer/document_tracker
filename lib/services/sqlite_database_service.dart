@@ -21,15 +21,14 @@ class SQLiteDatabaseService {
 
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'documents_v6.db');
+    String path = join(documentsDirectory.path, 'documents_v7.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
-
   Future<void> _onCreate(Database db, int version) async {
     // Documents table
     await db.execute('''
@@ -52,7 +51,9 @@ class SQLiteDatabaseService {
         needs_sync INTEGER,
         deleted_pending_sync INTEGER DEFAULT 0,
         created_at TEXT,
-        updated_at TEXT
+        updated_at TEXT,
+        compliance_deadline TEXT,
+        scheduled_notification_ids TEXT
       )
     ''');
 
