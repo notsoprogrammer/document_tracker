@@ -138,7 +138,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Dari',
   ];
   final List<String> statusOptions = [
-    'Received','Delivered','Action Required', 'Returned', 'Completed', 'Urgent', 'For Follow-up'
+    'Received','Delivered','For Compliance', 'Returned', 'Completed', 'Urgent', 'For Follow-up'
   ];
 
   @override

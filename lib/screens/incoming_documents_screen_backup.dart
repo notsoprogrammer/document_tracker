@@ -310,7 +310,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       'In Progress',
       'Under Review',
       'Approved',
-      'Action Required',
+      'For Compliance',
       'Returned',
       'Completed',
       'Filed',
