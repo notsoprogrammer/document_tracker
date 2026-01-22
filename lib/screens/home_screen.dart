@@ -357,7 +357,7 @@ body: Container(
                         child: _buildFolderButton(
                           context,
                           Icons.folder,
-                          "Flag Ceremony",
+                          "Flag Ceremony Documents",
                           const Color(0xFF4EC377), // Soft green
                           () {
                             Navigator.push(
@@ -382,7 +382,7 @@ body: Container(
                           context,
                           Icons.folder,
                           "Attendance & MOVs",
-                          const Color(0xFF9C27B0), // Purple
+                          const Color.fromARGB(255, 195, 109, 210), // Purple
                           () {
                             Navigator.push(
                               context,
