@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
               end: Alignment.bottomCenter,
               colors: [
                 const Color.fromARGB(255, 228, 239, 252), // Soft pastel pink
-                const Color.fromARGB(255, 124, 196, 238), // Lighter pastel pink
+                const Color.fromARGB(255, 13, 134, 205), // Lighter pastel pink
               ],
             ),
           ),
