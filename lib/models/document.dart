@@ -56,6 +56,8 @@ class Document {
   final List<String> localFilePaths; // Local file paths (for offline uploads)
   bool needsSync; // Indicates if document was added offline and needs syncing
   final DateTime? createdAt;
+  final DateTime? complianceDeadline; // Deadline for compliance status
+  final List<int>? scheduledNotificationIds; // IDs of scheduled notifications
 
   Document({
     required this.code,
@@ -76,6 +78,8 @@ class Document {
     List<String>? localFilePaths,
     this.needsSync = false,
     this.createdAt,
+    this.complianceDeadline,
+    this.scheduledNotificationIds,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
@@ -273,6 +277,24 @@ class Document {
       }
     }
 
+    // Parse scheduled_notification_ids if present
+    List<int>? scheduledNotificationIds;
+    if (json['scheduled_notification_ids'] != null) {
+      if (json['scheduled_notification_ids'] is List) {
+        scheduledNotificationIds = List<int>.from(json['scheduled_notification_ids']);
+      } else if (json['scheduled_notification_ids'] is String) {
+        // Handle case where scheduled_notification_ids is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['scheduled_notification_ids']);
+          if (decoded is List) {
+            scheduledNotificationIds = List<int>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, ignore
+        }
+      }
+    }
+
     return Document(
       code: json['code'],
       title: json['title'],
@@ -292,6 +314,8 @@ class Document {
       localFilePaths: localFilePaths,
       needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      complianceDeadline: json['compliance_deadline'] != null ? DateTime.parse(json['compliance_deadline']) : null,
+      scheduledNotificationIds: scheduledNotificationIds,
     );
   }
 
@@ -326,6 +350,8 @@ class Document {
       'local_file_paths': localFilePaths,
       'needs_sync': needsSync,
       'created_at': createdAt?.toIso8601String(),
+      'compliance_deadline': complianceDeadline?.toIso8601String(),
+      'scheduled_notification_ids': scheduledNotificationIds,
     };
   }
 
@@ -348,6 +374,8 @@ class Document {
     List<String>? localFilePaths,
     bool? needsSync,
     DateTime? createdAt,
+    DateTime? complianceDeadline,
+    List<int>? scheduledNotificationIds,
   }) {
     return Document(
       code: code ?? this.code,
@@ -368,6 +396,8 @@ class Document {
       localFilePaths: localFilePaths ?? this.localFilePaths,
       needsSync: needsSync ?? this.needsSync,
       createdAt: createdAt ?? this.createdAt,
+      complianceDeadline: complianceDeadline ?? this.complianceDeadline,
+      scheduledNotificationIds: scheduledNotificationIds ?? this.scheduledNotificationIds,
     );
   }
 }

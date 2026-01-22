@@ -13,7 +13,7 @@ import '../services/auth_service.dart';
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
   final Function(int, String, String, {String? notes}) transferDocument;
-  final Function(int, String, String, {String? notes}) updateDocumentStatus;
+  final Function(int, String, String, {String? notes, DateTime? complianceDeadline}) updateDocumentStatus;
   // final Function(int, Document) editDocument;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
@@ -456,6 +456,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
 
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
+    DateTime? selectedDeadline;
     final cabinetController = TextEditingController();
     final notesController = TextEditingController();
 
@@ -469,6 +470,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
       'Completed',
       'Filed',
       'Urgent',
+      'For Compliance',
     ];
 
 
@@ -520,9 +522,58 @@ Widget _buildUploadStatusIndicator(Document doc) {
                           );
                         }).toList(),
                         onChanged: (String? value) {
-                          setState(() => selectedStatus = value);
+                          setState(() {
+                            selectedStatus = value;
+                            if (value != 'For Compliance') {
+                              selectedDeadline = null; // Clear deadline if not For Compliance
+                            }
+                          });
                         },
                       ),
+                      if (selectedStatus == 'For Compliance') ...[
+                        const SizedBox(height: 16),
+                        TextField(
+                          readOnly: true,
+                          controller: TextEditingController(
+                            text: selectedDeadline != null
+                                ? "${selectedDeadline!.month}/${selectedDeadline!.day}/${selectedDeadline!.year} ${selectedDeadline!.hour.toString().padLeft(2, '0')}:${selectedDeadline!.minute.toString().padLeft(2, '0')}"
+                                : '',
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Compliance Deadline",
+                            hintText: "Select date and time",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            suffixIcon: const Icon(Icons.calendar_today),
+                          ),
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDeadline ?? DateTime.now(),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (date != null) {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.fromDateTime(selectedDeadline ?? DateTime.now()),
+                              );
+                              if (time != null) {
+                                setState(() {
+                                  selectedDeadline = DateTime(
+                                    date.year,
+                                    date.month,
+                                    date.day,
+                                    time.hour,
+                                    time.minute,
+                                  );
+                                });
+                              }
+                            }
+                          },
+                        ),
+                      ],
                       if (selectedStatus == 'Filed') ...[
                         const SizedBox(height: 16),
                         TextField(
@@ -594,6 +645,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   selectedStatus!,
                                   _username!,
                                   notes: combinedNotes,
+                                  complianceDeadline: selectedDeadline,
                                 );
                                 Navigator.of(context).popUntil((route) => route.isFirst);
                               }
@@ -1176,6 +1228,14 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                       ),
                                     ],
                                   ),
+                                  if (doc.status == 'For Compliance' && doc.complianceDeadline != null) ...[
+                                    const SizedBox(height: 8),
+                                    _buildDetailRow(
+                                      Icons.schedule,
+                                      "Compliance Deadline",
+                                      _formatDateTime(doc.complianceDeadline!),
+                                    ),
+                                  ],
                                   if (doc.imageUrls.isNotEmpty) ...[
                                     const SizedBox(height: 8),
                                   ],

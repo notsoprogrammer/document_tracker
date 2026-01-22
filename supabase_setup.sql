@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS documents (
     status TEXT NOT NULL DEFAULT 'Received',
     history TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    compliance_deadline TIMESTAMP WITH TIME ZONE,
+    scheduled_notification_ids TEXT
 );
 
 -- Create deleted_records table

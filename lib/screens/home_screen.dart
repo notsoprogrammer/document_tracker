@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
@@ -141,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes}) async {
+  Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes, DateTime? complianceDeadline}) async {
     try {
       // Update local document
       documents[index].updateStatus(newStatus, updatedBy, notes: notes);
@@ -149,7 +150,46 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update through cached service (handles both local and remote)
       Map<String, dynamic> updates = {'status': newStatus};
 
-      // Add history entry for both incoming and outgoing documents
+      // Handle compliance deadline and notifications
+      if (newStatus == 'For Compliance' && complianceDeadline != null) {
+        updates['compliance_deadline'] = complianceDeadline.toIso8601String();
+
+        // Schedule notifications
+        final notificationService = NotificationService();
+        final notificationIds = await notificationService.scheduleComplianceNotifications(
+          documentCode: documents[index].code,
+          deadline: complianceDeadline,
+          existingIds: documents[index].scheduledNotificationIds ?? [],
+        );
+        updates['scheduled_notification_ids'] = notificationIds;
+
+        // Update document with deadline and notification IDs
+        documents[index] = documents[index].copyWith(
+          complianceDeadline: complianceDeadline,
+          scheduledNotificationIds: notificationIds,
+        );
+
+        // Add history entry for deadline setting
+        await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
+          action: 'Deadline set to ${complianceDeadline.month}/${complianceDeadline.day}/${complianceDeadline.year}',
+          person: updatedBy,
+          timestamp: getPhilippineTime(),
+        ), personnel: updatedBy);
+      } else if (newStatus != 'For Compliance') {
+        // Cancel any existing notifications if status changed away from For Compliance
+        final notificationService = NotificationService();
+        if (documents[index].scheduledNotificationIds != null) {
+          await notificationService.cancelAllNotifications(documents[index].scheduledNotificationIds!);
+        }
+        updates['compliance_deadline'] = null;
+        updates['scheduled_notification_ids'] = null;
+        documents[index] = documents[index].copyWith(
+          complianceDeadline: null,
+          scheduledNotificationIds: null,
+        );
+      }
+
+      // Add history entry for status change
       await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
         action: 'Status changed to $newStatus',
         person: updatedBy,

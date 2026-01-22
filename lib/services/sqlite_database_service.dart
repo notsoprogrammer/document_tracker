@@ -21,10 +21,10 @@ class SQLiteDatabaseService {
 
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'documents_v5.db');
+    String path = join(documentsDirectory.path, 'documents_v6.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -108,7 +108,7 @@ class SQLiteDatabaseService {
       } catch (e) {
         // Column might already exist
       }
-      
+
       // Create pending_deletions table
       try {
         await db.execute('''
@@ -123,6 +123,19 @@ class SQLiteDatabaseService {
         ''');
       } catch (e) {
         // Table might already exist
+      }
+    }
+    if (oldVersion < 6) {
+      // Add compliance deadline and notification IDs columns
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN compliance_deadline TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN scheduled_notification_ids TEXT');
+      } catch (e) {
+        // Column might already exist
       }
     }
   }
@@ -189,6 +202,9 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('local_file_paths')) {
       updates['local_file_paths'] = jsonEncode(updates['local_file_paths']);
+    }
+    if (updates.containsKey('scheduled_notification_ids')) {
+      updates['scheduled_notification_ids'] = jsonEncode(updates['scheduled_notification_ids']);
     }
     updates['updated_at'] = getPhilippineTime().toIso8601String();
     await db.update('documents', updates, where: 'code = ?', whereArgs: [documentCode]);

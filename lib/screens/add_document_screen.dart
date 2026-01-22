@@ -31,6 +31,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String? selectedMode;
   final assignedToController = TextEditingController();
   String? selectedStatus;
+  DateTime? selectedDeadline;
   String? selectedFilePath;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
@@ -551,8 +552,60 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             fillColor: Theme.of(context).colorScheme.surface,
                           ),
                           items: statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                          onChanged: (value) => setState(() => selectedStatus = value),
+                          onChanged: (value) {
+                            setState(() {
+                              selectedStatus = value;
+                              if (value != 'For Compliance') {
+                                selectedDeadline = null; // Clear deadline if not For Compliance
+                              }
+                            });
+                          },
                         ),
+                        if (selectedStatus == 'For Compliance') ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            readOnly: true,
+                            controller: TextEditingController(
+                              text: selectedDeadline != null
+                                  ? "${selectedDeadline!.month}/${selectedDeadline!.day}/${selectedDeadline!.year} ${selectedDeadline!.hour.toString().padLeft(2, '0')}:${selectedDeadline!.minute.toString().padLeft(2, '0')}"
+                                  : '',
+                            ),
+                            decoration: InputDecoration(
+                              labelText: "Compliance Deadline",
+                              hintText: "Select date and time",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                              suffixIcon: const Icon(Icons.calendar_today),
+                              errorText: _showValidationErrors && selectedDeadline == null ? "Deadline is required for For Compliance" : null,
+                            ),
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDeadline ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.fromDateTime(selectedDeadline ?? DateTime.now()),
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedDeadline = DateTime(
+                                      date.year,
+                                      date.month,
+                                      date.day,
+                                      time.hour,
+                                      time.minute,
+                                    );
+                                  });
+                                }
+                              }
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -744,7 +797,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         selectedType != null &&
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
-                        fromToController.text.trim().isNotEmpty) {
+                        fromToController.text.trim().isNotEmpty &&
+                        (selectedStatus != 'For Compliance' || selectedDeadline != null)) {
 
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
@@ -769,6 +823,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         fileUrls: _uploadedDocumentUrls,
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
+                        complianceDeadline: selectedDeadline,
                       );
 
                       setState(() => _isSaving = true);
