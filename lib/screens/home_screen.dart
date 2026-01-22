@@ -9,6 +9,8 @@ import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
 import 'add_flag_ceremony_screen.dart';
 import 'flag_ceremony_documents_screen.dart';
+import 'attendance_movs_screen.dart';
+import 'add_attendance_movs_screen.dart';
 import 'delete_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -374,6 +376,30 @@ body: Container(
                           },
                         ),
                       ),
+                      SizedBox(
+                        width: 150,
+                        child: _buildFolderButton(
+                          context,
+                          Icons.folder,
+                          "Attendance & MOVs",
+                          const Color(0xFF9C27B0), // Purple
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AttendanceMovsScreen(
+                                  documents: documents,
+                                  transferDocument: _transferDocument,
+                                  updateDocumentStatus: _updateDocumentStatus,
+                                  deleteDocument: _deleteDocument,
+                                  syncDocument: _syncDocument,
+                                  onRefresh: _loadDocuments,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -421,6 +447,11 @@ Positioned(
                   const SizedBox(height: 8),
                   _buildPill('Flag Ceremony', '🚩', () {
                     _showFlagCeremonyForm(context);
+                    setState(() => _showPills = false);
+                  }),
+                  const SizedBox(height: 8),
+                  _buildPill('Attendance & MOVs', '📋', () {
+                    _showAttendanceMovForm(context);
                     setState(() => _showPills = false);
                   }),
                 ],
@@ -534,6 +565,17 @@ Positioned(
       context,
       MaterialPageRoute(
         builder: (context) => const AddFlagCeremonyScreen(),
+      ),
+    );
+    // Reload documents since the add screen handles saving and uploads
+    await _loadDocuments();
+  }
+
+  void _showAttendanceMovForm(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddAttendanceMovScreen(),
       ),
     );
     // Reload documents since the add screen handles saving and uploads
