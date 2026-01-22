@@ -13,7 +13,7 @@ import '../services/auth_service.dart';
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
   final Function(int, String, String, {String? notes}) transferDocument;
-  final Function(int, String, String, {String? notes, DateTime? complianceDeadline}) updateDocumentStatus;
+  final Function(int, String, String, {String? notes, DateTime? complianceDeadline, String? complianceAssignee}) updateDocumentStatus;
   // final Function(int, Document) editDocument;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
@@ -457,8 +457,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
   void _showStatusUpdateDialog(BuildContext context, int index) {
     String? selectedStatus;
     DateTime? selectedDeadline;
+    String? selectedComplianceAssignee;
     final cabinetController = TextEditingController();
     final notesController = TextEditingController();
+    final complianceAssigneeController = TextEditingController();
 
     final List<String> statusOptions = [
       'Received',
@@ -471,6 +473,23 @@ Widget _buildUploadStatusIndicator(Document doc) {
       'Filed',
       'Urgent',
       'For Compliance',
+    ];
+
+    final List<String> cpdcoStaff = [
+      'Sir Arnie',
+      'Rex',
+      'Floro',
+      'Arlene',
+      'Sharmaine',
+      'Path',
+      'Jess',
+      'Emiliana',
+      'Pau',
+      'Chris',
+      'Wena',
+      'N/A',
+      'Arlyn',
+      'Dari',
     ];
 
 
@@ -573,6 +592,81 @@ Widget _buildUploadStatusIndicator(Document doc) {
                             }
                           },
                         ),
+                        const SizedBox(height: 16),
+                        RawAutocomplete<String>(
+                          textEditingController: complianceAssigneeController,
+                          focusNode: FocusNode(),
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text == '') {
+                              return const Iterable<String>.empty();
+                            }
+                            return cpdcoStaff.where((String option) {
+                              return option.toLowerCase().contains(
+                                textEditingValue.text.toLowerCase(),
+                              );
+                            });
+                          },
+                          onSelected: (String selection) {
+                            setState(() => complianceAssigneeController.text = selection);
+                          },
+                          fieldViewBuilder:
+                              (
+                                BuildContext context,
+                                TextEditingController textEditingController,
+                                FocusNode focusNode,
+                                VoidCallback onFieldSubmitted,
+                              ) {
+                                return TextField(
+                                  controller: textEditingController,
+                                  focusNode: focusNode,
+                                  decoration: InputDecoration(
+                                    labelText: "Compliance Assignee",
+                                    hintText: "Select CPDCO staff member",
+                                    prefixIcon: const Icon(Icons.person),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                );
+                              },
+                          optionsViewBuilder:
+                              (
+                                BuildContext context,
+                                AutocompleteOnSelected<String> onSelected,
+                                Iterable<String> options,
+                              ) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4.0,
+                                    child: SizedBox(
+                                      width: 350,
+                                      height: (options.length * 56.0 + 16.0).clamp(
+                                        0.0,
+                                        200.0,
+                                      ),
+                                      child: ListView.builder(
+                                        padding: const EdgeInsets.all(8.0),
+                                        itemCount: options.length,
+                                        itemBuilder:
+                                            (BuildContext context, int index) {
+                                              final String option = options
+                                                  .elementAt(index);
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  onSelected(option);
+                                                },
+                                                child: ListTile(
+                                                  title: Text(option),
+                                                ),
+                                              );
+                                            },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                        ),
                       ],
                       if (selectedStatus == 'Filed') ...[
                         const SizedBox(height: 16),
@@ -631,6 +725,18 @@ Widget _buildUploadStatusIndicator(Document doc) {
                             onPressed: () {
                               if (selectedStatus != null &&
                                   _username != null && _username!.isNotEmpty) {
+                                // Validate compliance assignee if status is For Compliance
+                                if (selectedStatus == 'For Compliance' &&
+                                    (complianceAssigneeController.text.isEmpty)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please select a compliance assignee'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
                                 String? combinedNotes = notesController.text.isNotEmpty
                                     ? notesController.text
                                     : null;
@@ -646,6 +752,9 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   _username!,
                                   notes: combinedNotes,
                                   complianceDeadline: selectedDeadline,
+                                  complianceAssignee: selectedStatus == 'For Compliance'
+                                      ? complianceAssigneeController.text
+                                      : null,
                                 );
                                 Navigator.of(context).popUntil((route) => route.isFirst);
                               }

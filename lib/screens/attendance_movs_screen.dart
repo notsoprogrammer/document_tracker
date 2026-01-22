@@ -11,7 +11,7 @@ import '../services/cached_document_service.dart';
 class AttendanceMovsScreen extends StatefulWidget {
   final List<Document> documents;
   final Function(int, String, String, {String? notes}) transferDocument;
-  final Function(int, String, String, {String? notes, DateTime? complianceDeadline}) updateDocumentStatus;
+  final Function(int, String, String, {String? notes, DateTime? complianceDeadline, String? complianceAssignee}) updateDocumentStatus;
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;

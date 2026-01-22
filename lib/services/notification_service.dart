@@ -76,6 +76,7 @@ class NotificationService {
 
   Future<List<int>> scheduleComplianceNotifications({
     required String documentCode,
+    required String assignedTo,
     required DateTime deadline,
     required List<int> existingIds,
   }) async {
@@ -110,7 +111,7 @@ class NotificationService {
       notifications.add({
         'id': _generateNotificationId(documentCode, 'deadline'),
         'title': '📑 Compliance Reminder',
-        'body': 'Document $documentCode deadline in 2 hours.',
+        'body': 'Document $documentCode (assigned to $assignedTo) deadline in 2 hours.',
         'scheduledDate': twoHoursBefore,
       });
     }
