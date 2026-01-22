@@ -142,13 +142,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes, DateTime? complianceDeadline}) async {
+  Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes, DateTime? complianceDeadline, String? complianceAssignee, String? customHistoryAction}) async {
     try {
       // Update local document
-      documents[index].updateStatus(newStatus, updatedBy, notes: notes);
+      documents[index] = documents[index].copyWith(status: newStatus, complianceAssignee: complianceAssignee);
 
       // Update through cached service (handles both local and remote)
       Map<String, dynamic> updates = {'status': newStatus};
+      if (complianceAssignee != null) {
+        updates['compliance_assignee'] = complianceAssignee;
+      }
 
       // Handle compliance deadline and notifications
       if (newStatus == 'For Compliance' && complianceDeadline != null) {
@@ -158,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final notificationService = NotificationService();
         final notificationIds = await notificationService.scheduleComplianceNotifications(
           documentCode: documents[index].code,
+          assignedTo: documents[index].assignedTo,
           deadline: complianceDeadline,
           existingIds: documents[index].scheduledNotificationIds ?? [],
         );
@@ -170,16 +174,19 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
         // Add history entry for deadline setting
-        await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
+        final deadlineHistoryEntry = HistoryEntry(
           action: 'Deadline set to ${complianceDeadline.month}/${complianceDeadline.day}/${complianceDeadline.year}',
           person: updatedBy,
           timestamp: getPhilippineTime(),
-        ), personnel: updatedBy);
+          personnel: updatedBy,
+        );
+        await _documentService.addHistoryEntry(documents[index].code, deadlineHistoryEntry);
+        documents[index].history.add(deadlineHistoryEntry);
       } else if (newStatus != 'For Compliance') {
         // Cancel any existing notifications if status changed away from For Compliance
         final notificationService = NotificationService();
         if (documents[index].scheduledNotificationIds != null) {
-          await notificationService.cancelAllNotifications(documents[index].scheduledNotificationIds!);
+          await notificationService.cancelAll(documents[index].scheduledNotificationIds!);
         }
         updates['compliance_deadline'] = null;
         updates['scheduled_notification_ids'] = null;
@@ -190,12 +197,19 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       // Add history entry for status change
-      await _documentService.addHistoryEntry(documents[index].code, HistoryEntry(
-        action: 'Status changed to $newStatus',
+      String statusAction = customHistoryAction ?? 'Status changed to $newStatus';
+      if (customHistoryAction == null && newStatus == 'For Compliance' && complianceAssignee != null && complianceAssignee!.isNotEmpty) {
+        statusAction = 'Status changed to $newStatus assigned to $complianceAssignee';
+      }
+      final statusHistoryEntry = HistoryEntry(
+        action: statusAction,
         person: updatedBy,
         timestamp: getPhilippineTime(),
         notes: notes,
-      ), personnel: updatedBy);
+        personnel: updatedBy,
+      );
+      await _documentService.addHistoryEntry(documents[index].code, statusHistoryEntry);
+      documents[index].history.add(statusHistoryEntry);
 
       // Update the document
       await _documentService.updateDocument(documents[index].code, updates);

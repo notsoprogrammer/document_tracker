@@ -58,6 +58,7 @@ class Document {
   final DateTime? createdAt;
   final DateTime? complianceDeadline; // Deadline for compliance status
   final List<int>? scheduledNotificationIds; // IDs of scheduled notifications
+  final String? complianceAssignee; // Assignee for compliance status
 
   Document({
     required this.code,
@@ -80,6 +81,7 @@ class Document {
     this.createdAt,
     this.complianceDeadline,
     this.scheduledNotificationIds,
+    this.complianceAssignee,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
@@ -316,6 +318,7 @@ class Document {
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       complianceDeadline: json['compliance_deadline'] != null ? DateTime.parse(json['compliance_deadline']) : null,
       scheduledNotificationIds: scheduledNotificationIds,
+      complianceAssignee: json['compliance_assignee'],
     );
   }
 
@@ -352,6 +355,7 @@ class Document {
       'created_at': createdAt?.toIso8601String(),
       'compliance_deadline': complianceDeadline?.toIso8601String(),
       'scheduled_notification_ids': scheduledNotificationIds,
+      'compliance_assignee': complianceAssignee,
     };
   }
 
@@ -376,6 +380,7 @@ class Document {
     DateTime? createdAt,
     DateTime? complianceDeadline,
     List<int>? scheduledNotificationIds,
+    String? complianceAssignee,
   }) {
     return Document(
       code: code ?? this.code,
@@ -398,6 +403,7 @@ class Document {
       createdAt: createdAt ?? this.createdAt,
       complianceDeadline: complianceDeadline ?? this.complianceDeadline,
       scheduledNotificationIds: scheduledNotificationIds ?? this.scheduledNotificationIds,
+      complianceAssignee: complianceAssignee ?? this.complianceAssignee,
     );
   }
 }
