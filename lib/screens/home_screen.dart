@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final CachedDocumentService _documentService = CachedDocumentService();
   List<Document> documents = [];
   bool _isLoading = true;
+  bool _showPills = false;
   @override
   void initState() {
     super.initState();
@@ -202,59 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  void _showAddMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add New Document',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildAddOption(
-                  context,
-                  Icons.arrow_downward,
-                  "Incoming",
-                  "Receive document",
-                  () {
-                    Navigator.pop(context);
-                    _showForm(context, true);
-                  },
-                ),
-                _buildAddOption(
-                  context,
-                  Icons.arrow_upward,
-                  "Outgoing",
-                  "Send document",
-                  () {
-                    Navigator.pop(context);
-                    _showForm(context, false);
-                  },
-                ),
-                _buildAddOption(
-                  context,
-                  Icons.flag,
-                  "Flag Ceremony",
-                  "Attendance",
-                  () {
-                    Navigator.pop(context);
-                    _showFlagCeremonyForm(context);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -446,15 +395,54 @@ body: Container(
           ),
         ),
       ),
-    ],
-  ),
-),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showAddMenu(context),
+Positioned(
+  bottom: 16.0,
+  right: 16.0,
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.end, // ✅ align to right
+    children: [
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _showPills
+            ? Column(
+                key: const ValueKey('pills'),
+                crossAxisAlignment: CrossAxisAlignment.end, // ✅ keep pills right-aligned
+                children: [
+                  _buildPill('Incoming', '📥', () {
+                    _showForm(context, true);
+                    setState(() => _showPills = false);
+                  }),
+                  const SizedBox(height: 8),
+                  _buildPill('Outgoing', '📤', () {
+                    _showForm(context, false);
+                    setState(() => _showPills = false);
+                  }),
+                  const SizedBox(height: 8),
+                  _buildPill('Flag Ceremony', '🚩', () {
+                    _showFlagCeremonyForm(context);
+                    setState(() => _showPills = false);
+                  }),
+                ],
+              )
+            : const SizedBox.shrink(),
+      ),
+      const SizedBox(height: 16),
+      Align(
+        alignment: Alignment.centerRight,
+        child: FloatingActionButton(
+          onPressed: () => setState(() => _showPills = !_showPills),
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           child: const Icon(Icons.add),
         ),
+      ),
+    ],
+  ),
+)
+    ],
+  ),
+),
       ),
     );
   }
@@ -497,27 +485,36 @@ body: Container(
     );
   }
 
-  Widget _buildAddOption(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
-          ],
-        ),
+  Widget _buildPill(String label, String emoji, VoidCallback onTap) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF616161),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        elevation: 4,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            emoji,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ],
       ),
     );
   }
+
+
+
+
 
  
 
