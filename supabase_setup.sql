@@ -28,12 +28,27 @@ CREATE TABLE IF NOT EXISTS deleted_records (
     deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create notifications_history table
+CREATE TABLE IF NOT EXISTS notifications_history (
+    id SERIAL PRIMARY KEY,
+    document_code TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    notification_id INTEGER NOT NULL,
+    scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'scheduled',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_documents_code ON documents(code);
 CREATE INDEX IF NOT EXISTS idx_documents_incoming ON documents(incoming);
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_deleted_records_doc_code ON deleted_records(doc_code);
 CREATE INDEX IF NOT EXISTS idx_deleted_records_deleted_at ON deleted_records(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_history_document_code ON notifications_history(document_code);
+CREATE INDEX IF NOT EXISTS idx_notifications_history_status ON notifications_history(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_history_created_at ON notifications_history(created_at);
 
 -- Enable Row Level Security (RLS) if needed
 -- ALTER TABLE documents ENABLE ROW LEVEL SECURITY;

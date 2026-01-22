@@ -128,4 +128,54 @@ class SupabaseService {
       return [];
     }
   }
+
+  // Notification history operations
+  Future<void> addNotificationHistory({
+    required String documentCode,
+    required String notificationType,
+    required int notificationId,
+    required DateTime scheduledTime,
+    String status = 'scheduled',
+  }) async {
+    await _client.from('notifications_history').insert({
+      'document_code': documentCode,
+      'notification_type': notificationType,
+      'notification_id': notificationId,
+      'scheduled_time': scheduledTime.toIso8601String(),
+      'status': status,
+    });
+    print('Notification history added for document $documentCode: $notificationType');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotificationsHistory() async {
+    try {
+      final response = await _client.from('notifications_history').select('*').order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error fetching notification history: $e');
+      return [];
+    }
+  }
+
+  Future<void> updateNotificationStatus(int notificationId, String status) async {
+    await _client.from('notifications_history').update({
+      'status': status,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('notification_id', notificationId);
+    print('Notification $notificationId status updated to $status');
+  }
+
+  Future<void> updateNotificationsStatusByDocumentCode(String documentCode, String status) async {
+    await _client.from('notifications_history').update({
+      'status': status,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('document_code', documentCode);
+    print('All notifications for document $documentCode updated to $status');
+  }
+
+  Future<void> deleteOldNotifications() async {
+    final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+    await _client.from('notifications_history').delete().lt('created_at', cutoffDate.toIso8601String());
+    print('Deleted notification history older than 30 days');
+  }
 }

@@ -21,10 +21,10 @@ class SQLiteDatabaseService {
 
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'documents_v7.db');
+    String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -81,6 +81,20 @@ class SQLiteDatabaseService {
         title TEXT NOT NULL,
         deleted_at TEXT NOT NULL,
         synced INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Notifications history table
+    await db.execute('''
+      CREATE TABLE notifications_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_code TEXT NOT NULL,
+        notification_type TEXT NOT NULL,
+        notification_id INTEGER NOT NULL,
+        scheduled_time TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (document_code) REFERENCES documents (code)
       )
     ''');
   }
@@ -146,6 +160,24 @@ class SQLiteDatabaseService {
         await db.execute('ALTER TABLE documents ADD COLUMN compliance_assignee TEXT');
       } catch (e) {
         // Column might already exist
+      }
+    }
+    if (oldVersion < 9) {
+      // Create notifications_history table
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS notifications_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_code TEXT NOT NULL,
+            notification_type TEXT NOT NULL,
+            scheduled_time TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'scheduled',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (document_code) REFERENCES documents (code)
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
       }
     }
   }
@@ -313,5 +345,72 @@ class SQLiteDatabaseService {
   Future<void> close() async {
     final db = await database;
     db.close();
+  }
+
+  // Notifications history methods
+  Future<void> addNotificationHistory({
+    required String documentCode,
+    required String notificationType,
+    required int notificationId,
+    required DateTime scheduledTime,
+    String status = 'scheduled',
+  }) async {
+    final db = await database;
+    await db.insert('notifications_history', {
+      'document_code': documentCode,
+      'notification_type': notificationType,
+      'notification_id': notificationId,
+      'scheduled_time': scheduledTime.toIso8601String(),
+      'status': status,
+      'created_at': getPhilippineTime().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotificationsHistory() async {
+    final db = await database;
+    return await db.query(
+      'notifications_history',
+      orderBy: 'created_at DESC',
+    );
+  }
+
+  Future<void> updateNotificationStatus(int id, String status) async {
+    final db = await database;
+    await db.update(
+      'notifications_history',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> updateNotificationStatusByNotificationId(int notificationId, String status) async {
+    final db = await database;
+    await db.update(
+      'notifications_history',
+      {'status': status},
+      where: 'notification_id = ?',
+      whereArgs: [notificationId],
+    );
+  }
+
+  Future<void> updateNotificationsStatusByDocumentCode(String documentCode, String status) async {
+    final db = await database;
+    await db.update(
+      'notifications_history',
+      {'status': status},
+      where: 'document_code = ?',
+      whereArgs: [documentCode],
+    );
+  }
+
+  Future<void> deleteOldNotifications() async {
+    final db = await database;
+    final oneMonthAgo = getPhilippineTime().subtract(const Duration(days: 30));
+    await db.delete(
+      'notifications_history',
+      where: 'created_at < ?',
+      whereArgs: [oneMonthAgo.toIso8601String()],
+    );
   }
 }

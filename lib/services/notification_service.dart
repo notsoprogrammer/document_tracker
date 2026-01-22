@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import '../services/supabase_service.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -173,6 +174,12 @@ class NotificationService {
       );
       if (success) {
         newIds.add(id);
+        await SupabaseService().addNotificationHistory(
+          documentCode: documentCode,
+          notificationType: '1_day_reminder',
+          notificationId: id,
+          scheduledTime: oneDayBefore,
+        );
         debugPrint('Scheduled 1-day reminder for $documentCode at $oneDayBefore');
       }
     } else {
@@ -195,6 +202,12 @@ class NotificationService {
       );
       if (success) {
         newIds.add(id);
+        await SupabaseService().addNotificationHistory(
+          documentCode: documentCode,
+          notificationType: '5_hours_reminder',
+          notificationId: id,
+          scheduledTime: fiveHoursBefore,
+        );
         debugPrint('Scheduled 5-hour reminder for $documentCode at $fiveHoursBefore');
       }
     } else {
@@ -208,8 +221,9 @@ class NotificationService {
       final timeToDeadline = atDeadline.difference(now);
       if (timeToDeadline.inMinutes <= 5) {
         // For very short deadlines, show immediate notification
+        final id = _generateId(documentCode, 'deadline');
         await _plugin.show(
-          _generateId(documentCode, 'deadline'),
+          id,
           '🚨 Compliance Deadline',
           'Document $documentCode (assigned to $assignedTo) is due NOW!',
           const NotificationDetails(
@@ -221,6 +235,13 @@ class NotificationService {
               priority: Priority.high,
             ),
           ),
+        );
+        await SupabaseService().addNotificationHistory(
+          documentCode: documentCode,
+          notificationType: 'immediate_deadline',
+          notificationId: id,
+          scheduledTime: atDeadline,
+          status: 'shown',
         );
         debugPrint('Showed immediate deadline notification for $documentCode');
       } else {
@@ -234,6 +255,12 @@ class NotificationService {
         );
         if (success) {
           newIds.add(id);
+          await SupabaseService().addNotificationHistory(
+            documentCode: documentCode,
+            notificationType: 'deadline_reminder',
+            notificationId: id,
+            scheduledTime: atDeadline,
+          );
           debugPrint('Scheduled deadline reminder for $documentCode at $atDeadline');
         }
       }
@@ -272,6 +299,7 @@ class NotificationService {
   Future<void> cancelAll(List<int> ids) async {
     for (final id in ids) {
       await cancel(id);
+      await SupabaseService().updateNotificationStatus(id, 'cancelled');
     }
   }
 
@@ -311,5 +339,17 @@ class NotificationService {
         ),
       ),
     );
+  }
+
+  Future<Map<String, bool>> checkPermissions() async {
+    final notificationGranted = await Permission.notification.isGranted;
+    final exactAlarmGranted = Platform.isAndroid ? await Permission.scheduleExactAlarm.isGranted : true;
+    final canScheduleExact = Platform.isAndroid ? await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.canScheduleExactNotifications() ?? false : true;
+
+    return {
+      'notification': notificationGranted,
+      'exact_alarm': exactAlarmGranted,
+      'can_schedule_exact': canScheduleExact,
+    };
   }
 }

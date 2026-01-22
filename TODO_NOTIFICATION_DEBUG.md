@@ -6,3 +6,7 @@
 - [x] Add more debug logging in notification_service.dart for scheduling attempts
 - [x] Request SCHEDULE_EXACT_ALARM permission explicitly on Android API 31+
 - [ ] Test with future deadlines to verify scheduling works
+- [x] Create notification_history_screen.dart for viewing notification logs
+- [x] Add notification history to home_screen menu
+- [x] Mark notifications as completed when document status changes to Completed
+- [x] Update cancelAll to mark cancelled notifications in history

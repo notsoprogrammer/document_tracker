@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/notification_service.dart';
+import '../services/supabase_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
@@ -13,6 +14,7 @@ import 'flag_ceremony_documents_screen.dart';
 import 'attendance_movs_screen.dart';
 import 'add_attendance_movs_screen.dart';
 import 'delete_history_screen.dart';
+import 'notification_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -196,6 +198,11 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
+      // Mark notifications as completed if status is Completed
+      if (newStatus == 'Completed') {
+        await SupabaseService().updateNotificationsStatusByDocumentCode(documents[index].code, 'completed');
+      }
+
       // Add history entry for status change
       String statusAction = customHistoryAction ?? 'Status changed to $newStatus';
       if (customHistoryAction == null && newStatus == 'For Compliance' && complianceAssignee != null && complianceAssignee!.isNotEmpty) {
@@ -292,8 +299,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) => const DeleteHistoryScreen(),
                   ),
                 );
+              } else if (value == 'notification_history') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationHistoryScreen(),
+                  ),
+                );
               } else if (value == 'test_notification') {
                 _testNotification();
+              } else if (value == 'check_permissions') {
+                _checkPermissions();
               }
             },
             itemBuilder: (context) => [
@@ -312,10 +328,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const PopupMenuItem(
+                value: 'notification_history',
+                child: ListTile(
+                  leading: Icon(Icons.notifications_active),
+                  title: Text('Notification History'),
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'test_notification',
                 child: ListTile(
                   leading: Icon(Icons.notifications),
                   title: Text('Test Notification'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'check_permissions',
+                child: ListTile(
+                  leading: Icon(Icons.security),
+                  title: Text('Check Permissions'),
                 ),
               ),
             ],
@@ -660,6 +690,38 @@ Positioned(
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send test notification: $e')),
+      );
+    }
+  }
+
+  Future<void> _checkPermissions() async {
+    try {
+      final notificationService = NotificationService();
+      final permissions = await notificationService.checkPermissions();
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Notification Permissions'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Notification: ${(permissions['notification'] ?? false) ? 'Granted' : 'Denied'}'),
+              Text('Exact Alarm: ${(permissions['exact_alarm'] ?? false) ? 'Granted' : 'Denied'}'),
+              Text('Can Schedule Exact: ${(permissions['can_schedule_exact'] ?? false) ? 'Yes' : 'No'}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to check permissions: $e')),
       );
     }
   }
