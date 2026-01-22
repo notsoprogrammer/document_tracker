@@ -231,8 +231,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (value) {
               if (value == 'sync') {
                 _syncAllDocuments();
-              } else if (value == 'more') {
-                _showSidebar(context);
+              } else if (value == 'delete_history') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DeleteHistoryScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -244,15 +249,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const PopupMenuItem(
-                value: 'more',
+                value: 'delete_history',
                 child: ListTile(
-                  leading: Icon(Icons.more_horiz_outlined),
-                  title: Text('More Options'),
+                  leading: Icon(Icons.history),
+                  title: Text('Delete History'),
                 ),
-        ),
-      ],
-    ),
-  ],
+              ),
+            ],
+          ),
+        ],
 ),
 backgroundColor: Colors.transparent,
 body: Container(
@@ -582,73 +587,5 @@ Positioned(
     await _loadDocuments();
   }
 
-  void _showSidebar(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Material(
-        elevation: 8,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.more_horiz,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Options',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Menu Items
-              ...ListTile.divideTiles(
-                context: context,
-                tiles: [
-                  ListTile(
-                    leading: Icon(
-                      Icons.history,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                    title: const Text('Delete History'),
-                    subtitle: const Text('View deletion logs'),
-                    onTap: () {
-                      Navigator.pop(context); // Close bottom sheet
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const DeleteHistoryScreen(),
-                        ),
-                      );
-                    },
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  ),
-                  // Add more menu items here if needed
-                ],
-              ).toList(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
 }
