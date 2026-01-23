@@ -197,6 +197,15 @@ class _HomeScreenState extends State<HomeScreen> {
         await SupabaseService().updateNotificationsStatusByDocumentCode(documents[index].code, 'completed');
       }
 
+      // Delete urgent notifications if status changed away from Urgent
+      if (documents[index].status == 'Urgent' && newStatus != 'Urgent') {
+        try {
+          await SupabaseService().deleteNotificationsByDocumentCodeAndType(documents[index].code, 'urgent');
+        } catch (e) {
+          print('Error deleting urgent notifications: $e');
+        }
+      }
+
       // Add history entry for status change
       String statusAction = customHistoryAction ?? 'Status changed to $newStatus';
       if (customHistoryAction == null && newStatus == 'For Compliance' && complianceAssignee != null && complianceAssignee!.isNotEmpty) {
@@ -301,7 +310,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
         title: const Text("FileTrack Hub"),
-        leading: _buildUrgentIndicator(),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -403,11 +411,16 @@ body: Container(
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.all(10.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 34,
+                    child: Center(child: _buildUrgentIndicator()),
+                  ),
+                  const SizedBox(height: 16),
                   Image.asset(
                     'assets/image/officeLogo.png',
                     height: 80,
@@ -611,28 +624,20 @@ Positioned(
     if (urgentCount == 0) {
       return const SizedBox.shrink();
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+    return Chip(
+      avatar: const Icon(Icons.warning, color: Colors.red, size: 16),
+      label: Text(
+        'Urgent: $urgentCount',
+        style: const TextStyle(
+          color: Colors.red,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.warning, color: Colors.red, size: 16),
-          const SizedBox(width: 4),
-          Text(
-            'Urgent: $urgentCount',
-            style: const TextStyle(
-              color: Colors.red,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.redAccent.withOpacity(0.1),
+      side: BorderSide(color: Colors.redAccent.withOpacity(0.4)),
+      elevation: 2,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 

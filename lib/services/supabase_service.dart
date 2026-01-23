@@ -239,6 +239,14 @@ class SupabaseService {
     print('Deleted notification history older than 30 days');
   }
 
+  Future<void> deleteNotificationsByDocumentCodeAndType(String documentCode, String notificationType) async {
+    await _client.from('notifications_history')
+        .delete()
+        .eq('document_code', documentCode)
+        .eq('notification_type', notificationType);
+    print('Deleted $notificationType notifications for document $documentCode');
+  }
+
   Future<void> updateComplianceNotifications(String documentCode, DateTime deadline, String? assignee) async {
     final now = DateTime.now();
     final timeDiff = deadline.difference(now);
