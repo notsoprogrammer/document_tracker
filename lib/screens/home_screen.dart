@@ -215,6 +215,15 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update the document
       await _documentService.updateDocument(documents[index].code, updates);
 
+      // Send compliance notifications if status set to For Compliance
+      if (newStatus == 'For Compliance' && complianceDeadline != null) {
+        try {
+          await SupabaseService().sendComplianceNotifications();
+        } catch (e) {
+          print('Error sending compliance notifications: $e');
+        }
+      }
+
       setState(() {});
     } catch (e) {
       print('Error updating document status: $e');

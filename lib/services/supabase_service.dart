@@ -214,4 +214,15 @@ class SupabaseService {
     print('Retrieved ${tokens.length} device tokens');
     return tokens;
   }
+
+  // Invoke send compliance notifications Edge Function
+  Future<void> sendComplianceNotifications() async {
+    try {
+      final response = await _client.functions.invoke('send_compliance_notifications');
+      print('Compliance notifications sent: ${response.data}');
+    } catch (e) {
+      print('Error sending compliance notifications: $e');
+      rethrow;
+    }
+  }
 }

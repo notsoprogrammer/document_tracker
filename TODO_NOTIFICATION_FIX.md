@@ -1,0 +1,2 @@
+- [x] Add sendComplianceNotifications method to SupabaseService
+- [ ] Call sendComplianceNotifications in home_screen.dart after setting status to 'For Compliance'

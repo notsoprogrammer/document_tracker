@@ -31,12 +31,8 @@ interface ServiceAccount {
   universe_domain: string
 }
 
-// Generate JWT for Firebase authentication
-// Note: This is a simplified implementation. In production, use a proper JWT library like 'djwt'
+// Generate JWT for Firebase authentication using proper RSA signing
 async function generateJWT(serviceAccount: ServiceAccount): Promise<string> {
-  // For simplicity, we'll use a mock JWT. In production, implement proper JWT signing
-  // or use a library like: https://deno.land/x/djwt@v3.0.2/mod.ts
-
   const header = {
     alg: 'RS256',
     typ: 'JWT',
@@ -51,13 +47,55 @@ async function generateJWT(serviceAccount: ServiceAccount): Promise<string> {
     iat: now,
   }
 
-  const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-  const payloadB64 = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  // Base64url encode header and payload
+  const headerB64 = btoa(JSON.stringify(header))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
 
-  // Mock signature for development - REPLACE WITH PROPER SIGNING
-  const mockSignature = btoa('mock_signature').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  const payloadB64 = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
 
-  return `${headerB64}.${payloadB64}.${mockSignature}`
+  // Create the signing input
+  const signingInput = `${headerB64}.${payloadB64}`
+
+  // Import the private key for signing
+  const privateKeyPem = serviceAccount.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s/g, '')
+
+  // Convert base64 PEM to ArrayBuffer
+  const privateKeyDer = Uint8Array.from(atob(privateKeyPem), c => c.charCodeAt(0))
+
+  // Import the key using Web Crypto API
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    privateKeyDer,
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign']
+  )
+
+  // Sign the input
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  )
+
+  // Base64url encode the signature
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
+
+  return `${headerB64}.${payloadB64}.${signatureB64}`
 }
 
 // Get access token from Google
@@ -80,16 +118,16 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
 }
 
 // Send FCM notification using HTTP v1 API
-async function sendFCMNotification(accessToken: string, projectId: string, tokens: string[], title: string, body: string): Promise<any> {
+async function sendFCMNotification(accessToken: string, projectId: string, token: string, title: string, body: string): Promise<any> {
   const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
 
   const payload = {
     message: {
+      token: token,
       notification: {
         title: title,
         body: body,
       },
-      tokens: tokens,
     },
   }
 
@@ -200,17 +238,20 @@ serve(async (req: Request) => {
         continue // Skip if more than 1 day away
       }
 
-      // Send FCM notification using HTTP v1 API
-      const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, tokenList, title, body)
-
-      console.log('FCM Response:', fcmResponse)
+      // Send FCM notification to each token individually
+      const fcmResponses = []
+      for (const token of tokenList) {
+        const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+        fcmResponses.push(fcmResponse)
+        console.log('FCM Response for token:', fcmResponse)
+      }
 
       notificationsSent.push({
         documentCode: doc.code,
         type: notificationType,
         title: title,
         body: body,
-        fcmResponse: fcmResponse,
+        fcmResponses: fcmResponses,
       })
 
       // Log notification history
@@ -219,7 +260,7 @@ serve(async (req: Request) => {
         .insert({
           document_code: doc.code,
           notification_type: notificationType,
-          notification_id: Date.now(), // Unique integer ID
+          notification_id: Math.floor(Date.now() / 1000), // Unique integer ID (seconds since epoch)
           scheduled_time: deadline.toISOString(),
           status: 'sent',
         })
