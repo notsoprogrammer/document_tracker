@@ -166,13 +166,12 @@ serve(async (req: Request) => {
     const now = new Date()
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
-    // Query documents with upcoming deadlines
+    // Query all documents with compliance deadlines
     const { data: documents, error: docError } = await supabaseClient
       .from('documents')
       .select('code, title, compliance_deadline, compliance_assignee')
       .eq('status', 'For Compliance')
       .not('compliance_deadline', 'is', null)
-      .lte('compliance_deadline', oneDayFromNow.toISOString())
 
     if (docError) {
       throw docError
@@ -219,23 +218,49 @@ serve(async (req: Request) => {
       let title = ''
       let body = ''
 
-      if (hoursDiff <= 0) {
-        // Past deadline
-        notificationType = 'deadline_reminder'
-        title = '🚨 Compliance Deadline'
-        body = `Document ${doc.code} is due NOW!`
-      } else if (hoursDiff <= 5) {
-        // Within 5 hours
-        notificationType = '5_hours_reminder'
-        title = '📑 Compliance Reminder'
-        body = `Document ${doc.code} is due in ${Math.round(hoursDiff)} hours.`
-      } else if (hoursDiff <= 24) {
-        // Within 1 day
-        notificationType = '1_day_reminder'
-        title = '📑 Compliance Reminder'
-        body = `Document ${doc.code} is due in ${Math.round(hoursDiff / 24)} day(s).`
-      } else {
+      if (hoursDiff > 24) {
         continue // Skip if more than 1 day away
+      } else if (hoursDiff > 0) {
+        // Future deadline within 24 hours
+        if (hoursDiff <= 5) {
+          notificationType = '5_hours_reminder'
+          title = '📑 Compliance Reminder'
+          body = `Document ${doc.code} is due in ${Math.round(hoursDiff)} hours.`
+        } else {
+          notificationType = '1_day_reminder'
+          title = '📑 Compliance Reminder'
+          body = `Document ${doc.code} is due in ${Math.round(hoursDiff / 24)} day(s).`
+        }
+      } else if (hoursDiff > -24) {
+        // Overdue within 1 day
+        notificationType = 'overdue_hours'
+        title = '🚨 Compliance Overdue'
+        body = `Document ${doc.code} is overdue by ${Math.round(-hoursDiff)} hours.`
+      } else {
+        // Overdue by more than 1 day
+        notificationType = 'overdue_days'
+        title = '🚨 Compliance Overdue'
+        body = `Document ${doc.code} is overdue by ${Math.round(-hoursDiff / 24)} days.`
+      }
+
+      // Check if a notification of this type was sent in the last 24 hours
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      const { data: recentNotifications, error: recentError } = await supabaseClient
+        .from('notifications_history')
+        .select('id')
+        .eq('document_code', doc.code)
+        .eq('notification_type', notificationType)
+        .gte('created_at', twentyFourHoursAgo.toISOString())
+        .limit(1)
+
+      if (recentError) {
+        console.error('Error checking recent notifications:', recentError)
+        continue
+      }
+
+      if (recentNotifications && recentNotifications.length > 0) {
+        console.log(`Skipping notification for ${doc.code} type ${notificationType}, already sent recently`)
+        continue
       }
 
       // Send FCM notification to each token individually

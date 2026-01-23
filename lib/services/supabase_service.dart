@@ -177,6 +177,28 @@ class SupabaseService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchOverdueComplianceDocuments() async {
+    try {
+      print('Fetching overdue compliance documents from Supabase...');
+      final now = DateTime.now();
+      final oneDayAgo = now.subtract(const Duration(days: 1));
+
+      final response = await _client
+          .from('documents')
+          .select('code, title, compliance_deadline, compliance_assignee, status')
+          .eq('status', 'For Compliance')
+          .not('compliance_deadline', 'is', null)
+          .lt('compliance_deadline', oneDayAgo.toIso8601String())
+          .order('compliance_deadline', ascending: true);
+
+      print('Overdue compliance documents: $response');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error fetching overdue compliance documents: $e');
+      return [];
+    }
+  }
+
   Future<void> updateNotificationStatus(int notificationId, String status) async {
     await _client.from('notifications_history').update({
       'status': status,
