@@ -232,6 +232,22 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
+      // Record notification history if status set to Urgent
+      if (newStatus == 'Urgent') {
+        try {
+          await SupabaseService().addNotificationHistory(
+            documentCode: documents[index].code,
+            notificationType: 'urgent',
+            notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            scheduledTime: DateTime.now(), // Use current time for urgent
+            status: 'urgent',
+          );
+          // Note: No push notifications sent for urgent status
+        } catch (e) {
+          print('Error recording urgent notification history: $e');
+        }
+      }
+
       setState(() {});
     } catch (e) {
       print('Error updating document status: $e');
@@ -285,6 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
         title: const Text("FileTrack Hub"),
+        leading: _buildUrgentIndicator(),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -588,6 +605,36 @@ Positioned(
   }
 
 
+
+  Widget _buildUrgentIndicator() {
+    final urgentCount = documents.where((doc) => doc.status == 'Urgent').length;
+    if (urgentCount == 0) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning, color: Colors.red, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            'Urgent: $urgentCount',
+            style: const TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildFolderButton(BuildContext context, IconData icon, String title, Color color, VoidCallback onTap) {
     return ElevatedButton(

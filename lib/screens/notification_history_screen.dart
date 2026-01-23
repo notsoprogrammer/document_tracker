@@ -55,12 +55,12 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   String _getDocumentStatusIcon(String status) {
     switch (status.toLowerCase()) {
-
-      case 'for compliance':
+      case 'urgent':
         return '🚨';
+      case 'for compliance':
+        return '📣';
       case 'filed':
         return '🗃️';
-
       case 'completed':
         return '✅';
       default:
