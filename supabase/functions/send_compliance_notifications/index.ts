@@ -210,85 +210,254 @@ serve(async (req: Request) => {
     const notificationsSent: any[] = []
 
     for (const doc of (documents as Document[]) || []) {
-      const deadline = new Date(doc.compliance_deadline.replace(' ', 'T') + 'Z')
+      let deadlineStr = doc.compliance_deadline;
+      if (!deadlineStr || deadlineStr.trim() === '') {
+        console.log('Empty deadline for doc', doc.code);
+        continue;
+      }
+      console.log('Original deadlineStr:', deadlineStr);
+      if (!deadlineStr.includes('T')) {
+        deadlineStr = deadlineStr.replace(' ', 'T') + 'Z';
+      }
+      console.log('Processed deadlineStr:', deadlineStr);
+      let deadline: Date;
+      try {
+        deadline = new Date(deadlineStr);
+        if (isNaN(deadline.getTime())) {
+          throw new Error('Invalid date');
+        }
+        console.log('Parsed deadline:', deadline);
+      } catch (e) {
+        console.error('Invalid deadline for doc', doc.code, deadlineStr, e);
+        continue; // Skip this document
+      }
       const timeDiff = deadline.getTime() - now.getTime()
       const hoursDiff = timeDiff / (1000 * 60 * 60)
 
-      let notificationType = ''
-      let title = ''
-      let body = ''
-
-      if (hoursDiff > 24) {
-        continue // Skip if more than 1 day away
-      } else if (hoursDiff > 1) {
-        // Future deadline within 24 hours, more than 1 hour away
-        if (hoursDiff <= 5) {
-          notificationType = '5_hours_reminder'
-          title = '📑 Compliance Reminder'
-          body = `Document ${doc.code} is due in ${Math.round(hoursDiff)} hours.`
-        } else {
-          notificationType = '1_day_reminder'
-          title = '📑 Compliance Reminder'
-          body = `Document ${doc.code} is due in ${Math.round(hoursDiff / 24)} day(s).`
-        }
-      } else if (hoursDiff > -24) {
-        // Overdue within 1 day
-        notificationType = 'overdue_hours'
-        title = '🚨 Compliance Overdue'
-        body = `Document ${doc.code} is overdue by ${Math.round(-hoursDiff)} hours.`
-      } else {
-        // Overdue by more than 1 day
-        notificationType = 'overdue_days'
-        title = '🚨 Compliance Overdue'
-        body = `Document ${doc.code} is overdue by ${Math.round(-hoursDiff / 24)} days.`
-      }
-
-      // Check if a notification of this type was sent in the last 24 hours
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      const { data: recentNotifications, error: recentError } = await supabaseClient
+      // Check if immediate notification already sent
+      const { data: immediateNotifications } = await supabaseClient
         .from('notifications_history')
         .select('id')
         .eq('document_code', doc.code)
-        .eq('notification_type', notificationType)
-        .gte('created_at', twentyFourHoursAgo.toISOString())
+        .eq('notification_type', 'immediate')
         .limit(1)
 
-      if (recentError) {
-        console.error('Error checking recent notifications:', recentError)
-        continue
-      }
+      if (!immediateNotifications || immediateNotifications.length === 0) {
+        // Send immediate
+        const immediateTitle = 'Compliance Notification'
+        const immediateBody = `A document to be complied by ${doc.compliance_assignee || 'Unknown'} has been set, check out the notification.`
 
-      if (recentNotifications && recentNotifications.length > 0) {
-        console.log(`Skipping notification for ${doc.code} type ${notificationType}, already sent recently`)
-        continue
-      }
+        // Send FCM
+        const fcmResponses = []
+        for (const token of tokenList) {
+          const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, immediateTitle, immediateBody)
+          fcmResponses.push(fcmResponse)
+        }
 
-      // Send FCM notification to each token individually
-      const fcmResponses = []
-      for (const token of tokenList) {
-        const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
-        fcmResponses.push(fcmResponse)
-        console.log('FCM Response for token:', fcmResponse)
-      }
+        // Insert history
+        await supabaseClient
+          .from('notifications_history')
+          .insert({
+            document_code: doc.code,
+            notification_type: 'immediate',
+            notification_id: Math.floor(Date.now() / 1000),
+            scheduled_time: deadline.toISOString(),
+            status: 'sent',
+          })
 
-      notificationsSent.push({
-        documentCode: doc.code,
-        type: notificationType,
-        title: title,
-        body: body,
-        fcmResponses: fcmResponses,
-      })
-
-      // Log notification history
-      await supabaseClient
-        .from('notifications_history')
-        .insert({
-          document_code: doc.code,
-          notification_type: notificationType,
-          notification_id: Math.floor(Date.now() / 1000), // Unique integer ID (seconds since epoch)
-          scheduled_time: deadline.toISOString(),
-          status: 'sent',
+        notificationsSent.push({
+          documentCode: doc.code,
+          type: 'immediate',
+          title: immediateTitle,
+          body: immediateBody,
+          fcmResponses: fcmResponses,
         })
+      }
+
+      if (hoursDiff > 48) {
+        // Schedule 1_day_reminder
+        const { data: reminderNotifications } = await supabaseClient
+          .from('notifications_history')
+          .select('id')
+          .eq('document_code', doc.code)
+          .eq('notification_type', '1_day_reminder')
+          .limit(1)
+
+        if (!reminderNotifications || reminderNotifications.length === 0) {
+          const reminderTime = new Date(deadline.getTime() - 24 * 60 * 60 * 1000)
+          reminderTime.setUTCHours(9, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
+
+          await supabaseClient
+            .from('notifications_history')
+            .insert({
+              document_code: doc.code,
+              notification_type: '1_day_reminder',
+              notification_id: Math.floor(Date.now() / 1000) + 1,
+              scheduled_time: reminderTime.toISOString(),
+              status: 'scheduled',
+            })
+        }
+      } else if (hoursDiff > 6) {
+        if (hoursDiff <= 24) {
+          // Send 6_hours_reminder
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          const { data: recent } = await supabaseClient
+            .from('notifications_history')
+            .select('id')
+            .eq('document_code', doc.code)
+            .eq('notification_type', '6_hours_reminder')
+            .gte('created_at', twentyFourHoursAgo.toISOString())
+            .limit(1)
+
+          if (!recent || recent.length === 0) {
+            const title = '📑 Compliance Reminder'
+            const body = `Document ${doc.code} is due in 6 hours.`
+
+            const fcmResponses = []
+            for (const token of tokenList) {
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              fcmResponses.push(fcmResponse)
+            }
+
+            await supabaseClient
+              .from('notifications_history')
+              .insert({
+                document_code: doc.code,
+                notification_type: '6_hours_reminder',
+                notification_id: Math.floor(Date.now() / 1000),
+                scheduled_time: deadline.toISOString(),
+                status: 'sent',
+              })
+
+            notificationsSent.push({
+              documentCode: doc.code,
+              type: '6_hours_reminder',
+              title: title,
+              body: body,
+              fcmResponses: fcmResponses,
+            })
+          }
+        }
+      } else if (hoursDiff > 0) {
+        // Send due_soon
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        const { data: recent } = await supabaseClient
+          .from('notifications_history')
+          .select('id')
+          .eq('document_code', doc.code)
+          .eq('notification_type', 'due_soon')
+          .gte('created_at', twentyFourHoursAgo.toISOString())
+          .limit(1)
+
+        if (!recent || recent.length === 0) {
+          const title = '📑 Compliance Reminder'
+          const body = `Document ${doc.code} is due very soon.`
+
+          const fcmResponses = []
+          for (const token of tokenList) {
+            const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+            fcmResponses.push(fcmResponse)
+          }
+
+          await supabaseClient
+            .from('notifications_history')
+            .insert({
+              document_code: doc.code,
+              notification_type: 'due_soon',
+              notification_id: Math.floor(Date.now() / 1000),
+              scheduled_time: deadline.toISOString(),
+              status: 'sent',
+            })
+
+          notificationsSent.push({
+            documentCode: doc.code,
+            type: 'due_soon',
+            title: title,
+            body: body,
+            fcmResponses: fcmResponses,
+          })
+        }
+      } else {
+        // Overdue
+        const overdueHours = -hoursDiff
+        if (overdueHours < 24) {
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          const { data: recent } = await supabaseClient
+            .from('notifications_history')
+            .select('id')
+            .eq('document_code', doc.code)
+            .eq('notification_type', 'overdue_hours')
+            .gte('created_at', twentyFourHoursAgo.toISOString())
+            .limit(1)
+
+          if (!recent || recent.length === 0) {
+            const title = '🚨 Compliance Overdue'
+            const body = `Document ${doc.code} is overdue by ${Math.ceil(overdueHours)} hours.`
+
+            const fcmResponses = []
+            for (const token of tokenList) {
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              fcmResponses.push(fcmResponse)
+            }
+
+            await supabaseClient
+              .from('notifications_history')
+              .insert({
+                document_code: doc.code,
+                notification_type: 'overdue_hours',
+                notification_id: Math.floor(Date.now() / 1000),
+                scheduled_time: deadline.toISOString(),
+                status: 'sent',
+              })
+
+            notificationsSent.push({
+              documentCode: doc.code,
+              type: 'overdue_hours',
+              title: title,
+              body: body,
+              fcmResponses: fcmResponses,
+            })
+          }
+        } else {
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          const { data: recent } = await supabaseClient
+            .from('notifications_history')
+            .select('id')
+            .eq('document_code', doc.code)
+            .eq('notification_type', 'overdue_days')
+            .gte('created_at', twentyFourHoursAgo.toISOString())
+            .limit(1)
+
+          if (!recent || recent.length === 0) {
+            const title = '🚨 Compliance Overdue'
+            const body = `Document ${doc.code} is overdue by ${Math.ceil(overdueHours / 24)} days.`
+
+            const fcmResponses = []
+            for (const token of tokenList) {
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              fcmResponses.push(fcmResponse)
+            }
+
+            await supabaseClient
+              .from('notifications_history')
+              .insert({
+                document_code: doc.code,
+                notification_type: 'overdue_days',
+                notification_id: Math.floor(Date.now() / 1000),
+                scheduled_time: deadline.toISOString(),
+                status: 'sent',
+              })
+
+            notificationsSent.push({
+              documentCode: doc.code,
+              type: 'overdue_days',
+              title: title,
+              body: body,
+              fcmResponses: fcmResponses,
+            })
+          }
+        }
+      }
     }
 
     return new Response(
