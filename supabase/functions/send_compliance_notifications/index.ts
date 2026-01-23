@@ -234,69 +234,58 @@ serve(async (req: Request) => {
       const timeDiff = deadline.getTime() - now.getTime()
       const hoursDiff = timeDiff / (1000 * 60 * 60)
 
-      // Check if immediate notification already sent
-      const { data: immediateNotifications } = await supabaseClient
+      // Always send immediate notification reflecting current state
+      const immediateTitle = 'Compliance Notification'
+      const immediateBody = `A document to be complied by ${doc.compliance_assignee || 'Unknown'} has been set, check out the notification.`
+
+      // Send FCM
+      const fcmResponses = []
+      for (const token of tokenList) {
+        const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, immediateTitle, immediateBody)
+        fcmResponses.push(fcmResponse)
+      }
+
+      // Insert history
+      await supabaseClient
         .from('notifications_history')
-        .select('id')
+        .insert({
+          document_code: doc.code,
+          notification_type: 'immediate',
+          notification_id: Math.floor(Date.now() / 1000),
+          scheduled_time: deadline.toISOString(),
+          status: 'sent',
+        })
+
+      notificationsSent.push({
+        documentCode: doc.code,
+        type: 'immediate',
+        title: immediateTitle,
+        body: immediateBody,
+        fcmResponses: fcmResponses,
+      })
+
+      // Delete old scheduled notifications for this document
+      await supabaseClient
+        .from('notifications_history')
+        .delete()
         .eq('document_code', doc.code)
-        .eq('notification_type', 'immediate')
-        .limit(1)
+        .in('notification_type', ['1_day_reminder', '6_hours_reminder', 'due_soon', 'overdue_hours', 'overdue_days'])
+        .eq('status', 'scheduled')
 
-      if (!immediateNotifications || immediateNotifications.length === 0) {
-        // Send immediate
-        const immediateTitle = 'Compliance Notification'
-        const immediateBody = `A document to be complied by ${doc.compliance_assignee || 'Unknown'} has been set, check out the notification.`
+      if (hoursDiff > 48) {
+        // Schedule 1_day_reminder
+        const reminderTime = new Date(deadline.getTime() - 24 * 60 * 60 * 1000)
+        reminderTime.setUTCHours(1, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
 
-        // Send FCM
-        const fcmResponses = []
-        for (const token of tokenList) {
-          const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, immediateTitle, immediateBody)
-          fcmResponses.push(fcmResponse)
-        }
-
-        // Insert history
         await supabaseClient
           .from('notifications_history')
           .insert({
             document_code: doc.code,
-            notification_type: 'immediate',
-            notification_id: Math.floor(Date.now() / 1000),
-            scheduled_time: deadline.toISOString(),
-            status: 'sent',
+            notification_type: '1_day_reminder',
+            notification_id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000),
+            scheduled_time: reminderTime.toISOString(),
+            status: 'scheduled',
           })
-
-        notificationsSent.push({
-          documentCode: doc.code,
-          type: 'immediate',
-          title: immediateTitle,
-          body: immediateBody,
-          fcmResponses: fcmResponses,
-        })
-      }
-
-      if (hoursDiff > 48) {
-        // Schedule 1_day_reminder
-        const { data: reminderNotifications } = await supabaseClient
-          .from('notifications_history')
-          .select('id')
-          .eq('document_code', doc.code)
-          .eq('notification_type', '1_day_reminder')
-          .limit(1)
-
-        if (!reminderNotifications || reminderNotifications.length === 0) {
-          const reminderTime = new Date(deadline.getTime() - 24 * 60 * 60 * 1000)
-          reminderTime.setUTCHours(9, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
-
-          await supabaseClient
-            .from('notifications_history')
-            .insert({
-              document_code: doc.code,
-              notification_type: '1_day_reminder',
-              notification_id: Math.floor(Date.now() / 1000) + 1,
-              scheduled_time: reminderTime.toISOString(),
-              status: 'scheduled',
-            })
-        }
       } else if (hoursDiff > 6) {
         if (hoursDiff <= 24) {
           // Send 6_hours_reminder
