@@ -159,20 +159,14 @@ class _HomeScreenState extends State<HomeScreen> {
       if (newStatus == 'For Compliance' && complianceDeadline != null) {
         updates['compliance_deadline'] = complianceDeadline.toIso8601String();
 
-        // Schedule notifications
-        final notificationService = NotificationService();
-        final notificationIds = await notificationService.scheduleComplianceNotifications(
-          documentCode: documents[index].code,
-          assignedTo: documents[index].assignedTo,
-          deadline: complianceDeadline,
-          existingIds: documents[index].scheduledNotificationIds ?? [],
-        );
-        updates['scheduled_notification_ids'] = notificationIds;
+        // TODO: Call backend Edge Function to schedule FCM notifications
+        // For now, just set deadline - FCM scheduling will be handled by backend cron
+        updates['scheduled_notification_ids'] = [];
 
-        // Update document with deadline and notification IDs
+        // Update document with deadline
         documents[index] = documents[index].copyWith(
           complianceDeadline: complianceDeadline,
-          scheduledNotificationIds: notificationIds,
+          scheduledNotificationIds: [],
         );
 
         // Add history entry for deadline setting
@@ -707,8 +701,6 @@ Positioned(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Notification: ${(permissions['notification'] ?? false) ? 'Granted' : 'Denied'}'),
-              Text('Exact Alarm: ${(permissions['exact_alarm'] ?? false) ? 'Granted' : 'Denied'}'),
-              Text('Can Schedule Exact: ${(permissions['can_schedule_exact'] ?? false) ? 'Yes' : 'No'}'),
             ],
           ),
           actions: [

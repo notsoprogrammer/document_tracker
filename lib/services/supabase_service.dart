@@ -198,4 +198,20 @@ class SupabaseService {
     await _client.from('notifications_history').delete().lt('created_at', cutoffDate.toIso8601String());
     print('Deleted notification history older than 30 days');
   }
+  
+  // Device tokens operations
+  Future<void> saveDeviceToken(String token) async {
+    await _client.from('device_tokens').upsert({
+      'token': token,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    print('Device token saved: $token');
+  }
+
+  Future<List<String>> getAllDeviceTokens() async {
+    final response = await _client.from('device_tokens').select('token');
+    final tokens = (response as List<dynamic>).map((item) => item['token'] as String).toList();
+    print('Retrieved ${tokens.length} device tokens');
+    return tokens;
+  }
 }

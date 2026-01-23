@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "269775325253",
+    "project_id": "docu-tracker-ac4ea",
+    "storage_bucket": "docu-tracker-ac4ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:269775325253:android:c0e241b9c6908a22dd7b2c",
+        "android_client_info": {
+          "package_name": "com.cpdco.docutracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk_uNzYOkczfFLODGHXAKGNR5XHHeNj-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

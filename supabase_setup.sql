@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS deleted_records (
     deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create device_tokens table
+CREATE TABLE IF NOT EXISTS device_tokens (
+    token TEXT PRIMARY KEY,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create notifications_history table
 CREATE TABLE IF NOT EXISTS notifications_history (
     id SERIAL PRIMARY KEY,
