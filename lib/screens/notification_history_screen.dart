@@ -40,18 +40,17 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     }
   }
 
-  String _formatDateTime(String dateTimeString) {
-    final dateTime = DateTime.parse(dateTimeString);
-    // Convert UTC timestamp to device's local timezone
-    final localDateTime = dateTime.toLocal();
-    final hour = localDateTime.hour;
-    final minute = localDateTime.minute.toString().padLeft(2, '0');
+  String _formatScheduledTime(String dateTimeString) {
+    // Parse as UTC and display directly without local conversion
+    final dateTime = DateTime.parse(dateTimeString).toUtc();
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
     final amPm = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final month = localDateTime.month.toString().padLeft(2, '0');
-    final day = localDateTime.day.toString().padLeft(2, '0');
-    final year = localDateTime.year;
-    return '$month/$day/$year $displayHour:$minute $amPm';
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$month/$day/$year $displayHour:$minute $amPm UTC';
   }
 
   String _getDocumentStatusIcon(String status) {
@@ -181,7 +180,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
                                     Text(
-                                      'Deadline: ${_formatDateTime(doc['compliance_deadline'])} (${daysOverdue} days overdue)',
+                                      'Deadline: ${_formatScheduledTime(doc['compliance_deadline'])} (${daysOverdue} days overdue)',
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             color: Theme.of(context).colorScheme.error,
                                           ),
@@ -296,7 +295,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
                                     Text(
-                                      'Deadline: ${_formatDateTime(log['documents']['compliance_deadline'])}',
+                                      'Deadline: ${_formatScheduledTime(log['documents']['compliance_deadline'])}',
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           ),

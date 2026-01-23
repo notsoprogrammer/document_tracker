@@ -210,7 +210,7 @@ serve(async (req: Request) => {
     const notificationsSent: any[] = []
 
     for (const doc of (documents as Document[]) || []) {
-      const deadline = new Date(doc.compliance_deadline)
+      const deadline = new Date(doc.compliance_deadline.replace(' ', 'T') + 'Z')
       const timeDiff = deadline.getTime() - now.getTime()
       const hoursDiff = timeDiff / (1000 * 60 * 60)
 

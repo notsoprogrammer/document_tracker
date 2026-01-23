@@ -187,7 +187,7 @@ class SupabaseService {
           .select('code, title, compliance_deadline, compliance_assignee, status')
           .eq('status', 'For Compliance')
           .not('compliance_deadline', 'is', null)
-          .lt('compliance_deadline', now.toIso8601String())
+          .lt('compliance_deadline', now.toString())
           .order('compliance_deadline', ascending: true);
 
       print('Overdue compliance documents: $response');

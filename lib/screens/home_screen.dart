@@ -157,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Handle compliance deadline and notifications
       if (newStatus == 'For Compliance' && complianceDeadline != null) {
-        updates['compliance_deadline'] = complianceDeadline.toIso8601String();
+        updates['compliance_deadline'] = complianceDeadline.toString();
 
         // TODO: Call backend Edge Function to schedule FCM notifications
         // For now, just set deadline - FCM scheduling will be handled by backend cron
