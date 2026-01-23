@@ -89,7 +89,26 @@ class SupabaseService {
   }
 
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
+    // Fetch current document to check status and compliance fields
+    final currentDoc = await fetchDocumentByCode(documentCode);
+    if (currentDoc == null) {
+      throw Exception('Document not found');
+    }
+
+    // Check if compliance fields are being updated
+    final isComplianceUpdate = updates.containsKey('compliance_deadline') || updates.containsKey('compliance_assignee');
+
+    // Update the document
     await _client.from('documents').update(updates).eq('code', documentCode);
+
+    // If compliance fields updated and status is For Compliance, update notifications
+    if (isComplianceUpdate && currentDoc.status == 'For Compliance') {
+      final newDeadline = updates['compliance_deadline'] != null ? DateTime.parse(updates['compliance_deadline']) : currentDoc.complianceDeadline;
+      final newAssignee = updates['compliance_assignee'] ?? currentDoc.complianceAssignee;
+      if (newDeadline != null) {
+        await updateComplianceNotifications(documentCode, newDeadline, newAssignee);
+      }
+    }
   }
 
   Future<void> deleteDocument(String documentCode) async {
@@ -218,6 +237,88 @@ class SupabaseService {
     final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
     await _client.from('notifications_history').delete().lt('created_at', cutoffDate.toIso8601String());
     print('Deleted notification history older than 30 days');
+  }
+
+  Future<void> updateComplianceNotifications(String documentCode, DateTime deadline, String? assignee) async {
+    final now = DateTime.now();
+    final timeDiff = deadline.difference(now);
+    final hoursDiff = timeDiff.inHours;
+
+    // Insert immediate notification with status 'updated' for audit
+    await _client.from('notifications_history').insert({
+      'document_code': documentCode,
+      'notification_type': 'immediate',
+      'notification_id': now.millisecondsSinceEpoch ~/ 1000,
+      'scheduled_time': deadline.toIso8601String(),
+      'status': 'updated',
+    });
+    print('Inserted updated immediate notification for document $documentCode');
+
+    // Delete old scheduled notifications
+    await _client.from('notifications_history').delete()
+        .eq('document_code', documentCode)
+        .or('notification_type.eq.1_day_reminder,notification_type.eq.6_hours_reminder,notification_type.eq.due_soon,notification_type.eq.overdue_hours,notification_type.eq.overdue_days')
+        .eq('status', 'scheduled');
+    print('Deleted old scheduled notifications for document $documentCode');
+
+    // Insert new scheduled notifications based on deadline
+    if (hoursDiff > 48) {
+      // Schedule 1_day_reminder
+      final reminderTime = deadline.subtract(const Duration(hours: 24)).copyWith(hour: 1, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+
+      await _client.from('notifications_history').insert({
+        'document_code': documentCode,
+        'notification_type': '1_day_reminder',
+        'notification_id': now.millisecondsSinceEpoch ~/ 1000 + 1,
+        'scheduled_time': reminderTime.toIso8601String(),
+        'status': 'scheduled',
+      });
+      print('Inserted 1_day_reminder for document $documentCode');
+    } else if (hoursDiff > 6) {
+      if (hoursDiff <= 24) {
+        // Schedule 6_hours_reminder
+        await _client.from('notifications_history').insert({
+          'document_code': documentCode,
+          'notification_type': '6_hours_reminder',
+          'notification_id': now.millisecondsSinceEpoch ~/ 1000 + 1,
+          'scheduled_time': deadline.toIso8601String(),
+          'status': 'scheduled',
+        });
+        print('Inserted 6_hours_reminder for document $documentCode');
+      }
+    } else if (hoursDiff > 0) {
+      // Schedule due_soon
+      await _client.from('notifications_history').insert({
+        'document_code': documentCode,
+        'notification_type': 'due_soon',
+        'notification_id': now.millisecondsSinceEpoch ~/ 1000 + 1,
+        'scheduled_time': deadline.toIso8601String(),
+        'status': 'scheduled',
+      });
+      print('Inserted due_soon for document $documentCode');
+    } else {
+      // Overdue - insert overdue notification
+      final overdueHours = -hoursDiff;
+      if (overdueHours < 24) {
+        await _client.from('notifications_history').insert({
+          'document_code': documentCode,
+          'notification_type': 'overdue_hours',
+          'notification_id': now.millisecondsSinceEpoch ~/ 1000 + 1,
+          'scheduled_time': deadline.toIso8601String(),
+          'status': 'scheduled',
+        });
+        print('Inserted overdue_hours for document $documentCode');
+      } else {
+        await _client.from('notifications_history').insert({
+          'document_code': documentCode,
+          'notification_type': 'overdue_days',
+          'notification_id': now.millisecondsSinceEpoch ~/ 1000 + 1,
+          'scheduled_time': deadline.toIso8601String(),
+          'status': 'scheduled',
+        });
+        print('Inserted overdue_days for document $documentCode');
+      }
+    }
   }
   
   // Device tokens operations

@@ -275,7 +275,7 @@ serve(async (req: Request) => {
       if (hoursDiff > 48) {
         // Schedule 1_day_reminder
         const reminderTime = new Date(deadline.getTime() - 24 * 60 * 60 * 1000)
-        reminderTime.setUTCHours(1, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
+        reminderTime.setUTCHours(9, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
 
         await supabaseClient
           .from('notifications_history')
