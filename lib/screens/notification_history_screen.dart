@@ -296,7 +296,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
                                     Text(
-                                      'Scheduled: ${_formatDateTime(log['scheduled_time'])}',
+                                      'Deadline: ${_formatDateTime(log['documents']['compliance_deadline'])}',
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           ),

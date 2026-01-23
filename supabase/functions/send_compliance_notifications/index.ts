@@ -220,8 +220,8 @@ serve(async (req: Request) => {
 
       if (hoursDiff > 24) {
         continue // Skip if more than 1 day away
-      } else if (hoursDiff > 0) {
-        // Future deadline within 24 hours
+      } else if (hoursDiff > 1) {
+        // Future deadline within 24 hours, more than 1 hour away
         if (hoursDiff <= 5) {
           notificationType = '5_hours_reminder'
           title = '📑 Compliance Reminder'
