@@ -294,12 +294,13 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         'Assignee: ${log['documents']['compliance_assignee']}',
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
-                                    Text(
-                                      'Deadline: ${_formatScheduledTime(log['documents']['compliance_deadline'])}',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          ),
-                                    ),
+                                    if (log['documents']?['compliance_deadline'] != null)
+                                      Text(
+                                        'Deadline: ${_formatScheduledTime(log['documents']['compliance_deadline'])}',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
                                   ],
                                 ),
                               ],
