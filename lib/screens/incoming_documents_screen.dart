@@ -196,6 +196,17 @@ Widget _buildUploadStatusIndicator(Document doc) {
     );
   }
 
+  bool _titleExceedsMaxLines(String text, BuildContext context) {
+    final TextStyle style = const TextStyle(fontWeight: FontWeight.w400);
+    final double maxWidth = MediaQuery.of(context).size.width - 120; // approximate available width
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 2,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    return textPainter.didExceedMaxLines;
+  }
+
   void _showTransferDialog(BuildContext context, int index) {
     final newAssigneeController = TextEditingController();
     final transferredByController = TextEditingController();
@@ -1235,6 +1246,8 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                 child: Text(
                                   "${doc.type} - ${doc.title}",
                                   style: const TextStyle(fontWeight: FontWeight.w400),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (doc.needsSync) ...[
@@ -1294,6 +1307,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  if (_titleExceedsMaxLines("${doc.type} - ${doc.title}", context)) ...[
+                                    _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
+                                    const SizedBox(height: 8),
+                                  ],
                                   _buildDetailRow(Icons.person, "From", doc.fromOrTo),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.send, "Mode", doc.mode),

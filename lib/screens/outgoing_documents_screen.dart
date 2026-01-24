@@ -316,6 +316,17 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
+  bool _titleExceedsMaxLines(String text, BuildContext context) {
+    final TextStyle style = const TextStyle(fontWeight: FontWeight.w400);
+    final double maxWidth = MediaQuery.of(context).size.width - 120; // approximate available width
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 2,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    return textPainter.didExceedMaxLines;
+  }
+
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
     showDialog(
       context: context,
@@ -985,6 +996,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 child: Text(
                                   "${doc.type} - ${doc.title}",
                                   style: const TextStyle(fontWeight: FontWeight.w400),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (doc.needsSync) ...[
@@ -1044,6 +1057,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  if (_titleExceedsMaxLines("${doc.type} - ${doc.title}", context)) ...[
+                                    _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
+                                    const SizedBox(height: 8),
+                                  ],
                                   _buildDetailRow(Icons.person, "To", doc.fromOrTo),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.send, "Mode", doc.mode),

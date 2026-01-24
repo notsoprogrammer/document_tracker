@@ -97,6 +97,17 @@ class _AttendanceMovsScreenState
     );
   }
 
+  bool _titleExceedsMaxLines(String text, BuildContext context) {
+    final TextStyle style = const TextStyle(fontWeight: FontWeight.w400);
+    final double maxWidth = MediaQuery.of(context).size.width - 120; // approximate available width
+    final TextPainter textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 2,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    return textPainter.didExceedMaxLines;
+  }
+
   Widget _buildGlobalUploadStatusIndicator() {
     final queueManager = UploadQueueManager();
     final allUploads = queueManager.getAllItems();
@@ -394,6 +405,8 @@ class _AttendanceMovsScreenState
                             title: Text(
                               "${document.type}",
                               style: const TextStyle(fontWeight: FontWeight.w400),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,6 +451,14 @@ class _AttendanceMovsScreenState
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (_titleExceedsMaxLines(document.type, context)) ...[
+                                      _buildDetailRow(
+                                        Icons.description,
+                                        "Document Type",
+                                        document.type,
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
                                     _buildDetailRow(
                                       Icons.calendar_today,
                                       "Date",
