@@ -162,16 +162,33 @@ serve(async (req: Request) => {
       }
     )
 
+    // Parse request body for optional document_code
+    let requestBody: { document_code?: string } = {}
+    if (req.method === 'POST') {
+      try {
+        requestBody = await req.json()
+      } catch (e) {
+        // Ignore if no body or invalid JSON
+      }
+    }
+
     // Get current time in UTC (adjust for Philippine time if needed)
     const now = new Date()
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
-    // Query all documents with compliance deadlines
-    const { data: documents, error: docError } = await supabaseClient
+    // Query documents with compliance deadlines
+    let query = supabaseClient
       .from('documents')
       .select('code, title, compliance_deadline, compliance_assignee')
       .eq('status', 'For Compliance')
       .not('compliance_deadline', 'is', null)
+
+    // If document_code is provided, filter to that specific document
+    if (requestBody.document_code) {
+      query = query.eq('code', requestBody.document_code)
+    }
+
+    const { data: documents, error: docError } = await query
 
     if (docError) {
       throw docError

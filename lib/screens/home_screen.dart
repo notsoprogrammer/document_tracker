@@ -224,22 +224,22 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update the document
       await _documentService.updateDocument(documents[index].code, updates);
 
-      // Record notification history if status set to For Compliance
-      if (newStatus == 'For Compliance' && complianceDeadline != null) {
-        try {
-          await SupabaseService().addNotificationHistory(
-            documentCode: documents[index].code,
-            notificationType: 'scheduled',
-            notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            scheduledTime: complianceDeadline,
-            status: 'scheduled',
-          );
-          // Send compliance notifications
-          await SupabaseService().sendComplianceNotifications();
-        } catch (e) {
-          print('Error recording notification history or sending notifications: $e');
-        }
-      }
+          // Record notification history if status set to For Compliance
+          if (newStatus == 'For Compliance' && complianceDeadline != null) {
+            try {
+              await SupabaseService().addNotificationHistory(
+                documentCode: documents[index].code,
+                notificationType: 'scheduled',
+                notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                scheduledTime: complianceDeadline,
+                status: 'scheduled',
+              );
+              // Send compliance notifications
+              await SupabaseService().sendComplianceNotifications(documentCode: documents[index].code);
+            } catch (e) {
+              print('Error recording notification history or sending notifications: $e');
+            }
+          }
 
       // Record notification history if status set to Urgent
       if (newStatus == 'Urgent') {

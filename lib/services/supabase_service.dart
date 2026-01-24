@@ -331,9 +331,10 @@ class SupabaseService {
   }
 
   // Invoke send compliance notifications Edge Function
-  Future<void> sendComplianceNotifications() async {
+  Future<void> sendComplianceNotifications({String? documentCode}) async {
     try {
-      final response = await _client.functions.invoke('send_compliance_notifications');
+      final body = documentCode != null ? {'document_code': documentCode} : null;
+      final response = await _client.functions.invoke('send_compliance_notifications', body: body);
       print('Compliance notifications sent: ${response.data}');
     } catch (e) {
       print('Error sending compliance notifications: $e');
