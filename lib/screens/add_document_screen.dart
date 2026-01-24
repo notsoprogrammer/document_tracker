@@ -680,7 +680,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
-                                    allowedExtensions: ['docx', 'pdf'],
+                                    allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
                                     allowMultiple: false, // Only one document
                                     withData: true, // Ensure bytes are available
                                   );
