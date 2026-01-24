@@ -589,7 +589,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               if (date != null) {
                                 final time = await showTimePicker(
                                   context: context,
-                                  initialTime: TimeOfDay.fromDateTime(selectedDeadline ?? DateTime.now()),
+                                  initialTime: selectedDeadline != null ? TimeOfDay.fromDateTime(selectedDeadline!) : const TimeOfDay(hour: 9, minute: 0),
                                 );
                                 if (time != null) {
                                   setState(() {
