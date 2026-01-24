@@ -565,36 +565,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                     ),
                   ),
                 ),
-                Card(
-                  elevation: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Processing Information",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: personController,
-                          decoration: InputDecoration(
-                            labelText: "Recorded by",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                          ),
-                          readOnly: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: _isSaving ? null : () async {

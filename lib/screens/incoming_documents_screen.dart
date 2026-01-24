@@ -693,18 +693,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: TextEditingController(text: _username),
-                        decoration: InputDecoration(
-                          labelText: "Updated By",
-                          prefixIcon: const Icon(Icons.person),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        readOnly: true,
-                      ),
+
                       const SizedBox(height: 16),
                       TextField(
                         controller: notesController,
