@@ -73,21 +73,6 @@ class SupabaseService {
     return Document.fromJson(response)..history.addAll(document.history);
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
-  }
-
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
     // Fetch current document to check status and compliance fields
     final currentDoc = await fetchDocumentByCode(documentCode);
