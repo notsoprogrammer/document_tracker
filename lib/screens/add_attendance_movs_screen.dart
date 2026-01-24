@@ -126,6 +126,35 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Exit'),
+        content: const Text('Do you want to continue adding or cancel?'),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(false), // Continue Adding
+            child: const Text('Continue Adding'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(true), // Cancel
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   String _generateCode() {
     if (selectedType == null || selectedDate == null) return '-';
 
@@ -246,13 +275,15 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Add Attendance & MOVs Document"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
-      body: Container(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Add Attendance & MOVs Document"),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        ),
+        body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -296,11 +327,12 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             errorText: _showValidationErrors && selectedType == null ? "Type is required" : null,
                           ),
                           items: types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                          onChanged: _onTypeChanged,
+                          onChanged: _isSaving ? null : _onTypeChanged,
                         ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: titleController,
+                          enabled: !_isSaving,
                           decoration: InputDecoration(
                             labelText: "Activity",
                             border: OutlineInputBorder(),
@@ -311,7 +343,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         ),
                         const SizedBox(height: 12),
                         InkWell(
-                          onTap: () => _selectDate(context),
+                          onTap: _isSaving ? null : () => _selectDate(context),
                           child: InputDecorator(
                             decoration: InputDecoration(
                               labelText: "Date",
@@ -371,7 +403,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingImage) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : () async {
                                   int currentImageCount = _selectedImagePaths.where(_isImage).length;
                                   if (currentImageCount >= 10) {
                                     SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
@@ -402,7 +434,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingFile || _selectedDocumentPaths.isNotEmpty) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile || _selectedDocumentPaths.isNotEmpty || _isSaving) ? null : () async {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
@@ -469,7 +501,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           GestureDetector(
-                            onTap: () => _viewSelectedFiles(context),
+                            onTap: _isSaving ? null : () => _viewSelectedFiles(context),
                             child: Text(
                               "View Selected Images (${_selectedImagePaths.length})",
                               style: TextStyle(
@@ -495,7 +527,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                               final fileName = path.split('\\').last.split('/').last;
                               return Chip(
                                 label: Text(fileName),
-                                onDeleted: () {
+                                onDeleted: _isSaving ? null : () {
                                   setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );
@@ -520,6 +552,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
+                          enabled: !_isSaving,
                           decoration: InputDecoration(
                             labelText: "Remarks",
                             border: OutlineInputBorder(),
@@ -632,6 +665,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

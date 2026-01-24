@@ -51,12 +51,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   bool _isImage(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heif','heic'].contains(ext);
   }
 
   bool _isDocument(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['docx', 'pdf'].contains(ext);
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'].contains(ext);
   }
 
   // Validation flags
@@ -193,6 +193,35 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Exit'),
+        content: const Text('Do you want to continue adding or cancel?'),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(false), // Continue Adding
+            child: const Text('Continue Adding'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(true), // Cancel
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   String _generateCode(bool incoming) {
     final nowUtc = DateTime.now().toUtc();
     final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
@@ -213,14 +242,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       final parts = path.split('.');
       if (parts.length <= 1) return false;
       final extension = parts.last.toLowerCase();
-      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic','heif'].contains(extension);
     }).toList();
 
     final otherFiles = _selectedImagePaths.where((path) {
       final parts = path.split('.');
       if (parts.length <= 1) return true;
       final extension = parts.last.toLowerCase();
-      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic'].contains(extension);
+      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic','heif'].contains(extension);
     }).toList();
 
     if (imageFiles.isNotEmpty) {
@@ -281,13 +310,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.incoming ? "Add Incoming Document" : "Add Outgoing Document"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
-      body: Container(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.incoming ? "Add Incoming Document" : "Add Outgoing Document"),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        ),
+        body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -333,6 +364,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         const SizedBox(height: 12),
                         TextField(
                           controller: titleController,
+                          enabled: !_isSaving,
                           decoration: InputDecoration(
                             labelText: "Document Title",
                             border: OutlineInputBorder(),
@@ -352,7 +384,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             errorText: _showValidationErrors && selectedType == null ? "Document type is required" : null,
                           ),
                           items: documentTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                          onChanged: (value) => setState(() => selectedType = value),
+                          onChanged: _isSaving ? null : (value) => setState(() => selectedType = value),
                         ),
                       ],
                     ),
@@ -392,6 +424,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               return TextField(
                                 controller: fieldTextEditingController,
                                 focusNode: fieldFocusNode,
+                                enabled: !_isSaving,
                                 decoration: InputDecoration(
                                   labelText: "From (Office/Agency/Person)",
                                   hintText: "Start typing to see suggestions",
@@ -424,6 +457,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               return TextField(
                                 controller: fieldTextEditingController,
                                 focusNode: fieldFocusNode,
+                                enabled: !_isSaving,
                                 decoration: InputDecoration(
                                   labelText: "Recipient (Office/Agency/Person)",
                                   hintText: "Start typing to see suggestions",
@@ -450,7 +484,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             errorText: _showValidationErrors && selectedMode == null ? "Mode is required" : null,
                           ),
                           items: modeOptions.map((mode) => DropdownMenuItem(value: mode, child: Text(mode))).toList(),
-                          onChanged: (value) => setState(() => selectedMode = value),
+                          onChanged: _isSaving ? null : (value) => setState(() => selectedMode = value),
                         ),
                       ],
                     ),
@@ -490,6 +524,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               return TextField(
                                 controller: fieldTextEditingController,
                                 focusNode: fieldFocusNode,
+                                enabled: !_isSaving,
                                 decoration: InputDecoration(
                                   labelText: "Delivered / Addressed to",
                                   hintText: "Enter assigned personnel",
@@ -533,6 +568,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ] else ...[
                           TextField(
                             controller: assignedToController,
+                            enabled: !_isSaving,
                             decoration: InputDecoration(
                               labelText: "Delivered / Addressed to",
                               hintText: "Enter recipient personnel",
@@ -552,7 +588,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             fillColor: Theme.of(context).colorScheme.surface,
                           ),
                           items: statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                          onChanged: (value) {
+                          onChanged: _isSaving ? null : (value) {
                             setState(() {
                               selectedStatus = value;
                               if (value != 'For Compliance') {
@@ -563,23 +599,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ),
                         if (selectedStatus == 'For Compliance') ...[
                           const SizedBox(height: 12),
-                          TextField(
-                            readOnly: true,
-                            controller: TextEditingController(
-                              text: selectedDeadline != null
-                                  ? "${selectedDeadline!.month}/${selectedDeadline!.day}/${selectedDeadline!.year} ${selectedDeadline!.hour.toString().padLeft(2, '0')}:${selectedDeadline!.minute.toString().padLeft(2, '0')}"
-                                  : '',
-                            ),
-                            decoration: InputDecoration(
-                              labelText: "Compliance Deadline",
-                              hintText: "Select date and time",
-                              border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Theme.of(context).colorScheme.surface,
-                              suffixIcon: const Icon(Icons.calendar_today),
-                              errorText: _showValidationErrors && selectedDeadline == null ? "Deadline is required for For Compliance" : null,
-                            ),
-                            onTap: () async {
+                          InkWell(
+                            onTap: _isSaving ? null : () async {
                               final date = await showDatePicker(
                                 context: context,
                                 initialDate: selectedDeadline ?? DateTime.now(),
@@ -604,6 +625,22 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 }
                               }
                             },
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: "Compliance Deadline",
+                                hintText: "Select date and time",
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                suffixIcon: const Icon(Icons.calendar_today),
+                                errorText: _showValidationErrors && selectedDeadline == null ? "Deadline is required for For Compliance" : null,
+                              ),
+                              child: Text(
+                                selectedDeadline != null
+                                    ? "${selectedDeadline!.month}/${selectedDeadline!.day}/${selectedDeadline!.year} ${selectedDeadline!.hour.toString().padLeft(2, '0')}:${selectedDeadline!.minute.toString().padLeft(2, '0')}"
+                                    : '',
+                              ),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 12),
@@ -611,7 +648,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingImage) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : () async {
                                   int currentImageCount = _selectedImagePaths.where(_isImage).length;
                                   if (currentImageCount >= 10) {
                                     SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
@@ -639,7 +676,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingFile) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile || _isSaving) ? null : () async {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
@@ -702,7 +739,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           GestureDetector(
-                            onTap: () => _viewSelectedFiles(context),
+                            onTap: _isSaving ? null : () => _viewSelectedFiles(context),
                             child: Text(
                               "View Selected Images (${_selectedImagePaths.length})",
                               style: TextStyle(
@@ -728,7 +765,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               final fileName = path.split('\\').last.split('/').last;
                               return Chip(
                                 label: Text(fileName),
-                                onDeleted: () {
+                                onDeleted: _isSaving ? null : () {
                                   setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );
@@ -744,6 +781,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
+                          enabled: !_isSaving,
                           decoration: InputDecoration(
                             labelText: "Remarks",
                             border: OutlineInputBorder(),
@@ -863,6 +901,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
