@@ -314,6 +314,39 @@ class CachedDocumentService {
           await _remoteDb.createDocument(localDoc);
         }
 
+        // After successful sync, trigger notifications if needed
+        if (localDoc.status == 'For Compliance' && localDoc.complianceDeadline != null) {
+          try {
+            // Record notification history
+            await _remoteDb.addNotificationHistory(
+              documentCode: localDoc.code,
+              notificationType: 'scheduled',
+              notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              scheduledTime: localDoc.complianceDeadline!,
+              status: 'scheduled',
+            );
+            // Send compliance notifications
+            await _remoteDb.sendComplianceNotifications(documentCode: localDoc.code);
+            print('Compliance notifications triggered for synced document ${localDoc.code}');
+          } catch (e) {
+            print('Failed to trigger compliance notifications for synced document ${localDoc.code}: $e');
+          }
+        } else if (localDoc.status == 'Urgent') {
+          try {
+            // Record urgent notification history
+            await _remoteDb.addNotificationHistory(
+              documentCode: localDoc.code,
+              notificationType: 'urgent',
+              notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              scheduledTime: DateTime.now(),
+              status: 'urgent',
+            );
+            print('Urgent notification created for synced document ${localDoc.code}');
+          } catch (e) {
+            print('Failed to create urgent notification for synced document: $e');
+          }
+        }
+
         // Update local to mark as synced
         await _localDb.updateDocument(documentCode, {'needs_sync': 0});
       }
@@ -360,6 +393,40 @@ class CachedDocumentService {
           // Create new document
           await _remoteDb.createDocument(doc);
         }
+
+        // After successful sync, trigger notifications if needed
+        if (doc.status == 'For Compliance' && doc.complianceDeadline != null) {
+          try {
+            // Record notification history
+            await _remoteDb.addNotificationHistory(
+              documentCode: doc.code,
+              notificationType: 'scheduled',
+              notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              scheduledTime: doc.complianceDeadline!,
+              status: 'scheduled',
+            );
+            // Send compliance notifications
+            await _remoteDb.sendComplianceNotifications(documentCode: doc.code);
+            print('Compliance notifications triggered for synced document ${doc.code}');
+          } catch (e) {
+            print('Failed to trigger compliance notifications for synced document ${doc.code}: $e');
+          }
+        } else if (doc.status == 'Urgent') {
+          try {
+            // Record urgent notification history
+            await _remoteDb.addNotificationHistory(
+              documentCode: doc.code,
+              notificationType: 'urgent',
+              notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              scheduledTime: DateTime.now(),
+              status: 'urgent',
+            );
+            print('Urgent notification created for synced document ${doc.code}');
+          } catch (e) {
+            print('Failed to create urgent notification for synced document: $e');
+          }
+        }
+
         await _localDb.updateDocument(doc.code, {'needs_sync': 0});
         success++;
       } catch (e) {

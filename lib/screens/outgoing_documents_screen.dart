@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
+import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
@@ -439,7 +440,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     }
   }
 
-  void _showStatusUpdateDialog(BuildContext context, int index) {
+  void _showStatusUpdateDialog(BuildContext context, int index) async {
     String? selectedStatus;
     final updatedByController = TextEditingController();
     final officeController = TextEditingController(
@@ -448,7 +449,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     final forwardedToController = TextEditingController();
     final notesController = TextEditingController();
 
-    final List<String> statusOptions = [
+    final connectivityService = ConnectivityService();
+    final isOnline = await connectivityService.isOnline;
+
+    final List<String> allStatusOptions = [
       'Urgent',
       'Received',
       'In Progress',
@@ -460,6 +464,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       'Rejected',
       'Completed',
     ];
+
+    final List<String> statusOptions = isOnline
+        ? allStatusOptions
+        : allStatusOptions.where((status) => status != 'Urgent').toList();
 
     showDialog(
       context: context,

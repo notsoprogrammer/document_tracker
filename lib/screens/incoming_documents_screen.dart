@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
+import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/upload_queue_manager.dart';
@@ -465,7 +466,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
     );
   }
 
-  void _showStatusUpdateDialog(BuildContext context, int index) {
+  void _showStatusUpdateDialog(BuildContext context, int index) async {
     String? selectedStatus;
     DateTime? selectedDeadline;
     String? selectedComplianceAssignee;
@@ -473,7 +474,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
     final notesController = TextEditingController();
     final complianceAssigneeController = TextEditingController();
 
-    final List<String> statusOptions = [
+    final connectivityService = ConnectivityService();
+    final isOnline = await connectivityService.isOnline;
+
+    final List<String> allStatusOptions = [
       'Received',
       'In Progress',
       'Under Review',
@@ -485,6 +489,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
       'Urgent',
       'For Compliance',
     ];
+
+    final List<String> statusOptions = isOnline
+        ? allStatusOptions
+        : allStatusOptions.where((status) => status != 'Urgent' && status != 'For Compliance').toList();
 
     final List<String> cpdcoStaff = [
       'Sir Arnie',

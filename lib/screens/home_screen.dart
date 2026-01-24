@@ -3,6 +3,7 @@ import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/notification_service.dart';
 import '../services/supabase_service.dart';
+import '../services/connectivity_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
@@ -145,6 +146,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _updateDocumentStatus(int index, String newStatus, String updatedBy, {String? notes, DateTime? complianceDeadline, String? complianceAssignee, String? customHistoryAction}) async {
+    // Check connectivity for notification-dependent statuses
+    final connectivityService = ConnectivityService();
+    final isOnline = await connectivityService.isOnline;
+    if (!isOnline && (newStatus == 'Urgent' || newStatus == 'For Compliance')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot set notification-dependent status while offline')),
+      );
+      return;
+    }
+
     try {
       // Update local document
       documents[index] = documents[index].copyWith(status: newStatus, complianceAssignee: complianceAssignee);
