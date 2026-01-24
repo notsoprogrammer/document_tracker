@@ -59,6 +59,7 @@ class Document {
   final DateTime? complianceDeadline; // Deadline for compliance status
   final List<int>? scheduledNotificationIds; // IDs of scheduled notifications
   final String? complianceAssignee; // Assignee for compliance status
+  final String? category; // Document category (e.g., Attendance, MOVs, Certificates)
 
   Document({
     required this.code,
@@ -82,6 +83,7 @@ class Document {
     this.complianceDeadline,
     this.scheduledNotificationIds,
     this.complianceAssignee,
+    this.category,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
@@ -319,6 +321,7 @@ class Document {
       complianceDeadline: json['compliance_deadline'] != null ? DateTime.parse(json['compliance_deadline']) : null,
       scheduledNotificationIds: scheduledNotificationIds,
       complianceAssignee: json['compliance_assignee'],
+      category: json['category'],
     );
   }
 
@@ -356,6 +359,7 @@ class Document {
       'compliance_deadline': complianceDeadline?.toIso8601String(),
       'scheduled_notification_ids': scheduledNotificationIds,
       'compliance_assignee': complianceAssignee,
+      'category': category,
     };
   }
 
@@ -381,6 +385,7 @@ class Document {
     DateTime? complianceDeadline,
     List<int>? scheduledNotificationIds,
     String? complianceAssignee,
+    String? category,
   }) {
     return Document(
       code: code ?? this.code,
@@ -404,6 +409,7 @@ class Document {
       complianceDeadline: complianceDeadline ?? this.complianceDeadline,
       scheduledNotificationIds: scheduledNotificationIds ?? this.scheduledNotificationIds,
       complianceAssignee: complianceAssignee ?? this.complianceAssignee,
+      category: category ?? this.category,
     );
   }
 }

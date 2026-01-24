@@ -55,6 +55,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   final List<String> types = [
     'Attendance',
     'MOVs',
+    'Certificates',
   ];
 
   final List<String> cpdcoStaff = [
@@ -128,7 +129,6 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   String _generateCode() {
     if (selectedType == null || selectedDate == null) return '-';
 
-    // Force PH timezone (UTC+8) if needed
     final nowUtc = DateTime.now().toUtc();
     final phTime = nowUtc.add(const Duration(hours: 8));
 
@@ -139,7 +139,14 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     final minute = phTime.minute.toString().padLeft(2, '0');
     final second = phTime.second.toString().padLeft(2, '0');
 
-    final prefix = selectedType == 'Attendance' ? 'AT' : 'MV';
+    String prefix;
+    switch (selectedType) {
+      case 'Attendance': prefix = 'AT'; break;
+      case 'MOVs': prefix = 'MV'; break;
+      case 'Certificates': prefix = 'CE'; break;
+      default: prefix = 'DOC';
+    }
+  
 
     return '$prefix-$month-$day-$year-$hour$minute$second';
   }
@@ -571,7 +578,8 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
 
                       final doc = Document(
                         code: code,
-                        type: type,
+                        title: type,
+                        type: 'Attendance & MOVs',
                         fromOrTo: dateStr,
                         mode: 'Attendance & MOVs',
                         assignedTo: person,
@@ -584,6 +592,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         fileUrls: _uploadedDocumentUrls,
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
+                        category: selectedType,
                       );
 
                       setState(() => _isSaving = true);

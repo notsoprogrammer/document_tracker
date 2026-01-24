@@ -438,7 +438,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     final notesController = TextEditingController();
 
     final List<String> statusOptions = [
-      'Pending',
+      'Urgent',
       'Received',
       'In Progress',
       'For follow-up',

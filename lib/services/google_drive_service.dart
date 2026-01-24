@@ -22,13 +22,29 @@ class ImageSaveResult {
   });
 }
 
-enum DriveFolder { incoming, outgoing, flagCeremony }
+enum DriveFolder { incoming, outgoing, flagCeremony, attendance, movs, certificates }
 
 class GoogleDriveService {
   // Use your folder IDs - replace these with your actual Google Drive folder IDs
   static const String _incomingFolderId = '1m8qaIDu1P9pBk3sIiOwqis3vL1xXjsah';
   static const String _outgoingFolderId = '1EkHogt5qXNjMjjWBspwseOBoKyrxnfFE';
   static const String _flagCeremonyFolderId = '1KYbOWoQZZIAbT69t7elduQLiITdFK45Y';
+  static const String _attendanceFolderId = '124-6z-XwOaUtoQWUsqdnt8J2Urns4Cjk';
+  static const String _movsFolderId = '1q92hYeqzrZhgoXhu0e8-3BuzFYMdVFPr';
+  static const String _certificatesFolderId = '1pEBNcA3CjBeoABvbcAGxTa41Jaml76tn';
+
+ static String getFolderId(String type) {
+    switch (type) {
+      case 'Attendance':
+        return _attendanceFolderId;
+      case 'MOVs':
+        return _movsFolderId;
+      case 'Certificates':
+        return _certificatesFolderId;
+      default:
+        throw Exception('Unknown type: $type');
+    }
+  }
 
   /// Save image locally in the app's documents directory
   static Future<String?> saveImageLocally(File imageFile, String uniqueId) async {
@@ -83,7 +99,13 @@ class GoogleDriveService {
           ? _outgoingFolderId
           : folder == DriveFolder.flagCeremony
               ? _flagCeremonyFolderId
-              : _incomingFolderId;
+              : folder == DriveFolder.attendance
+                  ? _attendanceFolderId
+                  : folder == DriveFolder.movs
+                      ? _movsFolderId
+                      : folder == DriveFolder.certificates
+                          ? _certificatesFolderId
+                          : _incomingFolderId;
 
       // Build file name if you currently do so elsewhere, keep it; otherwise:
       final fileName = fileNameOrUniqueId.endsWith('.jpg')
@@ -211,7 +233,13 @@ class GoogleDriveService {
           ? _outgoingFolderId
           : folder == DriveFolder.flagCeremony
               ? _flagCeremonyFolderId
-              : _incomingFolderId;
+              : folder == DriveFolder.attendance
+                  ? _attendanceFolderId
+                  : folder == DriveFolder.movs
+                      ? _movsFolderId
+                      : folder == DriveFolder.certificates
+                          ? _certificatesFolderId
+                          : _incomingFolderId;
 
       // Check if file already exists
       final query = "name = '$fileName' and '$targetFolderId' in parents and trashed = false";

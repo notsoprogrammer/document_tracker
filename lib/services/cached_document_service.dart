@@ -424,11 +424,20 @@ class CachedDocumentService {
         // Get the document to determine the correct folder
         final docs = await _localDb.fetchDocuments();
         final doc = docs.firstWhere((d) => d.code == upload['documentCode']);
-        final folder = doc.mode == 'Flag Ceremony'
-            ? DriveFolder.flagCeremony
-            : doc.incoming
-                ? DriveFolder.incoming
-                : DriveFolder.outgoing;
+        DriveFolder folder;
+        if (doc.mode == 'Flag Ceremony') {
+          folder = DriveFolder.flagCeremony;
+        } else if (doc.category == 'Attendance') {
+          folder = DriveFolder.attendance;
+        } else if (doc.category == 'MOVs') {
+          folder = DriveFolder.movs;
+        } else if (doc.category == 'Certificates') {
+          folder = DriveFolder.certificates;
+        } else if (doc.incoming) {
+          folder = DriveFolder.incoming;
+        } else {
+          folder = DriveFolder.outgoing;
+        }
 
         String? driveUrl;
         if (isImage) {
