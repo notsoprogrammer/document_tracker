@@ -233,7 +233,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                         ),
                       )
                     else
-                      ..._notificationLogs.map((log) {
+                      ..._notificationLogs.where((log) => ['urgent', 'for compliance'].contains((log['documents']?['status'] ?? '').toLowerCase())).map((log) {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           elevation: 2,
@@ -298,12 +298,13 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                             ],
                                           ),
                                         ),
-                                        Text(
-                                          log['documents']?['status'] ?? 'unknown',
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                color: Theme.of(context).colorScheme.primary,
-                                              ),
-                                        ),
+                                        if (['urgent', 'for compliance'].contains((log['documents']?['status'] ?? '').toLowerCase()))
+                                          Text(
+                                            log['documents']?['status'] ?? 'unknown',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                ),
+                                          ),
                                       ],
                                     ),
                                     if (log['documents']?['compliance_assignee'] != null)
