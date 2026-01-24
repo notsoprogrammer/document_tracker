@@ -50,7 +50,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     final month = dateTime.month.toString().padLeft(2, '0');
     final day = dateTime.day.toString().padLeft(2, '0');
     final year = dateTime.year;
-    return '$month/$day/$year $displayHour:$minute $amPm UTC';
+    return '$month/$day/$year $displayHour:$minute $amPm';
   }
 
   String _getDocumentStatusIcon(String status) {
@@ -125,7 +125,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                   children: [
                                     Text(
                                       '🚨',
-                                      style: const TextStyle(fontSize: 20),
+                                      style: const TextStyle(fontSize: 15),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -134,13 +134,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                               fontWeight: FontWeight.bold,
                                             ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    Text(
-                                      'Overdue',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.error,
-                                          ),
                                     ),
                                   ],
                                 ),
@@ -149,42 +145,55 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          'Code: ${doc['code'] ?? 'N/A'}',
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        GestureDetector(
-                                          onTap: () {
-                                            Clipboard.setData(
-                                              ClipboardData(text: doc['code'] ?? ''),
-                                            );
-                                            SnackbarUtils.showInfoSnackBar(
-                                              context,
-                                              'Code copied to clipboard',
-                                            );
-                                          },
-                                          child: Icon(
-                                            Icons.copy,
-                                            size: 16,
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        Expanded(
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Code: ${doc['code'] ?? 'N/A'}',
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(text: doc['code'] ?? ''),
+                                                  );
+                                                  SnackbarUtils.showInfoSnackBar(
+                                                    context,
+                                                    'Code copied to clipboard',
+                                                  );
+                                                },
+                                                child: Icon(
+                                                  Icons.copy,
+                                                  size: 16,
+                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                        ),
+                                        Text(
+                                          'Overdue',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Theme.of(context).colorScheme.error,
+                                              ),
                                         ),
                                       ],
                                     ),
                                     if (doc['compliance_assignee'] != null)
                                       Text(
-                                        'Assignee: ${doc['compliance_assignee']}',
+                                        'Assigned to: ${doc['compliance_assignee']}',
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
-                                    Text(
-                                      'Deadline: ${_formatScheduledTime(doc['compliance_deadline'])} (${daysOverdue} days overdue)',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.error,
-                                          ),
-                                    ),
+                                    if (doc['compliance_deadline'] != null)
+                                      Text(
+                                        'Deadline: ${_formatScheduledTime(doc['compliance_deadline'])} (${daysOverdue} days overdue)',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Theme.of(context).colorScheme.error,
+                                            ),
+                                      ),
                                   ],
                                 ),
                               ],
@@ -197,7 +206,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
                     // Notification History Section
                     Text(
-                      'Notification History',
+                      'Notifications',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -240,7 +249,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                   children: [
                                     Text(
                                       _getDocumentStatusIcon(log['documents']?['status'] ?? ''),
-                                      style: const TextStyle(fontSize: 20),
+                                      style: const TextStyle(fontSize: 15),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -249,13 +258,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                               fontWeight: FontWeight.bold,
                                             ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    Text(
-                                      log['documents']?['status'] ?? 'unknown',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
                                     ),
                                   ],
                                 ),
@@ -264,34 +269,46 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          'Code: ${log['document_code'] ?? 'N/A'}',
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        GestureDetector(
-                                          onTap: () {
-                                            Clipboard.setData(
-                                              ClipboardData(text: log['document_code'] ?? ''),
-                                            );
-                                            SnackbarUtils.showInfoSnackBar(
-                                              context,
-                                              'Code copied to clipboard',
-                                            );
-                                          },
-                                          child: Icon(
-                                            Icons.copy,
-                                            size: 16,
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        Expanded(
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Code: ${log['document_code'] ?? 'N/A'}',
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(text: log['document_code'] ?? ''),
+                                                  );
+                                                  SnackbarUtils.showInfoSnackBar(
+                                                    context,
+                                                    'Code copied to clipboard',
+                                                  );
+                                                },
+                                                child: Icon(
+                                                  Icons.copy,
+                                                  size: 16,
+                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                        ),
+                                        Text(
+                                          log['documents']?['status'] ?? 'unknown',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Theme.of(context).colorScheme.primary,
+                                              ),
                                         ),
                                       ],
                                     ),
                                     if (log['documents']?['compliance_assignee'] != null)
                                       Text(
-                                        'Assignee: ${log['documents']['compliance_assignee']}',
+                                        'Assigned to: ${log['documents']['compliance_assignee']}',
                                         style: Theme.of(context).textTheme.bodyMedium,
                                       ),
                                     if (log['documents']?['compliance_deadline'] != null)
