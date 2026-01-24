@@ -98,6 +98,23 @@ class CachedDocumentService {
       if (await isOnline) {
         try {
           final remoteDoc = await _remoteDb.createDocument(document);
+
+          // Create urgent notification if status is Urgent
+          if (remoteDoc.status == 'Urgent') {
+            try {
+              await _remoteDb.addNotificationHistory(
+                documentCode: remoteDoc.code,
+                notificationType: 'urgent',
+                notificationId: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                scheduledTime: DateTime.now(),
+                status: 'urgent',
+              );
+              print('Urgent notification created for new document ${remoteDoc.code}');
+            } catch (e) {
+              print('Failed to create urgent notification for new document: $e');
+            }
+          }
+
           // Update local with any remote changes (like IDs)
           return remoteDoc;
         } catch (e) {
