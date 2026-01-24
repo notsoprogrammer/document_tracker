@@ -370,20 +370,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: Text('Notification History'),
                 ),
               ),
-              const PopupMenuItem(
-                value: 'test_notification',
-                child: ListTile(
-                  leading: Icon(Icons.notifications),
-                  title: Text('Test Notification'),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'check_permissions',
-                child: ListTile(
-                  leading: Icon(Icons.security),
-                  title: Text('Check Permissions'),
-                ),
-              ),
             ],
           ),
         ],
