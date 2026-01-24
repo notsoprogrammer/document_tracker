@@ -4,7 +4,6 @@ import '../models/document.dart';
 import 'cached_document_service.dart';
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
-import 'google_drive_service.dart';
 import 'connectivity_service.dart';
 import 'upload_queue_manager.dart';
 
@@ -316,39 +315,6 @@ class EnhancedSyncService {
       debugPrint('Pending deletions sync completed');
     } catch (e) {
       debugPrint('Error syncing pending deletions: $e');
-    }
-  }
-
-  /// Sync unsynced documents to Google Drive
-  Future<void> _syncToGoogleDrive(List<Document> unsyncedDocuments) async {
-    if (_isDisposed) return;
-
-    try {
-      debugPrint('Syncing ${unsyncedDocuments.length} documents to Google Drive...');
-
-      int successCount = 0;
-
-      for (final doc in unsyncedDocuments) {
-        if (_isDisposed) break;
-
-        try {
-          // Upload file if present
-          if (doc.filePath != null) {
-            final url = await GoogleDriveService.uploadFile(doc.filePath!, doc.incoming, doc.code);
-            if (url != null) {
-              // Update document with the uploaded URL
-              await SQLiteDatabaseService().updateDocument(doc.code, {'file_urls': [url]});
-            }
-          }
-          successCount++;
-        } catch (e) {
-          debugPrint('Failed to sync document ${doc.code} to Google Drive: $e');
-        }
-      }
-
-      debugPrint('Google Drive sync completed: $successCount/${unsyncedDocuments.length} documents synced');
-    } catch (e) {
-      debugPrint('Error in Google Drive sync: $e');
     }
   }
 
