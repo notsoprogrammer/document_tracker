@@ -24,7 +24,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -189,6 +189,24 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
+    if (oldVersion < 11) {
+      // Add calendar columns to documents table
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN calendar_deadline TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN calendar_added INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN attachments TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -219,6 +237,8 @@ class SQLiteDatabaseService {
     docData['file_urls'] = jsonEncode(docData['file_urls']);
     docData['local_image_paths'] = jsonEncode(docData['local_image_paths'] ?? []);
     docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
+    docData['attachments'] = jsonEncode(docData['attachments'] ?? []);
+    docData['calendar_added'] = (docData['calendar_added'] == true || docData['calendar_added'] == 1) ? 1 : 0;
     docData['created_at'] = getPhilippineTime().toIso8601String();
     docData['updated_at'] = getPhilippineTime().toIso8601String();
 
@@ -256,6 +276,12 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('scheduled_notification_ids')) {
       updates['scheduled_notification_ids'] = jsonEncode(updates['scheduled_notification_ids']);
+    }
+    if (updates.containsKey('attachments')) {
+      updates['attachments'] = jsonEncode(updates['attachments']);
+    }
+    if (updates.containsKey('calendar_added')) {
+      updates['calendar_added'] = (updates['calendar_added'] == true || updates['calendar_added'] == 1) ? 1 : 0;
     }
     updates['updated_at'] = getPhilippineTime().toIso8601String();
     await db.update('documents', updates, where: 'code = ?', whereArgs: [documentCode]);
