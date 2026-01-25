@@ -449,109 +449,114 @@ body: Container(
                     ),
                   ),
                   const SizedBox(height: 40),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 150,
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Incoming Documents",
-                          const Color(0xFFFFB74D), // Pastel orange
-                          () {
-                            Navigator.push(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final buttonWidth = (constraints.maxWidth - 16) / 2; // spacing 16, for 2 buttons
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: buttonWidth,
+                            child: _buildFolderButton(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => IncomingDocumentsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
-                                  onRefresh: _loadDocuments,
-                                  syncAllDocuments: _syncAllDocuments,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: 150,
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Outgoing Documents",
-                          const Color(0xFF2196F3), // Blue complementing orange
-                          () {
-                            Navigator.push(
+                              Icons.folder,
+                              "Incoming Documents",
+                              const Color(0xFFFFB74D), // Pastel orange
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => IncomingDocumentsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
+                                      syncAllDocuments: _syncAllDocuments,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: buttonWidth,
+                            child: _buildFolderButton(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => OutgoingDocumentsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
-                                  onRefresh: _loadDocuments,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: 150,
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Flag Ceremony Documents",
-                          const Color(0xFF4EC377), // Soft green
-                          () {
-                            Navigator.push(
+                              Icons.folder,
+                              "Outgoing Documents",
+                              const Color(0xFF2196F3), // Blue complementing orange
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OutgoingDocumentsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: buttonWidth,
+                            child: _buildFolderButton(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => FlagCeremonyDocumentsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
-                                  onRefresh: _loadDocuments,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: 150,
-                        child: _buildFolderButton(
-                          context,
-                          Icons.folder,
-                          "Attendance & MOVs",
-                          const Color.fromARGB(255, 195, 109, 210), // Purple
-                          () {
-                            Navigator.push(
+                              Icons.folder,
+                              "Flag Ceremony",
+                              const Color(0xFF4EC377), // Soft green
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FlagCeremonyDocumentsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: buttonWidth,
+                            child: _buildFolderButton(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => AttendanceMovsScreen(
-                                  documents: documents,
-                                  transferDocument: _transferDocument,
-                                  updateDocumentStatus: _updateDocumentStatus,
-                                  deleteDocument: _deleteDocument,
-                                  syncDocument: _syncDocument,
-                                  onRefresh: _loadDocuments,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                              Icons.folder,
+                              "Attendance & MOVs",
+                              const Color.fromARGB(255, 195, 109, 210), // Purple
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AttendanceMovsScreen(
+                                      documents: documents,
+                                      transferDocument: _transferDocument,
+                                      updateDocumentStatus: _updateDocumentStatus,
+                                      deleteDocument: _deleteDocument,
+                                      syncDocument: _syncDocument,
+                                      onRefresh: _loadDocuments,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -675,12 +680,14 @@ Positioned(
               const SizedBox(height: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontSize: 16 * MediaQuery.of(context).textScaleFactor,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

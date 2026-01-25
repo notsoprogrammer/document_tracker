@@ -165,7 +165,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             calendarFormat: _calendarFormat,
             rangeSelectionMode: _rangeSelectionMode,
             eventLoader: _getEventsForDay,
-            startingDayOfWeek: StartingDayOfWeek.monday,
+            startingDayOfWeek: StartingDayOfWeek.sunday,
             calendarStyle: CalendarStyle(
               outsideDaysVisible: false,
               markersMaxCount: 3,
@@ -512,7 +512,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDetailRow('From/To', doc.fromOrTo),
-                            _buildDetailRow('Status', doc.status),
+                            _buildDetailRow('Remarks', doc.remarks),
                             if (doc.complianceDeadline != null)
                               _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                           ],
