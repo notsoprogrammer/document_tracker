@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/document.dart';
+import '../models/activity.dart';
 
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -367,5 +368,46 @@ class SupabaseService {
       print('Error fetching calendar documents: $e');
       return [];
     }
+  }
+
+  // Activities table operations
+  Future<List<Activity>> fetchActivities() async {
+    try {
+      print('Fetching activities from Supabase...');
+      final response = await _client.from('activities').select('*');
+      print('Raw activities response: $response');
+
+      final activities = response.map((act) => Activity.fromJson(act)).toList();
+
+      print('Parsed ${activities.length} activities');
+      return activities;
+    } catch (e) {
+      print('Error fetching activities: $e');
+      return [];
+    }
+  }
+
+  Future<Activity> createActivity(Activity activity) async {
+    final actData = activity.toJson();
+    actData.remove('id'); // Remove id as it's auto-generated
+
+    print('Creating activity with data: $actData');
+
+    final response = await _client.from('activities').insert(actData).select().single();
+
+    print('Activity created successfully: $response');
+
+    return Activity.fromJson(response);
+  }
+
+  Future<void> updateActivity(int activityId, Map<String, dynamic> updates) async {
+    updates.remove('id'); // Don't update id
+    await _client.from('activities').update(updates).eq('id', activityId);
+    print('Activity $activityId updated successfully');
+  }
+
+  Future<void> deleteActivity(int activityId) async {
+    await _client.from('activities').delete().eq('id', activityId);
+    print('Activity $activityId deleted successfully');
   }
 }

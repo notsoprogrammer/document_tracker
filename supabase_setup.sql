@@ -79,9 +79,33 @@ CREATE INDEX IF NOT EXISTS idx_notifications_history_created_at ON notifications
 -- ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE history_entries ENABLE ROW LEVEL SECURITY;
 
+-- Create activities table
+CREATE TABLE IF NOT EXISTS activities (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE,
+    people_involved TEXT NOT NULL,
+    remarks TEXT NOT NULL,
+    person TEXT NOT NULL,
+    location TEXT,
+    history JSON,
+    status TEXT NOT NULL DEFAULT 'Scheduled',
+    needs_sync BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for activities table
+CREATE INDEX IF NOT EXISTS idx_activities_start_time ON activities(start_time);
+CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(status);
+
 -- Create policies for RLS (uncomment and modify as needed)
 -- CREATE POLICY "Enable all operations for authenticated users" ON documents
 -- FOR ALL USING (auth.role() = 'authenticated');
 
 -- CREATE POLICY "Enable all operations for authenticated users" ON history_entries
+-- FOR ALL USING (auth.role() = 'authenticated');
+
+-- CREATE POLICY "Enable all operations for authenticated users" ON activities
 -- FOR ALL USING (auth.role() = 'authenticated');

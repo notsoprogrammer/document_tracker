@@ -76,6 +76,6 @@ lib/config/supabase_config.dart
 
 # Auth configuration (contains sensitive password)
 lib/config/auth_config.dart
-
+lib/config/google_drive_config.dart
 # Google Service Account Key (contains sensitive credentials)
 assets/service_account_key.json

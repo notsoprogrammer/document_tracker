@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
+import '../models/activity.dart';
 import '../services/supabase_service.dart';
+import '../services/cached_activity_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'add_activity_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -14,7 +17,7 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  late final ValueNotifier<List<Document>> _selectedEvents;
+  late final ValueNotifier<List<dynamic>> _selectedEvents;
   CalendarFormat _calendarFormat = CalendarFormat.month;
   RangeSelectionMode _rangeSelectionMode = RangeSelectionMode.toggledOff;
   DateTime _focusedDay = DateTime.now();
@@ -23,6 +26,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime? _rangeEnd;
 
   List<Document> _calendarDocuments = [];
+  List<Activity> _calendarActivities = [];
 
   @override
   void initState() {
@@ -30,6 +34,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedDay = _focusedDay;
     _selectedEvents = ValueNotifier(_getEventsForDay(_selectedDay!));
     _loadCalendarDocuments();
+    _loadCalendarActivities();
   }
 
   @override
@@ -50,8 +55,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  List<Document> _getEventsForDay(DateTime day) {
-    return _calendarDocuments.where((doc) {
+  Future<void> _loadCalendarActivities() async {
+    try {
+      final activities = await CachedActivityService().fetchActivities();
+      setState(() {
+        _calendarActivities = activities;
+      });
+      _selectedEvents.value = _getEventsForDay(_selectedDay!);
+    } catch (e) {
+      print('Error loading calendar activities: $e');
+    }
+  }
+
+  List<dynamic> _getEventsForDay(DateTime day) {
+    final events = <dynamic>[];
+
+    // Add documents
+    events.addAll(_calendarDocuments.where((doc) {
       final calendarDate = doc.calendarDeadline;
       final complianceDate = doc.complianceDeadline;
 
@@ -72,7 +92,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
       }
 
       return false;
-    }).toList();
+    }));
+
+    // Add activities
+    events.addAll(_calendarActivities.where((activity) {
+      final startDate = activity.startTime;
+      final endDate = activity.endTime;
+
+      // Check start time
+      if (startDate != null &&
+          startDate.year == day.year &&
+          startDate.month == day.month &&
+          startDate.day == day.day) {
+        return true;
+      }
+
+      // Check end time
+      if (endDate != null &&
+          endDate.year == day.year &&
+          endDate.month == day.month &&
+          endDate.day == day.day) {
+        return true;
+      }
+
+      return false;
+    }));
+
+    return events;
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
@@ -129,6 +175,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddActivityScreen()),
+          );
+          if (result == true) {
+            // Reload activities if added
+            _loadCalendarActivities();
+          }
+        },
+        backgroundColor: const Color(0xFF87CEEB), // pastel blue
+        child: const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     appBar: AppBar(
       title: const Text('Calendar'),
       foregroundColor: const Color.fromARGB(255, 3, 3, 3), // text/icon color
@@ -155,7 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ),
       body: Column(
         children: [
-          TableCalendar<Document>(
+          TableCalendar<dynamic>(
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: _focusedDay,
@@ -205,18 +266,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 bool hasCalendar = false;
                 bool hasPendingCompliance = false;
                 bool hasCompletedCompliance = false;
+                bool hasActivity = false;
 
-                for (var doc in events) {
-                  if (doc.calendarDeadline != null &&
-                      isSameDay(doc.calendarDeadline!, date)) {
-                    hasCalendar = true;
-                  }
-                  if (doc.complianceDeadline != null &&
-                      isSameDay(doc.complianceDeadline!, date)) {
-                    if (doc.status == 'Completed') {
-                      hasCompletedCompliance = true;
-                    } else {
-                      hasPendingCompliance = true;
+                for (var event in events) {
+                  if (event is Document) {
+                    if (event.calendarDeadline != null &&
+                        isSameDay(event.calendarDeadline!, date)) {
+                      hasCalendar = true;
+                    }
+                    if (event.complianceDeadline != null &&
+                        isSameDay(event.complianceDeadline!, date)) {
+                      if (event.status == 'Completed') {
+                        hasCompletedCompliance = true;
+                      } else {
+                        hasPendingCompliance = true;
+                      }
+                    }
+                  } else if (event is Activity) {
+                    // Activities are always calendar events
+                    if ((event.startTime != null && isSameDay(event.startTime!, date)) ||
+                        (event.endTime != null && isSameDay(event.endTime!, date))) {
+                      hasActivity = true;
                     }
                   }
                 }
@@ -241,6 +311,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
                   ));
                 }
+                if (hasActivity) {
+                  markers.add(Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ));
+                }
                 // No indicator for completed compliance, but metadata remains in modal
 
                 return Row(
@@ -252,7 +332,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           const SizedBox(height: 8.0),
           Expanded(
-            child: ValueListenableBuilder<List<Document>>(
+            child: ValueListenableBuilder<List<dynamic>>(
               valueListenable: _selectedEvents,
               builder: (context, value, _) {
                 if (value.isEmpty) {
@@ -266,117 +346,190 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return ListView.builder(
                   itemCount: value.length,
                   itemBuilder: (context, index) {
-                    final doc = value[index];
-                    return Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12.0,
-                        vertical: 4.0,
-                      ),
-                      child: Card(
-                        elevation: 2,
-                        child: InkWell(
-                          onTap: () => _showDocumentDetails(context, doc),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                left: BorderSide(
-                                  color: doc.calendarDeadline != null ? Colors.green : (doc.status == 'Completed' ? Colors.grey : Colors.red),
-                                  width: 4,
+                    final item = value[index];
+                    if (item is Document) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 4.0,
+                        ),
+                        child: Card(
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () => _showDocumentDetails(context, item),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: item.calendarDeadline != null ? Colors.green : (item.status == 'Completed' ? Colors.grey : Colors.red),
+                                    width: 4,
+                                  ),
                                 ),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        doc.title ?? 'No Title',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Icon(
-                                      doc.calendarDeadline != null ? Icons.calendar_today : Icons.schedule,
-                                      color: doc.calendarDeadline != null ? Colors.green : (doc.status == 'Completed' ? Colors.grey : Colors.red),
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Text(
-                                      'Code: ',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () async {
-                                        await Clipboard.setData(ClipboardData(text: doc.code));
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Code copied to clipboard')),
-                                          );
-                                        }
-                                      },
-                                      child: Text(
-                                        doc.code,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontFamily: 'monospace',
-                                          color: Colors.blue,
-                                          decoration: TextDecoration.underline,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title ?? 'No Title',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
+                                      Icon(
+                                        item.calendarDeadline != null ? Icons.calendar_today : Icons.schedule,
+                                        color: item.calendarDeadline != null ? Colors.green : (item.status == 'Completed' ? Colors.grey : Colors.red),
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (item is Document) ...[
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'Code: ',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () async {
+                                            await Clipboard.setData(ClipboardData(text: item.code));
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Code copied to clipboard')),
+                                              );
+                                            }
+                                          },
+                                          child: Text(
+                                            item.code,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontFamily: 'monospace',
+                                              color: Colors.blue,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: doc.calendarDeadline != null ? Colors.green.shade100 : (doc.status == 'Completed' ? Colors.grey.shade100 : Colors.red.shade100),
-                                        borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: item.calendarDeadline != null ? Colors.green.shade100 : (item.status == 'Completed' ? Colors.grey.shade100 : Colors.red.shade100),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          item.type,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: item.calendarDeadline != null ? Colors.green.shade800 : (item.status == 'Completed' ? Colors.grey.shade800 : Colors.red.shade800),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                      child: Text(
-                                        doc.type,
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        item.status,
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: doc.calendarDeadline != null ? Colors.green.shade800 : (doc.status == 'Completed' ? Colors.grey.shade800 : Colors.red.shade800),
+                                          color: item.status == 'Completed' ? Colors.grey : Colors.red,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      doc.status,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: doc.status == 'Completed' ? Colors.grey : Colors.red,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
+                      );
+                    } else if (item is Activity) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 4.0,
+                        ),
+                        child: Card(
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () => _showActivityDetails(context, item),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: Colors.blue,
+                                    width: 4,
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title ?? 'No Title',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.event,
+                                        color: Colors.blue,
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Text(
+                                      'Activity',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      return const SizedBox();
+                    }
                   },
                 );
               },
@@ -614,6 +767,107 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                     ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showActivityDetails(BuildContext context, Activity activity) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.3,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title Card
+                    Card(
+                      elevation: 2,
+                      margin: EdgeInsets.zero,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: Colors.blue,
+                              width: 4,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activity.title ?? 'No Title',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Activity',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Details Card
+                    Card(
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                            if (activity.startTime != null)
+                              _buildDetailRow('Start Time', activity.startTime!.toLocal().toString()),
+                            if (activity.endTime != null)
+                              _buildDetailRow('End Time', activity.endTime!.toLocal().toString()),
+                            _buildDetailRow('People Involved', activity.peopleInvolved),
+                            if (activity.location != null && activity.location!.isNotEmpty)
+                              _buildDetailRow('Location', activity.location!),
+                            _buildDetailRow('Remarks', activity.remarks),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

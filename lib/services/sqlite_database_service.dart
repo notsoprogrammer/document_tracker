@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../models/document.dart';
+import '../models/activity.dart';
 import '../utils/date_time_utils.dart';
 
 class SQLiteDatabaseService {
@@ -24,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 11,
+      version: 13,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -96,6 +97,22 @@ class SQLiteDatabaseService {
         status TEXT NOT NULL DEFAULT 'scheduled',
         created_at TEXT NOT NULL,
         FOREIGN KEY (document_code) REFERENCES documents (code)
+      )
+    ''');
+
+    // Activities table
+    await db.execute('''
+      CREATE TABLE activities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        people_involved TEXT NOT NULL,
+        remarks TEXT NOT NULL,
+        person TEXT NOT NULL,
+        location TEXT,
+        needs_sync INTEGER DEFAULT 0,
+        created_at TEXT
       )
     ''');
   }
@@ -205,6 +222,50 @@ class SQLiteDatabaseService {
         await db.execute('ALTER TABLE documents ADD COLUMN attachments TEXT');
       } catch (e) {
         // Column might already exist
+      }
+    }
+    if (oldVersion < 12) {
+      // Create activities table (drop old if exists)
+      try {
+        await db.execute('DROP TABLE IF EXISTS activities');
+        await db.execute('''
+          CREATE TABLE activities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            start_time TEXT NOT NULL,
+            end_time TEXT,
+            people_involved TEXT NOT NULL,
+            remarks TEXT NOT NULL,
+            person TEXT NOT NULL,
+            location TEXT,
+            needs_sync INTEGER DEFAULT 0,
+            created_at TEXT
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
+      }
+    }
+    if (oldVersion < 13) {
+      // Recreate activities table with correct schema (drop old if exists)
+      try {
+        await db.execute('DROP TABLE IF EXISTS activities');
+        await db.execute('''
+          CREATE TABLE activities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            start_time TEXT NOT NULL,
+            end_time TEXT,
+            people_involved TEXT NOT NULL,
+            remarks TEXT NOT NULL,
+            person TEXT NOT NULL,
+            location TEXT,
+            needs_sync INTEGER DEFAULT 0,
+            created_at TEXT
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
       }
     }
   }
@@ -447,5 +508,38 @@ class SQLiteDatabaseService {
       where: 'created_at < ?',
       whereArgs: [oneMonthAgo.toIso8601String()],
     );
+  }
+
+  // Activities methods
+  Future<List<Activity>> fetchActivities() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('activities');
+
+    return maps.map((map) => Activity.fromJson(map)).toList();
+  }
+
+  Future<Activity> createActivity(Activity activity) async {
+    final db = await database;
+    final actData = activity.toJson();
+    actData.remove('id'); // Remove id for AUTOINCREMENT
+    actData['needs_sync'] = (actData['needs_sync'] == true || actData['needs_sync'] == 1) ? 1 : 0;
+    actData['created_at'] = getPhilippineTime().toIso8601String();
+
+    final id = await db.insert('activities', actData, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    return activity.copyWith(id: id);
+  }
+
+  Future<void> updateActivity(int activityId, Map<String, dynamic> updates) async {
+    final db = await database;
+    if (updates.containsKey('needs_sync')) {
+      updates['needs_sync'] = (updates['needs_sync'] == true || updates['needs_sync'] == 1) ? 1 : 0;
+    }
+    await db.update('activities', updates, where: 'id = ?', whereArgs: [activityId]);
+  }
+
+  Future<void> deleteActivity(int activityId) async {
+    final db = await database;
+    await db.delete('activities', where: 'id = ?', whereArgs: [activityId]);
   }
 }
