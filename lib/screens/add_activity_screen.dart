@@ -73,21 +73,22 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           title: const Text('Add Activity'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFB3E5FC), Color(0xFF81D4FA), Color.fromARGB(255, 98, 195, 240)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          foregroundColor: const Color.fromARGB(255, 28, 28, 28),
         ),
         body: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              ],
-            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -114,6 +115,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                           TextField(
                             controller: titleController,
                             enabled: !_isSaving,
+                            maxLines: 2,
                             decoration: InputDecoration(
                               labelText: "Activity Title",
                               border: OutlineInputBorder(),
@@ -122,142 +124,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                               errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Activity title is required" : null,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: personController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: "Added by",
-                              border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Theme.of(context).colorScheme.surface,
-                            ),
-                            readOnly: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Card(
-                    elevation: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Time",
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _isSaving ? null : () async {
-                                    final date = await showDatePicker(
-                                      context: context,
-                                      initialDate: selectedStartDate ?? DateTime.now(),
-                                      firstDate: DateTime.now(),
-                                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                                    );
-                                    if (date != null) {
-                                      final time = await showTimePicker(
-                                        context: context,
-                                        initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
-                                      );
-                                      if (time != null) {
-                                        setState(() {
-                                          selectedStartDate = date;
-                                          selectedStartTime = time;
-                                        });
-                                      }
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: "Start Time",
-                                      hintText: "Select date and time",
-                                      border: OutlineInputBorder(),
-                                      filled: true,
-                                      fillColor: Theme.of(context).colorScheme.surface,
-                                      suffixIcon: const Icon(Icons.calendar_today),
-                                      errorText: _showValidationErrors && selectedStartDate == null ? "Start time is required" : null,
-                                    ),
-                                    child: Text(
-                                      selectedStartDate != null && selectedStartTime != null
-                                          ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year} ${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}"
-                                          : '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _isSaving ? null : () async {
-                                    final date = await showDatePicker(
-                                      context: context,
-                                      initialDate: selectedEndDate ?? selectedStartDate ?? DateTime.now(),
-                                      firstDate: DateTime.now(),
-                                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                                    );
-                                    if (date != null) {
-                                      final time = await showTimePicker(
-                                        context: context,
-                                        initialTime: selectedEndTime ?? const TimeOfDay(hour: 17, minute: 0),
-                                      );
-                                      if (time != null) {
-                                        setState(() {
-                                          selectedEndDate = date;
-                                          selectedEndTime = time;
-                                        });
-                                      }
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: "End Time",
-                                      hintText: "Select date and time",
-                                      border: OutlineInputBorder(),
-                                      filled: true,
-                                      fillColor: Theme.of(context).colorScheme.surface,
-                                    ),
-                                    child: Text(
-                                      selectedEndDate != null && selectedEndTime != null
-                                          ? "${selectedEndDate!.month}/${selectedEndDate!.day}/${selectedEndDate!.year} ${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}"
-                                          : '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Card(
-                    elevation: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Additional Information",
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
+                          const SizedBox(height: 10),
+                            TextField(
                             controller: peopleInvolvedController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
@@ -268,7 +136,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                               errorText: _showValidationErrors && peopleInvolvedController.text.trim().isEmpty ? "People involved is required" : null,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           TextField(
                             controller: remarksController,
                             enabled: !_isSaving,
@@ -279,6 +147,109 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                               fillColor: Theme.of(context).colorScheme.surface,
                             ),
                             maxLines: 3,
+                          ),  
+                        ],
+                      ),
+                    ),
+                  ),
+                  Card(
+                    elevation: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Start Date and Time",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedStartDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedStartDate = date;
+                                    selectedStartTime = time;
+                                  });
+                                }
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: "Start Date and Time",
+                                hintText: "Select date and time",
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                suffixIcon: const Icon(Icons.calendar_today),
+                                errorText: _showValidationErrors && selectedStartDate == null ? "Start date and time is required" : null,
+                              ),
+                              child: Text(
+                                selectedStartDate != null && selectedStartTime != null
+                                    ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year} ${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}"
+                                    : '',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "End Date and Time (Optional)",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedEndDate ?? selectedStartDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: selectedEndTime ?? const TimeOfDay(hour: 17, minute: 0),
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedEndDate = date;
+                                    selectedEndTime = time;
+                                  });
+                                }
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: "End Date and Time (Optional)",
+                                hintText: "Select date and time",
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                              ),
+                              child: Text(
+                                selectedEndDate != null && selectedEndTime != null
+                                    ? "${selectedEndDate!.month}/${selectedEndDate!.day}/${selectedEndDate!.year} ${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}"
+                                    : '',
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -338,10 +309,20 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12), // smooth rounded corners
+                      ),
+                      elevation: 4, // subtle shadow for depth
+                      backgroundColor: Color(0xFF81D4FA), // pastel modern accent
+                      foregroundColor: Colors.black87, // readable text color
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
                     ),
+
                     child: _isSaving
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text("Save Activity", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

@@ -352,14 +352,6 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
         ),
         body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-            ],
-          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
