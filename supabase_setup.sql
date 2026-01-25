@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     compliance_deadline TIMESTAMP WITH TIME ZONE,
     scheduled_notification_ids TEXT,
-    category TEXT
+    category TEXT,
+    calendar_deadline TIMESTAMP WITH TIME ZONE,
+    calendar_added BOOLEAN DEFAULT FALSE,
+    attachments JSON
 );
 
 -- Create deleted_records table

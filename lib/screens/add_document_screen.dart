@@ -32,6 +32,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final assignedToController = TextEditingController();
   String? selectedStatus;
   DateTime? selectedDeadline;
+  DateTime? selectedCalendarDate;
   String? selectedFilePath;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
@@ -374,17 +375,47 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: selectedType,
-                          decoration: InputDecoration(
-                            labelText: "Document Type",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && selectedType == null ? "Document type is required" : null,
-                          ),
-                          items: documentTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                          onChanged: _isSaving ? null : (value) => setState(() => selectedType = value),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: selectedType,
+                                decoration: InputDecoration(
+                                  labelText: "Document Type",
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Theme.of(context).colorScheme.surface,
+                                  errorText: _showValidationErrors && selectedType == null ? "Document type is required" : null,
+                                ),
+                                items: documentTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                                onChanged: _isSaving ? null : (value) => setState(() => selectedType = value),
+                              ),
+                            ),
+                            if (widget.incoming) ...[
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: _isSaving ? null : () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedCalendarDate ?? DateTime.now(),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    setState(() {
+                                      selectedCalendarDate = date;
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.calendar_today),
+                                label: const Text("Add to Calendar"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: selectedCalendarDate != null ? Colors.green : Theme.of(context).colorScheme.secondary,
+                                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -833,6 +864,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
                         complianceDeadline: selectedDeadline,
+                        calendarDeadline: selectedCalendarDate,
+                        calendarAdded: selectedCalendarDate != null,
+                        attachments: [..._selectedImagePaths, ..._selectedDocumentPaths],
                       );
 
                       setState(() => _isSaving = true);

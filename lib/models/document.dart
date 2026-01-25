@@ -60,6 +60,9 @@ class Document {
   final List<int>? scheduledNotificationIds; // IDs of scheduled notifications
   final String? complianceAssignee; // Assignee for compliance status
   final String? category; // Document category (e.g., Attendance, MOVs, Certificates)
+  final DateTime? calendarDeadline; // Deadline for calendar entries
+  final bool calendarAdded; // Whether added to calendar
+  final List<String> attachments; // Combined image and file URLs for calendar
 
   Document({
     required this.code,
@@ -84,7 +87,10 @@ class Document {
     this.scheduledNotificationIds,
     this.complianceAssignee,
     this.category,
-  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [] {
+    this.calendarDeadline,
+    this.calendarAdded = false,
+    List<String>? attachments,
+  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [], attachments = attachments ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
         this.history.add(HistoryEntry(
@@ -299,6 +305,24 @@ class Document {
       }
     }
 
+    // Parse attachments if present
+    List<String> attachments = [];
+    if (json['attachments'] != null) {
+      if (json['attachments'] is List) {
+        attachments = List<String>.from(json['attachments']);
+      } else if (json['attachments'] is String) {
+        // Handle case where attachments is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['attachments']);
+          if (decoded is List) {
+            attachments = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, ignore
+        }
+      }
+    }
+
     return Document(
       code: json['code'],
       title: json['title'],
@@ -322,6 +346,9 @@ class Document {
       scheduledNotificationIds: scheduledNotificationIds,
       complianceAssignee: json['compliance_assignee'],
       category: json['category'],
+      calendarDeadline: json['calendar_deadline'] != null ? DateTime.parse(json['calendar_deadline']) : null,
+      calendarAdded: json['calendar_added'] == 1 || json['calendar_added'] == true,
+      attachments: attachments,
     );
   }
 
@@ -360,6 +387,9 @@ class Document {
       'scheduled_notification_ids': scheduledNotificationIds,
       'compliance_assignee': complianceAssignee,
       'category': category,
+      'calendar_deadline': calendarDeadline?.toIso8601String(),
+      'calendar_added': calendarAdded,
+      'attachments': attachments,
     };
   }
 
@@ -386,6 +416,9 @@ class Document {
     List<int>? scheduledNotificationIds,
     String? complianceAssignee,
     String? category,
+    DateTime? calendarDeadline,
+    bool? calendarAdded,
+    List<String>? attachments,
   }) {
     return Document(
       code: code ?? this.code,
@@ -410,6 +443,9 @@ class Document {
       scheduledNotificationIds: scheduledNotificationIds ?? this.scheduledNotificationIds,
       complianceAssignee: complianceAssignee ?? this.complianceAssignee,
       category: category ?? this.category,
+      calendarDeadline: calendarDeadline ?? this.calendarDeadline,
+      calendarAdded: calendarAdded ?? this.calendarAdded,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

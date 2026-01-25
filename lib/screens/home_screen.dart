@@ -16,6 +16,7 @@ import 'attendance_movs_screen.dart';
 import 'add_attendance_movs_screen.dart';
 import 'delete_history_screen.dart';
 import 'notification_history_screen.dart';
+import 'calendar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -339,6 +340,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (value) {
               if (value == 'sync') {
                 _syncAllDocuments();
+              } else if (value == 'calendar') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CalendarScreen(),
+                  ),
+                );
               } else if (value == 'delete_history') {
                 Navigator.push(
                   context,
@@ -365,6 +373,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.sync_outlined),
                   title: Text('Sync All Documents'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'calendar',
+                child: ListTile(
+                  leading: Icon(Icons.calendar_today),
+                  title: Text('Calendar'),
                 ),
               ),
               const PopupMenuItem(

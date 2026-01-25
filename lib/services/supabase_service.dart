@@ -341,4 +341,31 @@ class SupabaseService {
       rethrow;
     }
   }
+
+  // Fetch documents for calendar (those with calendar_deadline or compliance_deadline)
+  Future<List<Document>> fetchCalendarDocuments() async {
+    try {
+      print('Fetching calendar documents from Supabase...');
+      final response = await _client.from('documents').select('*, history_entries(*)').or('calendar_deadline.not.is.null,compliance_deadline.not.is.null');
+      print('Raw calendar response: $response');
+
+      final documents = response.map((doc) {
+        final document = Document.fromJson(doc);
+        // Add history entries from the joined table
+        if (doc['history_entries'] != null) {
+          final historyEntries = (doc['history_entries'] as List<dynamic>)
+              .map((entry) => HistoryEntry.fromJson(entry))
+              .toList();
+          document.history.addAll(historyEntries);
+        }
+        return document;
+      }).toList();
+
+      print('Parsed ${documents.length} calendar documents');
+      return documents;
+    } catch (e) {
+      print('Error fetching calendar documents: $e');
+      return [];
+    }
+  }
 }
