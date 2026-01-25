@@ -132,6 +132,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     appBar: AppBar(
       title: const Text('Calendar'),
       foregroundColor: const Color.fromARGB(255, 3, 3, 3), // text/icon color
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: () => _selectMonthYear(context),
+            tooltip: 'Select Month/Year',
+          ),
+        ],
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -148,25 +155,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ),
       body: Column(
         children: [
-          GestureDetector(
-            onTap: () => _selectMonthYear(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${_getMonthName(_focusedDay.month)} ${_focusedDay.year}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           TableCalendar<Document>(
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
@@ -186,7 +174,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: Colors.green.shade300, // pastel green for today
+                color: const Color(0xFFC8E6C9),
                 shape: BoxShape.circle,
               ),
               selectedDecoration: BoxDecoration(
