@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/supabase_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -231,6 +232,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  void _showImageViewer(BuildContext context, List<String> imageUrls) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: PageView.builder(
+              itemCount: imageUrls.length,
+              itemBuilder: (context, index) {
+                return CachedNetworkImage(
+                  imageUrl: imageUrls[index],
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showDocumentDetails(BuildContext context, Document doc) {
     showModalBottomSheet(
       context: context,
@@ -266,18 +291,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Text('Compliance Deadline: ${doc.complianceDeadline!.toLocal().toString().split(' ')[0]}'),
                   ],
                   const SizedBox(height: 16),
-                  const Text('Attachments:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ...doc.attachments.map((attachment) {
-                    return ListTile(
-                      leading: const Icon(Icons.attach_file),
-                      title: Text(attachment.split('/').last),
-                      onTap: () async {
-                        if (await canLaunchUrl(Uri.file(attachment))) {
-                          await launchUrl(Uri.file(attachment));
-                        }
-                      },
-                    );
-                  }),
+                  if (doc.imageUrls.isNotEmpty) ...[
+                    const Text('Images:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => _showImageViewer(context, doc.imageUrls),
+                      child: CachedNetworkImage(
+                        imageUrl: doc.imageUrls.first,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(Icons.error),
+                      ),
+                    ),
+                    if (doc.imageUrls.length > 1)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text('Tap to view all images', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ),
+                  ],
+                  if (doc.fileUrls.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('Files:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ...doc.fileUrls.map((fileUrl) {
+                      final fileName = fileUrl.split('/').last;
+                      return ListTile(
+                        leading: const Icon(Icons.attach_file),
+                        title: Text(fileName, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                        onTap: () async {
+                          if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                            await launchUrl(Uri.parse(fileUrl));
+                          }
+                        },
+                      );
+                    }),
+                  ],
                 ],
               ),
             );
