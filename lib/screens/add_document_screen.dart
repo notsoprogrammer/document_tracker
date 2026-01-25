@@ -783,6 +783,24 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedImagePaths.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final path = entry.value;
+                              final fileName = path.split('\\').last.split('/').last;
+                              return Chip(
+                                label: Text(fileName),
+                                onDeleted: _isSaving ? null : () {
+                                  setState(() {
+                                    _selectedImagePaths.removeAt(index);
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
                         ],
                         if (_selectedDocumentPaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
