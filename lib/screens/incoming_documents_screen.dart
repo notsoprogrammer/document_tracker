@@ -469,7 +469,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
   void _showStatusUpdateDialog(BuildContext context, int index) async {
     String? selectedStatus;
     DateTime? selectedDeadline;
-    String? selectedComplianceAssignee;
     final cabinetController = TextEditingController();
     final notesController = TextEditingController();
     final complianceAssigneeController = TextEditingController();

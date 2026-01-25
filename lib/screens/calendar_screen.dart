@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/supabase_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -125,19 +125,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
             calendarStyle: CalendarStyle(
               outsideDaysVisible: false,
               markersMaxCount: 3,
-              markerDecoration: const BoxDecoration(
-                color: Colors.red,
+              markerDecoration: BoxDecoration(
+                color: Colors.green.shade200, // pastel marker
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                color: Colors.green.shade300, // pastel green for today
                 shape: BoxShape.circle,
               ),
               selectedDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+                color: Colors.green.shade400, // slightly stronger pastel for selected
                 shape: BoxShape.circle,
               ),
             ),
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: TextStyle(
+                color: Colors.green.shade700, // darker pastel for header text
+                fontWeight: FontWeight.bold,
+              ),
+              leftChevronIcon: Icon(Icons.chevron_left, color: Colors.green.shade400),
+              rightChevronIcon: Icon(Icons.chevron_right, color: Colors.green.shade400),
+            ),
+
+            
             onDaySelected: _onDaySelected,
             onFormatChanged: _onFormatChanged,
             onPageChanged: _onPageChanged,
@@ -254,13 +266,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'Code: ${doc.code}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontFamily: 'monospace',
-                                    color: Colors.grey,
-                                  ),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Code: ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () async {
+                                        await Clipboard.setData(ClipboardData(text: doc.code));
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Code copied to clipboard')),
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        doc.code,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontFamily: 'monospace',
+                                          color: Colors.blue,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
@@ -433,8 +467,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             _buildDetailRow('From/To', doc.fromOrTo),
                             _buildDetailRow('Status', doc.status),
-                            if (doc.calendarDeadline != null)
-                              _buildDetailRow('Calendar Date', doc.calendarDeadline!.toLocal().toString().split(' ')[0]),
                             if (doc.complianceDeadline != null)
                               _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                           ],
