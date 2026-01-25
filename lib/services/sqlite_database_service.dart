@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -47,6 +47,7 @@ class SQLiteDatabaseService {
         status TEXT,
         image_urls TEXT,
         file_urls TEXT,
+        file_names TEXT,
         local_image_paths TEXT,
         local_file_paths TEXT,
         needs_sync INTEGER,
@@ -56,7 +57,10 @@ class SQLiteDatabaseService {
         compliance_deadline TEXT,
         scheduled_notification_ids TEXT,
         compliance_assignee TEXT,
-        category TEXT
+        category TEXT,
+        calendar_deadline TEXT,
+        calendar_added INTEGER DEFAULT 0,
+        attachments TEXT
       )
     ''');
 
@@ -272,6 +276,29 @@ class SQLiteDatabaseService {
       // Add file_names column to documents table
       try {
         await db.execute('ALTER TABLE documents ADD COLUMN file_names TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
+    if (oldVersion < 15) {
+      // Ensure all missing columns are added for existing databases
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN file_names TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN calendar_deadline TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN calendar_added INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column might already exist
+      }
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN attachments TEXT');
       } catch (e) {
         // Column might already exist
       }

@@ -524,6 +524,7 @@ class CachedDocumentService {
         }
 
         String? driveUrl;
+        String uploadedFileName;
         if (isImage) {
           // For images, use the existing uploadImageToDrive method
           driveUrl = await GoogleDriveService.uploadImageToDrive(
@@ -532,6 +533,9 @@ class CachedDocumentService {
             folder: folder,
           );
           debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
+          // For images, the uploaded filename is fileName + extension
+          final extension = upload['localPath'].split('.').last.toLowerCase();
+          uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
         } else {
           // For documents, use uploadFileToDrive method which handles file extensions properly
           final file = File(upload['localPath']);
@@ -543,6 +547,7 @@ class CachedDocumentService {
             folder: folder,
           );
           debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+          uploadedFileName = docFileName;
         }
 
         if (driveUrl != null) {
@@ -557,26 +562,32 @@ class CachedDocumentService {
           if (isImage) {
             final updatedUrls = [...doc.imageUrls, driveUrl];
             final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
+            final updatedFileNames = [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {
               'image_urls': updatedUrls,
               'local_image_paths': updatedLocalPaths,
+              'file_names': updatedFileNames,
             });
             // Also update remote database
             await _remoteDb.updateDocument(documentCode, {
               'image_urls': updatedUrls,
               'local_image_paths': updatedLocalPaths,
+              'file_names': updatedFileNames,
             });
           } else {
             final updatedUrls = [...doc.fileUrls, driveUrl];
             final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
+            final updatedFileNames = [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {
               'file_urls': updatedUrls,
               'local_file_paths': updatedLocalPaths,
+              'file_names': updatedFileNames,
             });
             // Also update remote database
             await _remoteDb.updateDocument(documentCode, {
               'file_urls': updatedUrls,
               'local_file_paths': updatedLocalPaths,
+              'file_names': updatedFileNames,
             });
           }
 
