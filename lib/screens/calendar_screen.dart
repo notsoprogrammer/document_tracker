@@ -101,6 +101,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _focusedDay = focusedDay;
   }
 
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
+  }
+
+  Future<void> _selectMonthYear(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _focusedDay,
+      firstDate: DateTime.utc(2020, 1, 1),
+      lastDate: DateTime.utc(2030, 12, 31),
+      initialDatePickerMode: DatePickerMode.year,
+    );
+    if (picked != null && picked != _focusedDay) {
+      setState(() {
+        _focusedDay = picked;
+        _selectedDay = picked;
+        _selectedEvents.value = _getEventsForDay(picked);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,6 +136,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       body: Column(
         children: [
+          GestureDetector(
+            onTap: () => _selectMonthYear(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${_getMonthName(_focusedDay.month)} ${_focusedDay.year}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           TableCalendar<Document>(
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
@@ -256,6 +300,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     Icon(
