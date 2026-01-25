@@ -64,6 +64,7 @@ class Document {
   final DateTime? calendarDeadline; // Deadline for calendar entries
   final bool calendarAdded; // Whether added to calendar
   final List<String> attachments; // Combined image and file URLs for calendar
+  final String? fileName; // Original file name for display
 
   Document({
     required this.code,
@@ -92,6 +93,7 @@ class Document {
     this.calendarDeadline,
     this.calendarAdded = false,
     List<String>? attachments,
+    this.fileName,
   }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], fileNames = fileNames ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [], attachments = attachments ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
@@ -371,6 +373,7 @@ class Document {
       calendarDeadline: json['calendar_deadline'] != null ? DateTime.parse(json['calendar_deadline']) : null,
       calendarAdded: json['calendar_added'] == 1 || json['calendar_added'] == true,
       attachments: attachments,
+      fileName: json['file_name'],
     );
   }
 
@@ -413,6 +416,7 @@ class Document {
       'calendar_deadline': calendarDeadline?.toIso8601String(),
       'calendar_added': calendarAdded,
       'attachments': attachments,
+      'file_name': fileName,
     };
   }
 
@@ -443,6 +447,7 @@ class Document {
     DateTime? calendarDeadline,
     bool? calendarAdded,
     List<String>? attachments,
+    String? fileName,
   }) {
     return Document(
       code: code ?? this.code,
@@ -471,6 +476,7 @@ class Document {
       calendarDeadline: calendarDeadline ?? this.calendarDeadline,
       calendarAdded: calendarAdded ?? this.calendarAdded,
       attachments: attachments ?? this.attachments,
+      fileName: fileName ?? this.fileName,
     );
   }
 }

@@ -644,10 +644,19 @@ class _FlagCeremonyDocumentsScreenState
 
   void _showFileDialog(BuildContext context, Document document) {
     final allFiles = <String>[];
+    final allNames = <String>[];
     if (document.filePath != null) {
       allFiles.add(document.filePath!);
+      allNames.add(document.fileName ?? document.filePath!.split('/').last.split('\\').last);
     }
-    allFiles.addAll(document.fileUrls);
+    for (int i = 0; i < document.fileUrls.length; i++) {
+      allFiles.add(document.fileUrls[i]);
+      if (i < document.fileNames.length) {
+        allNames.add(document.fileNames[i]);
+      } else {
+        allNames.add(document.fileUrls[i].split('/').last.split('\\').last);
+      }
+    }
 
     showDialog(
       context: context,
@@ -660,10 +669,10 @@ class _FlagCeremonyDocumentsScreenState
             itemCount: allFiles.length,
             itemBuilder: (context, index) {
               final filePath = allFiles[index];
-              final fileName = filePath.split('/').last.split('\\').last;
+              final fileName = allNames[index];
               return ListTile(
                 leading: const Icon(Icons.attach_file),
-                title: Text(document.code),
+                title: Text(fileName),
                 onTap: () {
                   Navigator.pop(context);
                   _viewFile(filePath);
