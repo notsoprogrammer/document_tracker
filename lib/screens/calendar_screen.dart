@@ -155,6 +155,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return months[month - 1];
   }
 
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour > 12 ? dt.hour - 12 : dt.hour == 0 ? 12 : dt.hour;
+    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $amPm';
+  }
+
   Future<void> _selectMonthYear(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -654,7 +661,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
 
                     // Details Card
                     Card(
@@ -672,7 +679,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
 
                     // Images Section
                     if (doc.imageUrls.isNotEmpty) ...[
@@ -714,7 +721,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
                     ],
 
                     // Files Section
@@ -734,8 +741,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              ...doc.fileUrls.map((fileUrl) {
-                                final fileName = fileUrl.split('/').last;
+                              ...doc.fileUrls.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final fileUrl = entry.value;
+                                final fileName = index < doc.fileNames.length ? doc.fileNames[index] : 'Document.pdf';
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 8),
                                   child: InkWell(
@@ -830,7 +839,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             Text(
                               activity.title ?? 'No Title',
                               style: const TextStyle(
-                                fontSize: 20,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -846,7 +855,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
 
                     // Details Card
                     Card(
@@ -857,9 +866,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                             if (activity.startTime != null)
-                              _buildDetailRow('Start Time', activity.startTime!.toLocal().toString()),
+                              _buildDetailRow('Start Time', _formatTime(activity.startTime!.toLocal())),
                             if (activity.endTime != null)
-                              _buildDetailRow('End Time', activity.endTime!.toLocal().toString()),
+                              _buildDetailRow('End Time', _formatTime(activity.endTime!.toLocal())),
+                            _buildDetailRow('Added by', activity.person),
                             _buildDetailRow('People Involved', activity.peopleInvolved),
                             if (activity.location != null && activity.location!.isNotEmpty)
                               _buildDetailRow('Location', activity.location!),

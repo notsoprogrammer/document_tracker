@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import '../models/activity.dart';
@@ -18,25 +15,55 @@ class CachedActivityService {
 
   Future<List<Activity>> fetchActivities() async {
     try {
-      // If online, fetch from remote and update local cache
+      // Try to fetch from local cache first
+      final localActivities = await _localDb.fetchActivities();
+
+      // If online, sync with remote and merge data
       if (await isOnline) {
         try {
           final remoteActivities = await _remoteDb.fetchActivities();
-          // Clear local and save remote
-          // Since activities are simple, we can replace local with remote
-          // For now, just return remote and update local in background
-          for (var act in remoteActivities) {
-            await _localDb.createActivity(act.copyWith(needsSync: false));
+
+          // Create a map of remote activities by id for quick lookup
+          final remoteMap = {for (var act in remoteActivities) act.id: act};
+
+          // Merge activities: prefer remote data, but keep local-only activities
+          final mergedActivities = <Activity>[];
+
+          // Add all remote activities
+          mergedActivities.addAll(remoteActivities);
+
+          // Add local activities that don't exist remotely (offline additions)
+          for (var localAct in localActivities) {
+            if (!remoteMap.containsKey(localAct.id)) {
+              mergedActivities.add(localAct);
+            } else {
+              // If local activity exists in remote and is marked as needing sync, mark as synced
+              if (localAct.needsSync) {
+                await _localDb.updateActivity(localAct.id!, {'needs_sync': 0});
+              }
+            }
           }
-          return remoteActivities;
+
+          // Update local cache with merged data
+          // Clear and re-add activities
+          for (var act in localActivities) {
+            if (act.id != null) {
+              await _localDb.deleteActivity(act.id!);
+            }
+          }
+          for (var act in mergedActivities) {
+            await _localDb.createActivity(act);
+          }
+
+          return mergedActivities;
         } catch (e) {
-          print('Failed to fetch from remote: $e');
-          // Fall back to local
-          return await _localDb.fetchActivities();
+          print('Failed to sync with remote: $e');
+          // Return local data if remote sync fails
+          return localActivities;
         }
       } else {
-        // Offline: return local data
-        return await _localDb.fetchActivities();
+        // Offline: return cached data
+        return localActivities;
       }
     } catch (e) {
       print('Error fetching activities: $e');
@@ -47,27 +74,25 @@ class CachedActivityService {
   Future<Activity> createActivity(Activity activity) async {
     try {
       // Always save locally first
-      final localAct = await _localDb.createActivity(activity);
+      final localActivity = await _localDb.createActivity(activity);
 
       // If online, sync to remote immediately
       if (await isOnline) {
         try {
-          final remoteAct = await _remoteDb.createActivity(localAct);
-          // Update local with remote id if different
-          if (remoteAct.id != localAct.id) {
-            await _localDb.updateActivity(localAct.id!, {'id': remoteAct.id});
-          }
-          return remoteAct;
+          final remoteActivity = await _remoteDb.createActivity(activity);
+
+          // Update local with remote data if needed
+          return remoteActivity;
         } catch (e) {
           print('Failed to sync creation to remote: $e');
           // Mark as needing sync since remote failed
-          await _localDb.updateActivity(localAct.id!, {'needs_sync': true});
-          return localAct.copyWith(needsSync: true);
+          await _localDb.updateActivity(localActivity.id!, {'needs_sync': 1});
+          return localActivity.copyWith(needsSync: true);
         }
       } else {
         // Mark as needing sync if offline
-        await _localDb.updateActivity(localAct.id!, {'needs_sync': true});
-        return localAct.copyWith(needsSync: true);
+        await _localDb.updateActivity(localActivity.id!, {'needs_sync': 1});
+        return localActivity.copyWith(needsSync: true);
       }
     } catch (e) {
       print('Error creating activity: $e');
@@ -97,23 +122,18 @@ class CachedActivityService {
 
   Future<void> deleteActivity(int activityId) async {
     try {
-      // Check if online
+      // If online, delete from remote first
       if (await isOnline) {
-        // Online: Delete from remote first
         try {
           await _remoteDb.deleteActivity(activityId);
-          // Delete locally after successful remote deletion
-          await _localDb.deleteActivity(activityId);
-          debugPrint('Activity $activityId deleted successfully (online)');
         } catch (e) {
           print('Failed to delete from remote: $e');
           rethrow;
         }
-      } else {
-        // Offline: For now, just delete locally (no pending deletions for activities yet)
-        await _localDb.deleteActivity(activityId);
-        debugPrint('Activity $activityId deleted locally (offline)');
       }
+
+      // Delete locally
+      await _localDb.deleteActivity(activityId);
     } catch (e) {
       print('Error deleting activity: $e');
       rethrow;
@@ -124,16 +144,15 @@ class CachedActivityService {
     if (!(await isOnline)) return;
 
     try {
-      // Sync unsynced activities
       final localActivities = await _localDb.fetchActivities();
       final unsynced = localActivities.where((act) => act.needsSync).toList();
 
       for (var act in unsynced) {
         try {
-          // For simplicity, try to create on remote (assuming no duplicates)
-          await _remoteDb.createActivity(act);
-          // Mark as synced
-          await _localDb.updateActivity(act.id!, {'needs_sync': false});
+          if (act.id != null) {
+            await _remoteDb.createActivity(act);
+            await _localDb.updateActivity(act.id!, {'needs_sync': 0});
+          }
         } catch (e) {
           print('Failed to sync activity ${act.id}: $e');
         }

@@ -40,6 +40,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // File handling
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
+  List<String> _selectedDocumentNames = [];
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -736,6 +737,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                       } else {
                                         setState(() {
                                           _selectedDocumentPaths.add(filePath!);
+                                          _selectedDocumentNames.add(file.name);
                                           _isPickingFile = false;
                                         });
                                       }
@@ -792,12 +794,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: _selectedDocumentPaths.map((path) {
-                              final fileName = path.split('\\').last.split('/').last;
+                            children: _selectedDocumentPaths.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final path = entry.value;
+                              final fileName = index < _selectedDocumentNames.length ? _selectedDocumentNames[index] : path.split('\\').last.split('/').last;
                               return Chip(
                                 label: Text(fileName),
                                 onDeleted: _isSaving ? null : () {
-                                  setState(() => _selectedDocumentPaths.remove(path));
+                                  setState(() {
+                                    _selectedDocumentPaths.removeAt(index);
+                                    if (index < _selectedDocumentNames.length) {
+                                      _selectedDocumentNames.removeAt(index);
+                                    }
+                                  });
                                 },
                               );
                             }).toList(),
@@ -861,6 +870,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         status: selectedStatus ?? (widget.incoming ? 'Received' : 'Delivered'),
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,
+                        fileNames: _selectedDocumentNames,
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
                         complianceDeadline: selectedDeadline,

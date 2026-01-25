@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -268,6 +268,14 @@ class SQLiteDatabaseService {
         // Table might already exist
       }
     }
+    if (oldVersion < 14) {
+      // Add file_names column to documents table
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN file_names TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -296,6 +304,7 @@ class SQLiteDatabaseService {
     // Convert lists to JSON strings for SQLite
     docData['image_urls'] = jsonEncode(docData['image_urls']);
     docData['file_urls'] = jsonEncode(docData['file_urls']);
+    docData['file_names'] = jsonEncode(docData['file_names'] ?? []);
     docData['local_image_paths'] = jsonEncode(docData['local_image_paths'] ?? []);
     docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
     docData['attachments'] = jsonEncode(docData['attachments'] ?? []);
@@ -328,6 +337,9 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('file_urls')) {
       updates['file_urls'] = jsonEncode(updates['file_urls']);
+    }
+    if (updates.containsKey('file_names')) {
+      updates['file_names'] = jsonEncode(updates['file_names']);
     }
     if (updates.containsKey('local_image_paths')) {
       updates['local_image_paths'] = jsonEncode(updates['local_image_paths']);

@@ -13,15 +13,13 @@ class AddActivityScreen extends StatefulWidget {
 
 class _AddActivityScreenState extends State<AddActivityScreen> {
   final titleController = TextEditingController();
-  final peopleInvolvedController = TextEditingController();
-  final remarksController = TextEditingController();
-  final personController = TextEditingController();
-  final locationController = TextEditingController();
-
   DateTime? selectedStartDate;
   TimeOfDay? selectedStartTime;
   DateTime? selectedEndDate;
   TimeOfDay? selectedEndTime;
+  final peopleInvolvedController = TextEditingController();
+  final remarksController = TextEditingController();
+  final personController = TextEditingController();
 
   bool _isSaving = false;
   bool _showValidationErrors = false;
@@ -40,8 +38,6 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       });
     }
   }
-
-
 
   Future<bool> _onWillPop() async {
     final result = await showDialog<bool>(
@@ -78,7 +74,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Add Activity"),
+          title: const Text('Add Activity'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
         ),
@@ -108,7 +104,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Activity Information",
+                            "Activity Details",
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.primary,
@@ -120,7 +116,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                             enabled: !_isSaving,
                             decoration: InputDecoration(
                               labelText: "Activity Title",
-                              border: const OutlineInputBorder(),
+                              border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                               errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Activity title is required" : null,
@@ -128,36 +124,15 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                           ),
                           const SizedBox(height: 12),
                           TextField(
-                            controller: peopleInvolvedController,
+                            controller: personController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
-                              labelText: "People Involved",
-                              border: const OutlineInputBorder(),
+                              labelText: "Added by",
+                              border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
-                              errorText: _showValidationErrors && peopleInvolvedController.text.trim().isEmpty ? "People involved is required" : null,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: locationController,
-                            enabled: !_isSaving,
-                            decoration: const InputDecoration(
-                              labelText: "Location (Optional)",
-                              border: OutlineInputBorder(),
-                              filled: true,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: remarksController,
-                            enabled: !_isSaving,
-                            decoration: const InputDecoration(
-                              labelText: "Remarks",
-                              border: OutlineInputBorder(),
-                              filled: true,
-                            ),
-                            maxLines: 3,
+                            readOnly: true,
                           ),
                         ],
                       ),
@@ -172,7 +147,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Time Information",
+                            "Time",
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.primary,
@@ -191,64 +166,37 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                                       lastDate: DateTime.now().add(const Duration(days: 365)),
                                     );
                                     if (date != null) {
-                                      setState(() {
-                                        selectedStartDate = date;
-                                      });
+                                      final time = await showTimePicker(
+                                        context: context,
+                                        initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
+                                      );
+                                      if (time != null) {
+                                        setState(() {
+                                          selectedStartDate = date;
+                                          selectedStartTime = time;
+                                        });
+                                      }
                                     }
                                   },
                                   child: InputDecorator(
                                     decoration: InputDecoration(
-                                      labelText: "Start Date",
-                                      border: const OutlineInputBorder(),
+                                      labelText: "Start Time",
+                                      hintText: "Select date and time",
+                                      border: OutlineInputBorder(),
                                       filled: true,
                                       fillColor: Theme.of(context).colorScheme.surface,
                                       suffixIcon: const Icon(Icons.calendar_today),
-                                      errorText: _showValidationErrors && selectedStartDate == null ? "Start date is required" : null,
+                                      errorText: _showValidationErrors && selectedStartDate == null ? "Start time is required" : null,
                                     ),
                                     child: Text(
-                                      selectedStartDate != null
-                                          ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year}"
+                                      selectedStartDate != null && selectedStartTime != null
+                                          ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year} ${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}"
                                           : '',
                                     ),
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _isSaving ? null : () async {
-                                    final time = await showTimePicker(
-                                      context: context,
-                                      initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
-                                    );
-                                    if (time != null) {
-                                      setState(() {
-                                        selectedStartTime = time;
-                                      });
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: "Start Time",
-                                      border: const OutlineInputBorder(),
-                                      filled: true,
-                                      fillColor: Theme.of(context).colorScheme.surface,
-                                      suffixIcon: const Icon(Icons.access_time),
-                                      errorText: _showValidationErrors && selectedStartTime == null ? "Start time is required" : null,
-                                    ),
-                                    child: Text(
-                                      selectedStartTime != null
-                                          ? "${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}"
-                                          : '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
                               Expanded(
                                 child: InkWell(
                                   onTap: _isSaving ? null : () async {
@@ -259,56 +207,78 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                                       lastDate: DateTime.now().add(const Duration(days: 365)),
                                     );
                                     if (date != null) {
-                                      setState(() {
-                                        selectedEndDate = date;
-                                      });
+                                      final time = await showTimePicker(
+                                        context: context,
+                                        initialTime: selectedEndTime ?? const TimeOfDay(hour: 17, minute: 0),
+                                      );
+                                      if (time != null) {
+                                        setState(() {
+                                          selectedEndDate = date;
+                                          selectedEndTime = time;
+                                        });
+                                      }
                                     }
                                   },
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(
-                                      labelText: "End Date (Optional)",
+                                    decoration: InputDecoration(
+                                      labelText: "End Time",
+                                      hintText: "Select date and time",
                                       border: OutlineInputBorder(),
                                       filled: true,
-                                      suffixIcon: Icon(Icons.calendar_today),
+                                      fillColor: Theme.of(context).colorScheme.surface,
                                     ),
                                     child: Text(
-                                      selectedEndDate != null
-                                          ? "${selectedEndDate!.month}/${selectedEndDate!.day}/${selectedEndDate!.year}"
-                                          : '',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _isSaving ? null : () async {
-                                    final time = await showTimePicker(
-                                      context: context,
-                                      initialTime: selectedEndTime ?? const TimeOfDay(hour: 17, minute: 0),
-                                    );
-                                    if (time != null) {
-                                      setState(() {
-                                        selectedEndTime = time;
-                                      });
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: const InputDecoration(
-                                      labelText: "End Time (Optional)",
-                                      border: OutlineInputBorder(),
-                                      filled: true,
-                                      suffixIcon: Icon(Icons.access_time),
-                                    ),
-                                    child: Text(
-                                      selectedEndTime != null
-                                          ? "${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}"
+                                      selectedEndDate != null && selectedEndTime != null
+                                          ? "${selectedEndDate!.month}/${selectedEndDate!.day}/${selectedEndDate!.year} ${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}"
                                           : '',
                                     ),
                                   ),
                                 ),
                               ),
                             ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Card(
+                    elevation: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Additional Information",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: peopleInvolvedController,
+                            enabled: !_isSaving,
+                            decoration: InputDecoration(
+                              labelText: "People Involved",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                              errorText: _showValidationErrors && peopleInvolvedController.text.trim().isEmpty ? "People involved is required" : null,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: remarksController,
+                            enabled: !_isSaving,
+                            decoration: InputDecoration(
+                              labelText: "Remarks",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                            ),
+                            maxLines: 3,
                           ),
                         ],
                       ),
@@ -322,12 +292,12 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       });
 
                       if (titleController.text.trim().isNotEmpty &&
-                          peopleInvolvedController.text.trim().isNotEmpty &&
                           selectedStartDate != null &&
                           selectedStartTime != null &&
+                          peopleInvolvedController.text.trim().isNotEmpty &&
                           personController.text.trim().isNotEmpty) {
 
-                        final startDateTime = DateTime(
+                        final startTime = DateTime(
                           selectedStartDate!.year,
                           selectedStartDate!.month,
                           selectedStartDate!.day,
@@ -335,9 +305,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                           selectedStartTime!.minute,
                         );
 
-                        DateTime? endDateTime;
+                        DateTime? endTime;
                         if (selectedEndDate != null && selectedEndTime != null) {
-                          endDateTime = DateTime(
+                          endTime = DateTime(
                             selectedEndDate!.year,
                             selectedEndDate!.month,
                             selectedEndDate!.day,
@@ -348,19 +318,18 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
                         final activity = Activity(
                           title: titleController.text.trim(),
-                          startTime: startDateTime,
-                          endTime: endDateTime,
+                          startTime: startTime,
+                          endTime: endTime,
                           peopleInvolved: peopleInvolvedController.text.trim(),
                           remarks: remarksController.text.trim(),
                           person: personController.text.trim(),
-                          location: locationController.text.trim().isNotEmpty ? locationController.text.trim() : null,
                         );
 
                         setState(() => _isSaving = true);
                         try {
                           await CachedActivityService().createActivity(activity);
                           if (mounted) {
-                            Navigator.pop(context, true);
+                            Navigator.pop(context, true); // Success
                           }
                         } catch (e) {
                           SnackbarUtils.showErrorSnackBar(context, 'Failed to save activity: $e');
