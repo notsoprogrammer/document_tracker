@@ -189,39 +189,98 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
     if (imageFiles.isNotEmpty) {
       showDialog(
-        context: context,
+        context: context,        
         builder: (_) => Dialog(
+          insetPadding: EdgeInsets.all(16),
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.8,
-            height: MediaQuery.of(context).size.height * 0.8,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                final PageController _pageController = PageController();
+
+                return Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: PageView.builder(
-                    itemCount: imageFiles.length,
-                    itemBuilder: (context, index) {
-                      return InteractiveViewer(
-                        child: Image.file(
-                          File(imageFiles[index]),
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(child: Text('Failed to load image'));
+                    // Top row with Delete (left) and Close (right)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            if (imageFiles.isNotEmpty) {
+                              final currentIndex = _pageController.page?.round() ?? 0;
+                              setState(() {
+                                _selectedImagePaths.remove(imageFiles[currentIndex]);
+                              });
+                              setStateDialog(() {
+                                imageFiles.removeAt(currentIndex);
+                              });
+                              if (imageFiles.isEmpty) {
+                                Navigator.pop(context);
+                              }
+                            }
                           },
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: imageFiles.length,
+                        itemBuilder: (context, index) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              InteractiveViewer(
+                                child: Image.file(
+                                  File(imageFiles[index]),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Center(child: Text('Failed to load image'));
+                                  },
+                                ),
+                              ),
+                              // Left arrow
+                              if (index > 0)
+                                Positioned(
+                                  left: 10,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
+                                    onPressed: () {
+                                      _pageController.previousPage(
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeInOut,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              // Right arrow
+                              if (index < imageFiles.length - 1)
+                                Positioned(
+                                  right: 10,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.black54),
+                                    onPressed: () {
+                                      _pageController.nextPage(
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeInOut,
+                                      );
+                                    },
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -491,24 +550,6 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                 decoration: TextDecoration.underline,
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _selectedImagePaths.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final path = entry.value;
-                              final fileName = path.split('\\').last.split('/').last;
-                              return Chip(
-                                label: Text(fileName),
-                                onDeleted: _isSaving ? null : () {
-                                  setState(() {
-                                    _selectedImagePaths.removeAt(index);
-                                  });
-                                },
-                              );
-                            }).toList(),
                           ),
                         ],
                         if (_selectedDocumentPaths.isNotEmpty) ...[
