@@ -338,9 +338,17 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Add Attendance & MOVs Document"),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          title: const Text("Add Certs/MOVs"),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFB3E5FC), Color(0xFF81D4FA), Color.fromARGB(255, 98, 195, 240)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          foregroundColor: const Color.fromARGB(255, 28, 28, 28),
         ),
         body: Container(
         decoration: BoxDecoration(
@@ -675,13 +683,22 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12), // smooth rounded corners
+                    ),
+                    elevation: 4, // subtle shadow for depth
+                    backgroundColor: Color(0xFF81D4FA), // pastel modern accent
+                    foregroundColor: Colors.black87, // readable text color
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   child: _isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Save Attendance & MOVs Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      : const Text("Save Certs/MOVs Record", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
                 if (_isSaving) ...[
                   const SizedBox(height: 8),
