@@ -129,11 +129,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Calendar'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+    appBar: AppBar(
+      title: const Text('Calendar'),
+      foregroundColor: const Color.fromARGB(255, 3, 3, 3), // text/icon color
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFB2DFDB), // pastel teal-green
+              Color(0xFFC8E6C9), // pastel green
+              Color(0xFFA5D6A7), // slightly stronger pastel
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
       ),
+    ),
       body: Column(
         children: [
           GestureDetector(
