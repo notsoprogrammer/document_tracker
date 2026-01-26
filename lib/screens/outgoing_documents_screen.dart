@@ -114,7 +114,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       });
     });
     _filteredDocuments = widget.documents
-        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony')
+        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs')
         .toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -169,7 +169,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony').toList(),
+        widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,

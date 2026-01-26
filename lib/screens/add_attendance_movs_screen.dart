@@ -462,7 +462,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           onTap: _isSaving ? null : () => _selectDate(context),
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: "Receiving Date",
+                              labelText: "Date",
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
@@ -472,7 +472,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             child: Text(
                               selectedDate != null
                                   ? "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}"
-                                  : "Receiving date",
+                                  : "Receiving/Activity Date",
                               style: TextStyle(
                                 color: selectedDate != null
                                     ? Theme.of(context).colorScheme.onSurface
@@ -715,12 +715,12 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         referenceLink: referenceLink.isNotEmpty ? referenceLink : null,
                         type: selectedType!,
                         fromOrTo: dateStr,
-                        mode: 'Attendance & MOVs',
+                        mode: 'Office Function MOVs',
                         assignedTo: person,
                         filePath: null,
                         remarks: remarks,
                         person: person,
-                        incoming: false, // Attendance & MOVs is neither incoming nor outgoing
+                        incoming: false,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

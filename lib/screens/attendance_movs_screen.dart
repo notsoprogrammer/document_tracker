@@ -216,7 +216,7 @@ class _AttendanceMovsScreenState
       _filterDocuments();
     });
     _filteredDocuments = widget.documents
-        .where((doc) => doc.mode == 'Attendance & MOVs')
+        .where((doc) => doc.mode == 'Office Function MOVs')
         .toList()
       ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     _uploadQueueManager = UploadQueueManager();
@@ -244,7 +244,7 @@ class _AttendanceMovsScreenState
   void _filterDocuments() {
     setState(() {
       _filteredDocuments = widget.documents.where((doc) {
-        if (doc.mode != 'Attendance & MOVs') return false;
+        if (doc.mode != 'Office Function MOVs') return false;
 
         // Search filter
         bool matchesSearch =
@@ -348,7 +348,7 @@ class _AttendanceMovsScreenState
               : _filteredDocuments.isEmpty
               ? const Center(
                   child: Text(
-                    'No Attendance & MOVs documents found',
+                    'No Office Function MOVs found',
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 )
