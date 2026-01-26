@@ -54,44 +54,44 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
-  final List<String> coreFunctions = [
-    'Sectoral Plans',
-    'Ecological Profile',
-    'Research/Studies/Trainings',
-    'CLUP Zoning Reclassification',
-    'CSOs',
-    'CDC – Resolution',
-    'CDC – Minutes',
-    'CDC – Attendance',
-    'AIP',
-    'Barangay – AIP',
-    'Barangay– GAD',
-    'Zoning/Loc. Clearance',
-    'Zoning/Loc. Certification',
-  ];
+final List<String> coreFunctions = [
+  'AIP',
+  'Barangay – AIP',
+  'Barangay– GAD',
+  'CDC – Attendance',
+  'CDC – Minutes',
+  'CDC – Resolution',
+  'CLUP Zoning Reclassification',
+  'CSOs',
+  'Ecological Profile',
+  'Research/Studies/Trainings',
+  'Sectoral Plans',
+  'Zoning/Loc. Certification',
+  'Zoning/Loc. Clearance',
+];
 
-  final List<String> strategicFunctions = [
-    'PR/PPMP',
-    'Liquidation/ Reimbursement',
-    'PFMAT',
-  ];
+final List<String> strategicFunctions = [
+  'Liquidation/ Reimbursement',
+  'PFMAT',
+  'PR/PPMP',
+];
 
-  final List<String> supportFunctions = [
-    'DTR',
-    'Monthly Accomplishment Report',
-    'Quarterly Accomplishment Report',
-    'OPCR',
-    'Certificate/Attendance',
-    'Dept. Heads Meeting',
-    'Clean-up Drives',
-    'Tree Planting',
-    'Earthquake Drills',
-    'Monthly Staff Meeting',
-    'Man. Com',
-    'Cash Advance',
-    'L&D/IDP/DNA',
-    'Budget',
-  ];
+final List<String> supportFunctions = [
+  'Budget',
+  'Cash Advance',
+  'Certificate/Attendance',
+  'Clean-up Drives',
+  'Dept. Heads Meeting',
+  'DTR',
+  'Earthquake Drills',
+  'L&D/IDP/DNA',
+  'Man. Com',
+  'Monthly Accomplishment Report',
+  'Monthly Staff Meeting',
+  'OPCR',
+  'Quarterly Accomplishment Report',
+  'Tree Planting',
+];
 
   List<String> get allOptions => [...coreFunctions, ...strategicFunctions, ...supportFunctions];
 
@@ -193,14 +193,12 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   }
 
   String _generateCode() {
-    if (selectedType == null || selectedDate == null) return '-';
-
     final nowUtc = DateTime.now().toUtc();
-    final phTime = nowUtc.add(const Duration(hours: 8));
+    final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
 
-    final month = selectedDate!.month.toString().padLeft(2, '0');
-    final day = selectedDate!.day.toString().padLeft(2, '0');
-    final year = selectedDate!.year.toString();
+    final year = phTime.year;
+    final month = phTime.month.toString().padLeft(2, '0');
+    final day = phTime.day.toString().padLeft(2, '0');
     final hour = phTime.hour.toString().padLeft(2, '0');
     final minute = phTime.minute.toString().padLeft(2, '0');
     final second = phTime.second.toString().padLeft(2, '0');
@@ -439,7 +437,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                                 border: OutlineInputBorder(),
                                 filled: true,
                                 fillColor: Theme.of(context).colorScheme.surface,
-                                errorText: _showValidationErrors && selectedType == null ? "Type is required" : null,
+                                errorText: _showValidationErrors && selectedType == null ? "Select only from the dropdown" : null,
                               ),
                             );
                           },

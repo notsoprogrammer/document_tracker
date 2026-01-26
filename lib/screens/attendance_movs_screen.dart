@@ -57,18 +57,13 @@ class _AttendanceMovsScreenState
   }
 
   String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      return "Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays == 1) {
-      return "Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } else if (difference.inDays < 7) {
-      return "${difference.inDays} days ago";
-    } else {
-      return "${dateTime.month}/${dateTime.day}/${dateTime.year}";
-    }
+    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
+    final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$month/$day/$year $hour:$minute $amPm';
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -460,6 +455,14 @@ class _AttendanceMovsScreenState
                                       ),
                                       const SizedBox(height: 8),
                                     ],
+                                    if (document.description != null && document.description!.isNotEmpty) ...[
+                                      _buildDetailRow(
+                                        Icons.description,
+                                        "Description",
+                                        document.description!,
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
                                     _buildDetailRow(
                                       Icons.calendar_today,
                                       "Receiving Date",
@@ -474,17 +477,9 @@ class _AttendanceMovsScreenState
                                     const SizedBox(height: 8),
                                     _buildDetailRow(
                                       Icons.access_time,
-                                      "Created At",
+                                      "Timestamp",
                                       document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown',
                                     ),
-                                    if (document.description != null && document.description!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      _buildDetailRow(
-                                        Icons.description,
-                                        "Description",
-                                        document.description!,
-                                      ),
-                                    ],
                                     if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[
                                       const SizedBox(height: 8),
                                       GestureDetector(
@@ -494,10 +489,21 @@ class _AttendanceMovsScreenState
                                             await launchUrl(uri);
                                           }
                                         },
-                                        child: _buildDetailRow(
-                                          Icons.link,
-                                          "Document Link",
-                                          document.referenceLink!,
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.link, color: Colors.blue),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                document.referenceLink!,
+                                                style: const TextStyle(
+                                                  color: Colors.blue,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
