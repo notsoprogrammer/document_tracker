@@ -23,6 +23,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   bool _isSaving = false;
   bool _showValidationErrors = false;
+  bool isAllDay = false;
 
   @override
   void initState() {
@@ -75,7 +76,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          title: const Text('Add Activity'),
+          title: const Text('Add Event'),
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -105,7 +106,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Activity Details",
+                            "Activity/Event Details",
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.primary,
@@ -117,7 +118,12 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                             enabled: !_isSaving,
                             maxLines: 2,
                             decoration: InputDecoration(
-                              labelText: "Activity Title",
+                              labelText: "Event",
+                              hintText: "e.g. Leave, Meetings, Training",
+                              hintStyle: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // 👈 opacity
+                                    fontStyle: FontStyle.italic, // optional for softer look
+                                  ),
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
@@ -142,6 +148,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                             enabled: !_isSaving,
                             decoration: InputDecoration(
                               labelText: "Remarks",
+                              hintText: "Details about the event (e.g., location, purpose)",
+                                  hintStyle: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // 👈 opacity
+                                    fontStyle: FontStyle.italic, // optional for softer look
+                                  ),
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
@@ -168,6 +179,23 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: isAllDay,
+                                onChanged: _isSaving ? null : (value) {
+                                  setState(() {
+                                    isAllDay = value ?? false;
+                                    if (isAllDay) {
+                                      selectedStartTime = null; // Clear time if all day
+                                    }
+                                  });
+                                },
+                              ),
+                              const Text('All Day'),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           InkWell(
                             onTap: _isSaving ? null : () async {
                               final date = await showDatePicker(
@@ -177,31 +205,40 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
-                                );
-                                if (time != null) {
+                                if (!isAllDay) {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: selectedStartTime ?? const TimeOfDay(hour: 9, minute: 0),
+                                  );
+                                  if (time != null) {
+                                    setState(() {
+                                      selectedStartDate = date;
+                                      selectedStartTime = time;
+                                    });
+                                  }
+                                } else {
                                   setState(() {
                                     selectedStartDate = date;
-                                    selectedStartTime = time;
+                                    selectedStartTime = const TimeOfDay(hour: 0, minute: 0); // Set to midnight for all day
                                   });
                                 }
                               }
                             },
                             child: InputDecorator(
                               decoration: InputDecoration(
-                                labelText: "Start Date and Time",
-                                hintText: "Select date and time",
+                                labelText: isAllDay ? "Start Date" : "Start Date and Time",
+                                hintText: isAllDay ? "Select date" : "Select date and time",
                                 border: OutlineInputBorder(),
                                 filled: true,
                                 fillColor: Theme.of(context).colorScheme.surface,
                                 suffixIcon: const Icon(Icons.calendar_today),
-                                errorText: _showValidationErrors && selectedStartDate == null ? "Start date and time is required" : null,
+                                errorText: _showValidationErrors && selectedStartDate == null ? (isAllDay ? "Start date is required" : "Start date and time is required") : null,
                               ),
                               child: Text(
-                                selectedStartDate != null && selectedStartTime != null
-                                    ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year} ${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}"
+                                selectedStartDate != null
+                                    ? isAllDay
+                                        ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year}"
+                                        : (selectedStartTime != null ? "${selectedStartDate!.month}/${selectedStartDate!.day}/${selectedStartDate!.year} ${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}" : '')
                                     : '',
                               ),
                             ),
@@ -264,7 +301,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
                       if (titleController.text.trim().isNotEmpty &&
                           selectedStartDate != null &&
-                          selectedStartTime != null &&
+                          (isAllDay || selectedStartTime != null) &&
                           peopleInvolvedController.text.trim().isNotEmpty &&
                           personController.text.trim().isNotEmpty) {
 
@@ -272,8 +309,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                           selectedStartDate!.year,
                           selectedStartDate!.month,
                           selectedStartDate!.day,
-                          selectedStartTime!.hour,
-                          selectedStartTime!.minute,
+                          isAllDay ? 0 : selectedStartTime!.hour,
+                          isAllDay ? 0 : selectedStartTime!.minute,
                         );
 
                         DateTime? endTime;
