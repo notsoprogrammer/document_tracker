@@ -601,7 +601,7 @@ Positioned(
     crossAxisAlignment: CrossAxisAlignment.end, // ✅ align to right
     children: [
       AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 200),
         child: _showPills
             ? Column(
                 key: const ValueKey('pills'),
@@ -622,7 +622,7 @@ Positioned(
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
-                  _buildPill('Attendance & MOVs', '', () {
+                  _buildPill('Function MOVs', '', () {
                     _showAttendanceMovForm(context);
                     setState(() => _showPills = false);
                   }),
@@ -635,7 +635,7 @@ Positioned(
         alignment: Alignment.centerRight,
         child: FloatingActionButton(
           onPressed: () => setState(() => _showPills = !_showPills),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: const Color.fromARGB(255, 0, 217, 255),
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           child: const Icon(Icons.add),
         ),
