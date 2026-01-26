@@ -50,13 +50,13 @@ class GoogleDriveService {
       'Zoning/Loc. Clearance',
       'Zoning/Loc. Certification',
     ].contains(category)) {
-      return _certificatesFolderId; // Core -> certificates
+      return _attendanceFolderId; // Core Function -> attendance
     } else if ([
       'PR/PPMP',
       'Liquidation/ Reimbursement',
       'PFMAT',
     ].contains(category)) {
-      return _attendanceFolderId; // Strategic -> attendance
+      return _movsFolderId; // Strategic Function -> movs
     } else if ([
       'DTR',
       'Monthly Accomplishment Report',
@@ -73,7 +73,7 @@ class GoogleDriveService {
       'L&D/IDP/DNA',
       'Budget',
     ].contains(category)) {
-      return _movsFolderId; // Support -> movs
+      return _certificatesFolderId; // Support Function -> certificates
     } else {
       throw Exception('Unknown category: $category');
     }

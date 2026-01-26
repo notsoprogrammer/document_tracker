@@ -511,12 +511,45 @@ class CachedDocumentService {
         DriveFolder folder;
         if (doc.mode == 'Flag Ceremony') {
           folder = DriveFolder.flagCeremony;
-        } else if (doc.category == 'Attendance') {
-          folder = DriveFolder.attendance;
-        } else if (doc.category == 'MOVs') {
-          folder = DriveFolder.movs;
-        } else if (doc.category == 'Certificates') {
-          folder = DriveFolder.certificates;
+        } else if ([
+          'Sectoral Plans',
+          'Ecological Profile',
+          'Research/Studies/Trainings',
+          'CLUP Zoning Reclassification',
+          'CSOs',
+          'CDC – Resolution',
+          'CDC – Minutes',
+          'CDC – Attendance',
+          'AIP',
+          'Barangay – AIP',
+          'Barangay– GAD',
+          'Zoning/Loc. Clearance',
+          'Zoning/Loc. Certification',
+        ].contains(doc.category)) {
+          folder = DriveFolder.attendance; // Core Function -> attendance
+        } else if ([
+          'PR/PPMP',
+          'Liquidation/ Reimbursement',
+          'PFMAT',
+        ].contains(doc.category)) {
+          folder = DriveFolder.movs; // Strategic Function -> movs
+        } else if ([
+          'DTR',
+          'Monthly Accomplishment Report',
+          'Quarterly Accomplishment Report',
+          'OPCR',
+          'Certificate/Attendance',
+          'Dept. Heads Meeting',
+          'Clean-up Drives',
+          'Tree Planting',
+          'Earthquake Drills',
+          'Monthly Staff Meeting',
+          'Man. Com',
+          'Cash Advance',
+          'L&D/IDP/DNA',
+          'Budget',
+        ].contains(doc.category)) {
+          folder = DriveFolder.certificates; // Support Function -> certificates
         } else if (doc.incoming) {
           folder = DriveFolder.incoming;
         } else {
