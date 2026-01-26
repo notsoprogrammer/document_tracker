@@ -463,7 +463,11 @@ body: Container(
                               context,
                               Icons.folder,
                               "Incoming Documents",
-                              const Color(0xFFFFB74D), // Pastel orange
+                              LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFFFE0B2), Color.fromARGB(255, 245, 183, 90)],
+                              ),
                               () {
                                 Navigator.push(
                                   context,
@@ -488,7 +492,11 @@ body: Container(
                               context,
                               Icons.folder,
                               "Outgoing Documents",
-                              const Color(0xFF2196F3), // Blue complementing orange
+                              const LinearGradient(
+                                colors: [Color(0xFF89F7FE), Color(0xFF66A6FF)], 
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               () {
                                 Navigator.push(
                                   context,
@@ -512,7 +520,11 @@ body: Container(
                               context,
                               Icons.folder,
                               "Flag Ceremony Docs",
-                              const Color(0xFF4EC377), // Soft green
+                              LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFA8E6CF), Color.fromARGB(255, 129, 211, 137)],
+                              ),
                               () {
                                 Navigator.push(
                                   context,
@@ -535,8 +547,12 @@ body: Container(
                             child: _buildFolderButton(
                               context,
                               Icons.folder,
-                              "Attendance & MOVs",
-                              const Color.fromARGB(255, 195, 109, 210), // Purple
+                              "Office Function MOVs",
+                              LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFD4A5FF), Color(0xFF957DAD)],
+                              ),
                               () {
                                 Navigator.push(
                                   context,
@@ -570,7 +586,7 @@ body: Container(
           padding: const EdgeInsets.all(8.0),
           child: Text(
             "by: Margaux🌻",
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               // fontStyle: FontStyle.italic,
             ),
@@ -591,22 +607,22 @@ Positioned(
                 key: const ValueKey('pills'),
                 crossAxisAlignment: CrossAxisAlignment.end, // ✅ keep pills right-aligned
                 children: [
-                  _buildPill('Incoming', '📥', () {
+                  _buildPill('Incoming', '', () {
                     _showForm(context, true);
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
-                  _buildPill('Outgoing', '📤', () {
+                  _buildPill('Outgoing', '', () {
                     _showForm(context, false);
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
-                  _buildPill('Flag Ceremony', '🚩', () {
+                  _buildPill('Flag Ceremony', '', () {
                     _showFlagCeremonyForm(context);
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
-                  _buildPill('Attendance & MOVs', '📋', () {
+                  _buildPill('Attendance & MOVs', '', () {
                     _showAttendanceMovForm(context);
                     setState(() => _showPills = false);
                   }),
@@ -658,19 +674,27 @@ Positioned(
     );
   }
 
-  Widget _buildFolderButton(BuildContext context, IconData icon, String title, Color color, VoidCallback onTap) {
+  Widget _buildFolderButton(
+    BuildContext context,
+    IconData icon,
+    String title,
+    Gradient gradient,
+    VoidCallback onTap,
+  ) {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: color,
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         padding: EdgeInsets.zero,
         elevation: 4,
       ),
-      child: Card(
-        color: color,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(
@@ -683,7 +707,7 @@ Positioned(
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 16 * MediaQuery.of(context).textScaleFactor,
+                  fontSize: 18 * MediaQuery.of(context).textScaleFactor,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
