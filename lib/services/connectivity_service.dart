@@ -17,7 +17,11 @@ class ConnectivityService {
 
   /// Initialize the connectivity service
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      // If already initialized, still emit current status for new listeners
+      _onlineStatusController.add(_lastOnlineStatus);
+      return;
+    }
 
     try {
       // Check initial connectivity
@@ -63,6 +67,9 @@ class ConnectivityService {
 
   /// Stream of online status changes
   Stream<bool> get onOnlineStatusChanged => _onlineStatusController.stream;
+
+  /// Get current online status (synchronous)
+  bool get currentOnlineStatus => _lastOnlineStatus;
 
   /// Register a callback to be called when internet connection is restored
   void registerReconnectionCallback(Function() callback) {

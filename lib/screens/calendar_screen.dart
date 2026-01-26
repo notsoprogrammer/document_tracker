@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
 import '../services/supabase_service.dart';
 import '../services/cached_activity_service.dart';
+import '../services/connectivity_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_activity_screen.dart';
 
@@ -28,9 +30,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<Document> _calendarDocuments = [];
   List<Activity> _calendarActivities = [];
 
+  late final ConnectivityService connectivityService;
+
   @override
   void initState() {
     super.initState();
+    connectivityService = ConnectivityService();
+    connectivityService.initialize();
     _selectedDay = _focusedDay;
     _selectedEvents = ValueNotifier(_getEventsForDay(_selectedDay!));
     _loadCalendarDocuments();
@@ -57,7 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _loadCalendarActivities() async {
     try {
-      final activities = await CachedActivityService().fetchActivities();
+      final activities = await SupabaseService().fetchActivities();
       setState(() {
         _calendarActivities = activities;
       });
@@ -94,24 +100,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return false;
     }));
 
-    // Add activities
+    // Add activities (only on start date)
     events.addAll(_calendarActivities.where((activity) {
       final startDate = activity.startTime;
-      final endDate = activity.endTime;
 
-      // Check start time
+      // Check start time only
       if (startDate != null &&
           startDate.year == day.year &&
           startDate.month == day.month &&
           startDate.day == day.day) {
-        return true;
-      }
-
-      // Check end time
-      if (endDate != null &&
-          endDate.year == day.year &&
-          endDate.month == day.month &&
-          endDate.day == day.day) {
         return true;
       }
 
@@ -182,19 +179,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddActivityScreen()),
+      floatingActionButton: StreamBuilder<bool>(
+        stream: connectivityService.onOnlineStatusChanged,
+        builder: (context, snapshot) {
+          final isOnline = snapshot.data ?? connectivityService.currentOnlineStatus;
+          if (!isOnline) return const SizedBox();
+          return FloatingActionButton(
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddActivityScreen()),
+              );
+              if (result == true) {
+                // Reload activities if added
+                _loadCalendarActivities();
+              }
+            },
+            backgroundColor: const Color(0xFF87CEEB), // pastel blue
+            child: const Icon(Icons.add),
           );
-          if (result == true) {
-            // Reload activities if added
-            _loadCalendarActivities();
-          }
         },
-        backgroundColor: const Color(0xFF87CEEB), // pastel blue
-        child: const Icon(Icons.add),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     appBar: AppBar(
@@ -291,8 +295,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     }
                   } else if (event is Activity) {
                     // Activities are always calendar events
-                    if ((event.startTime != null && isSameDay(event.startTime!, date)) ||
-                        (event.endTime != null && isSameDay(event.endTime!, date))) {
+                    if (event.startTime != null && isSameDay(event.startTime!, date)) {
                       hasActivity = true;
                     }
                   }
@@ -876,6 +879,82 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             _buildDetailRow('Remarks', activity.remarks),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Delete Button
+                    Center(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.delete),
+                        label: const Text("Delete Activity"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final connectivityResult = await Connectivity().checkConnectivity();
+                          final isOnline = !connectivityResult.contains(ConnectivityResult.none);
+                          if (!isOnline) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Cannot delete activity offline'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Confirm Deletion'),
+                              content: Text('Are you sure you want to delete "${activity.title ?? 'this activity'}"?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red[700],
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true && activity.id != null) {
+                            try {
+                              await SupabaseService().deleteActivity(activity.id!);
+                              if (mounted) {
+                                Navigator.of(context).pop(); // Close modal
+                                _loadCalendarActivities(); // Reload activities
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Activity "${activity.title ?? 'Activity'}" deleted successfully'),
+                                    backgroundColor: Colors.green[700],
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('No internet, please try again later.'),
+                                    backgroundColor: Colors.red[700],
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
                       ),
                     ),
                   ],

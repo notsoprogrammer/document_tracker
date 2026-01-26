@@ -16,18 +16,27 @@ class CachedActivityService {
   Future<List<Activity>> fetchActivities() async {
     try {
       // Try to fetch from local cache first
-      final localActivities = await _localDb.fetchActivities();
+      var localActivities = await _localDb.fetchActivities();
 
       // If online, sync with remote and merge data
       if (await isOnline) {
         try {
           final remoteActivities = await _remoteDb.fetchActivities();
 
+          // Deduplicate local activities
+          final Map<int, Activity> localMap = {};
+          for (var act in localActivities) {
+            if (act.id != null) {
+              localMap[act.id!] = act;
+            }
+          }
+          localActivities = localMap.values.toList();
+
           // Create a map of remote activities by id for quick lookup
           final remoteMap = {for (var act in remoteActivities) act.id: act};
 
           // Merge activities: prefer remote data, but keep local-only activities
-          final mergedActivities = <Activity>[];
+          var mergedActivities = <Activity>[];
 
           // Add all remote activities
           mergedActivities.addAll(remoteActivities);
@@ -43,6 +52,15 @@ class CachedActivityService {
               }
             }
           }
+
+          // Deduplicate by id to prevent duplicates
+          final Map<int, Activity> uniqueMap = {};
+          for (var act in mergedActivities) {
+            if (act.id != null) {
+              uniqueMap[act.id!] = act;
+            }
+          }
+          mergedActivities = uniqueMap.values.toList();
 
           // Update local cache with merged data
           // Clear and re-add activities
