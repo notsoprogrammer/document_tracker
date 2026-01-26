@@ -159,6 +159,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return '$hour:$minute $amPm';
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final amPm = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$month/$day/$year $displayHour:$minute $amPm';
+  }
+
   Future<void> _selectMonthYear(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -869,9 +880,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                             if (activity.startTime != null)
-                              _buildDetailRow('Start Time', _formatTime(activity.startTime!.toLocal())),
+                              _buildDetailRow('Date and Time', _formatDateTime(activity.startTime!)),
                             if (activity.endTime != null)
-                              _buildDetailRow('End Time', _formatTime(activity.endTime!.toLocal())),
+                              _buildDetailRow('End Date and Time', _formatDateTime(activity.endTime!)),
                             _buildDetailRow('Added by', activity.person),
                             _buildDetailRow('People Involved', activity.peopleInvolved),
                             if (activity.location != null && activity.location!.isNotEmpty)
