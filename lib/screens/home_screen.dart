@@ -511,7 +511,7 @@ body: Container(
                             child: _buildFolderButton(
                               context,
                               Icons.folder,
-                              "Flag Ceremony",
+                              "Flag Ceremony Docs",
                               const Color(0xFF4EC377), // Soft green
                               () {
                                 Navigator.push(
