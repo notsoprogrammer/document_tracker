@@ -1,3 +1,5 @@
 - [x] Update search filter in _filterDocuments to include description and referenceLink
 - [x] Add display for description in ExpansionTile children
 - [x] Add display for referenceLink in ExpansionTile children, make it clickable
+- [x] Remove status from search and display
+- [x] Add creation time display instead of status

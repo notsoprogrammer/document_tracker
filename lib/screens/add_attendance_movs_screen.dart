@@ -9,6 +9,7 @@ import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
+import '../utils/date_time_utils.dart';
 class AddAttendanceMovScreen extends StatefulWidget {
   const AddAttendanceMovScreen({super.key});
 
@@ -461,7 +462,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           onTap: _isSaving ? null : () => _selectDate(context),
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: "Date",
+                              labelText: "Receiving Date",
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
@@ -726,6 +727,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
                         category: selectedType,
+                        createdAt: getPhilippineTime(),
                       );
 
                       setState(() => _isSaving = true);

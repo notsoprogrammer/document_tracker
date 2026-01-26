@@ -254,7 +254,6 @@ class _AttendanceMovsScreenState
             doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.status.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
             (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
 
@@ -463,7 +462,7 @@ class _AttendanceMovsScreenState
                                     ],
                                     _buildDetailRow(
                                       Icons.calendar_today,
-                                      "Date",
+                                      "Receiving Date",
                                       document.fromOrTo,
                                     ),
                                     const SizedBox(height: 8),
@@ -474,9 +473,9 @@ class _AttendanceMovsScreenState
                                     ),
                                     const SizedBox(height: 8),
                                     _buildDetailRow(
-                                      Icons.info,
-                                      "Status",
-                                      document.status,
+                                      Icons.access_time,
+                                      "Created At",
+                                      document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown',
                                     ),
                                     if (document.description != null && document.description!.isNotEmpty) ...[
                                       const SizedBox(height: 8),
