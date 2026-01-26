@@ -13,22 +13,15 @@ void main() async {
 
   await Firebase.initializeApp();
 
-  // Initialize connectivity service first
-  final connectivityService = ConnectivityService();
-  await connectivityService.initialize();
-
-  // Check if online
-  final isOnline = await connectivityService.isOnline;
-
-  // Initialize Supabase in background with timeout (non-blocking)
-  Supabase.initialize(
+  await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
-  ).timeout(const Duration(seconds: 10)).catchError((e) {
-    debugPrint('Supabase initialization failed or timed out - app will work offline: $e');
-  });
+  );
 
-  // Initialize auto-sync service (handles offline gracefully)
+  // Initialize connectivity service
+  await ConnectivityService().initialize();
+
+  // Initialize auto-sync service
   await AutoSyncService.initialize();
 
   // Initialize enhanced sync service for UI status updates
