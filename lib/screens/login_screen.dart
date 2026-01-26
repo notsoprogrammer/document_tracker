@@ -3,7 +3,9 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.offlineMessage});
+
+  final String? offlineMessage;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -96,6 +98,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (widget.offlineMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.offlineMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     if (_isPasswordStep) ...[
                       TextField(
