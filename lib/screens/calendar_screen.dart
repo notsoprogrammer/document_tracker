@@ -238,6 +238,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ),
       body: Column(
         children: [
+          StreamBuilder<bool>(
+            stream: connectivityService.onOnlineStatusChanged,
+            builder: (context, snapshot) {
+              final isOnline = snapshot.data ?? connectivityService.currentOnlineStatus;
+              if (isOnline) return const SizedBox();
+              return Container(
+                color: Colors.orange.shade100,
+                padding: const EdgeInsets.all(8),
+                child: const Text(
+                  'You are offline. Connect to internet to view and add activities.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.black87),
+                ),
+              );
+            },
+          ),
           TableCalendar<dynamic>(
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
@@ -910,14 +926,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           final connectivityResult = await Connectivity().checkConnectivity();
                           final isOnline = !connectivityResult.contains(ConnectivityResult.none);
                           if (!isOnline) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Cannot delete activity offline'),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            }
+                            Navigator.of(context).pop(); // Close modal
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Cannot delete activity offline'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
                             return;
                           }
                           final confirmed = await showDialog<bool>(
