@@ -712,7 +712,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         title: description,
                         description: description,
                         referenceLink: referenceLink.isNotEmpty ? referenceLink : null,
-                        type: 'Attendance & MOVs',
+                        type: selectedType!,
                         fromOrTo: dateStr,
                         mode: 'Attendance & MOVs',
                         assignedTo: person,

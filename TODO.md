@@ -1,10 +1,3 @@
-- [x] Import ConnectivityService in calendar_screen.dart
-- [x] Add ConnectivityService instance in _CalendarScreenState
-- [x] Initialize ConnectivityService in initState
-- [x] Replace FutureBuilder with StreamBuilder for FAB
-- [x] Fix connectivity check in delete activity logic
-- [ ] Refactor AddAttendanceMovScreen: replace dropdown with searchable Autocomplete, update document metadata, enforce validation
-- [ ] Update Document model: add description and referenceLink fields
-- [ ] Update GoogleDriveService: modify getFolderId for category-based mapping
-- [ ] Update supabase_setup.sql: add description and reference_link columns
-- [ ] Update SQLiteDatabaseService: add description and reference_link columns in version 17 upgrade
+- [x] Update search filter in _filterDocuments to include description and referenceLink
+- [x] Add display for description in ExpansionTile children
+- [x] Add display for referenceLink in ExpansionTile children, make it clickable

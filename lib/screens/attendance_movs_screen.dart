@@ -254,7 +254,9 @@ class _AttendanceMovsScreenState
             doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.status.toLowerCase().contains(_searchQuery.toLowerCase());
+            doc.status.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+            (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
 
         // Date filter
         bool matchesDate = true;
@@ -279,7 +281,7 @@ class _AttendanceMovsScreenState
     return ConnectivityBanner(
       child: Scaffold(
       appBar: AppBar(
-        title: const Text("Attendance & MOVs Documents"),
+        title: const Text("Office Function MOVs"),
         backgroundColor: const Color(0xFFDC7DED),
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         bottom: PreferredSize(
@@ -403,7 +405,7 @@ class _AttendanceMovsScreenState
                               ),
                             ),
                             title: Text(
-                              "${document.type}",
+                              "${document.category}",
                               style: const TextStyle(fontWeight: FontWeight.w400),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -476,6 +478,30 @@ class _AttendanceMovsScreenState
                                       "Status",
                                       document.status,
                                     ),
+                                    if (document.description != null && document.description!.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      _buildDetailRow(
+                                        Icons.description,
+                                        "Description",
+                                        document.description!,
+                                      ),
+                                    ],
+                                    if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final uri = Uri.parse(document.referenceLink!);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri);
+                                          }
+                                        },
+                                        child: _buildDetailRow(
+                                          Icons.link,
+                                          "Document Link",
+                                          document.referenceLink!,
+                                        ),
+                                      ),
+                                    ],
                                     if (document.remarks.isNotEmpty) ...[
                                       const SizedBox(height: 8),
                                       _buildDetailRow(
