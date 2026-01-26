@@ -40,6 +40,8 @@ class HistoryEntry {
 class Document {
   final String code;
   final String? title;
+  final String? description;
+  final String? referenceLink;
   final String type;
   final String fromOrTo;
   final String mode;
@@ -69,6 +71,8 @@ class Document {
   Document({
     required this.code,
     this.title,
+    this.description,
+    this.referenceLink,
     required this.type,
     required this.fromOrTo,
     required this.mode,
@@ -349,6 +353,8 @@ class Document {
     return Document(
       code: json['code'],
       title: json['title'],
+      description: json['description'],
+      referenceLink: json['reference_link'],
       type: json['type'],
       fromOrTo: json['from_or_to'],
       mode: json['mode'],
@@ -393,6 +399,8 @@ class Document {
     return {
       'code': code,
       'title': effectiveTitle,
+      'description': description,
+      'reference_link': referenceLink,
       'type': type,
       'from_or_to': fromOrTo,
       'mode': mode,
@@ -423,6 +431,8 @@ class Document {
   Document copyWith({
     String? code,
     String? title,
+    String? description,
+    String? referenceLink,
     String? type,
     String? fromOrTo,
     String? mode,
@@ -452,6 +462,8 @@ class Document {
     return Document(
       code: code ?? this.code,
       title: title ?? this.title,
+      description: description ?? this.description,
+      referenceLink: referenceLink ?? this.referenceLink,
       type: type ?? this.type,
       fromOrTo: fromOrTo ?? this.fromOrTo,
       mode: mode ?? this.mode,

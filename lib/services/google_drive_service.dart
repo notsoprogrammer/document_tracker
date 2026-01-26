@@ -33,16 +33,49 @@ class GoogleDriveService {
   static const String _movsFolderId = '1q92hYeqzrZhgoXhu0e8-3BuzFYMdVFPr';
   static const String _certificatesFolderId = '1pEBNcA3CjBeoABvbcAGxTa41Jaml76tn';
 
- static String getFolderId(String type) {
-    switch (type) {
-      case 'Attendance':
-        return _attendanceFolderId;
-      case 'MOVs':
-        return _movsFolderId;
-      case 'Certificates':
-        return _certificatesFolderId;
-      default:
-        throw Exception('Unknown type: $type');
+ static String getFolderId(String category) {
+    // Determine folder based on the selected type (category)
+    if ([
+      'Sectoral Plans',
+      'Ecological Profile',
+      'Research/Studies/Trainings',
+      'CLUP Zoning Reclassification',
+      'CSOs',
+      'CDC – Resolution',
+      'CDC – Minutes',
+      'CDC – Attendance',
+      'AIP',
+      'Barangay – AIP',
+      'Barangay– GAD',
+      'Zoning/Loc. Clearance',
+      'Zoning/Loc. Certification',
+    ].contains(category)) {
+      return _certificatesFolderId; // Core -> certificates
+    } else if ([
+      'PR/PPMP',
+      'Liquidation/ Reimbursement',
+      'PFMAT',
+    ].contains(category)) {
+      return _attendanceFolderId; // Strategic -> attendance
+    } else if ([
+      'DTR',
+      'Monthly Accomplishment Report',
+      'Quarterly Accomplishment Report',
+      'OPCR',
+      'Certificate/Attendance',
+      'Dept. Heads Meeting',
+      'Clean-up Drives',
+      'Tree Planting',
+      'Earthquake Drills',
+      'Monthly Staff Meeting',
+      'Man. Com',
+      'Cash Advance',
+      'L&D/IDP/DNA',
+      'Budget',
+    ].contains(category)) {
+      return _movsFolderId; // Support -> movs
+    } else {
+      throw Exception('Unknown category: $category');
     }
   }
 

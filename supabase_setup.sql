@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS documents (
     category TEXT,
     calendar_deadline TIMESTAMP WITH TIME ZONE,
     calendar_added BOOLEAN DEFAULT FALSE,
-    attachments JSON
+    attachments JSON,
+    description TEXT,
+    reference_link TEXT
 );
 
 -- Create deleted_records table

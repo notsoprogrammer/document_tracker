@@ -3,3 +3,8 @@
 - [x] Initialize ConnectivityService in initState
 - [x] Replace FutureBuilder with StreamBuilder for FAB
 - [x] Fix connectivity check in delete activity logic
+- [ ] Refactor AddAttendanceMovScreen: replace dropdown with searchable Autocomplete, update document metadata, enforce validation
+- [ ] Update Document model: add description and referenceLink fields
+- [ ] Update GoogleDriveService: modify getFolderId for category-based mapping
+- [ ] Update supabase_setup.sql: add description and reference_link columns
+- [ ] Update SQLiteDatabaseService: add description and reference_link columns in version 17 upgrade

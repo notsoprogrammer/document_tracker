@@ -22,7 +22,8 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   final codeController = TextEditingController();
   String? selectedType;
   DateTime? selectedDate;
-  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
 
@@ -52,11 +53,46 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
-  final List<String> types = [
-    'Attendance',
-    'MOVs',
-    'Certificates',
+  final List<String> coreFunctions = [
+    'Sectoral Plans',
+    'Ecological Profile',
+    'Research/Studies/Trainings',
+    'CLUP Zoning Reclassification',
+    'CSOs',
+    'CDC – Resolution',
+    'CDC – Minutes',
+    'CDC – Attendance',
+    'AIP',
+    'Barangay – AIP',
+    'Barangay– GAD',
+    'Zoning/Loc. Clearance',
+    'Zoning/Loc. Certification',
   ];
+
+  final List<String> strategicFunctions = [
+    'PR/PPMP',
+    'Liquidation/ Reimbursement',
+    'PFMAT',
+  ];
+
+  final List<String> supportFunctions = [
+    'DTR',
+    'Monthly Accomplishment Report',
+    'Quarterly Accomplishment Report',
+    'OPCR',
+    'Certificate/Attendance',
+    'Dept. Heads Meeting',
+    'Clean-up Drives',
+    'Tree Planting',
+    'Earthquake Drills',
+    'Monthly Staff Meeting',
+    'Man. Com',
+    'Cash Advance',
+    'L&D/IDP/DNA',
+    'Budget',
+  ];
+
+  List<String> get allOptions => [...coreFunctions, ...strategicFunctions, ...supportFunctions];
 
   final List<String> cpdcoStaff = [
     'Sir Arnie',
@@ -169,13 +205,15 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     final second = phTime.second.toString().padLeft(2, '0');
 
     String prefix;
-    switch (selectedType) {
-      case 'Attendance': prefix = 'AT'; break;
-      case 'MOVs': prefix = 'MV'; break;
-      case 'Certificates': prefix = 'CE'; break;
-      default: prefix = 'DOC';
+    if (coreFunctions.contains(selectedType)) {
+      prefix = 'CF';
+    } else if (strategicFunctions.contains(selectedType)) {
+      prefix = 'StF';
+    } else if (supportFunctions.contains(selectedType)) {
+      prefix = 'SuF';
+    } else {
+      prefix = 'DOC';
     }
-  
 
     return '$prefix-$month-$day-$year-$hour$minute$second';
   }
@@ -376,30 +414,48 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         ),
 
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: selectedType,
-                          decoration: InputDecoration(
-                            labelText: "Type",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && selectedType == null ? "Type is required" : null,
-                          ),
-                          items: types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                          onChanged: _isSaving ? null : _onTypeChanged,
+                        Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return allOptions;
+                            }
+                            return allOptions.where((option) =>
+                              option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                          },
+                          onSelected: (String selection) {
+                            setState(() {
+                              selectedType = selection;
+                              codeController.text = _generateCode();
+                            });
+                          },
+                          fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                            return TextField(
+                              controller: textEditingController,
+                              focusNode: focusNode,
+                              enabled: !_isSaving,
+                              decoration: InputDecoration(
+                                labelText: "Type",
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                errorText: _showValidationErrors && selectedType == null ? "Type is required" : null,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         TextField(
-                          controller: titleController,
+                          controller: descriptionController,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
-                            labelText: "Activity",
+                            labelText: "Description",
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Activity is required" : null,
                           ),
+                          maxLines: 3,
                         ),
+                        const SizedBox(height: 12),
                         const SizedBox(height: 12),
                         InkWell(
                           onTap: _isSaving ? null : () => _selectDate(context),
@@ -415,7 +471,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             child: Text(
                               selectedDate != null
                                   ? "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}"
-                                  : "Select date",
+                                  : "Receiving date",
                               style: TextStyle(
                                 color: selectedDate != null
                                     ? Theme.of(context).colorScheme.onSurface
@@ -557,6 +613,17 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: referenceLinkController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Drive Link (optional)",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                        ),
                         if (_selectedImagePaths.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           GestureDetector(
@@ -632,16 +699,19 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                       _showValidationErrors = true;
                     });
 
-                    if (selectedType != null && selectedDate != null && personController.text.trim().isNotEmpty && titleController.text.trim().isNotEmpty) {
+                    if (selectedType != null && allOptions.contains(selectedType) && selectedDate != null && personController.text.trim().isNotEmpty) {
                       final String code = codeController.text;
-                      final String type = titleController.text.trim();
+                      final String description = descriptionController.text.trim();
+                      final String referenceLink = referenceLinkController.text.trim();
                       final String dateStr = "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}";
                       final String remarks = remarksController.text;
                       final String person = personController.text;
 
                       final doc = Document(
                         code: code,
-                        title: type,
+                        title: description,
+                        description: description,
+                        referenceLink: referenceLink.isNotEmpty ? referenceLink : null,
                         type: 'Attendance & MOVs',
                         fromOrTo: dateStr,
                         mode: 'Attendance & MOVs',
