@@ -9,6 +9,7 @@ import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
+import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
   final bool incoming;
@@ -37,6 +38,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String? selectedFilePath;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  
 
   // File handling
   List<String> _selectedImagePaths = [];
@@ -418,7 +420,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         // Document Code + Receiving Date
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.confirmation_number, color: Colors.blue),
                           title: Text(
                             codeController.text,
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -431,7 +432,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               final date = await showDatePicker(
                                 context: context,
                                 initialDate: selectedReceivingDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
+                                firstDate: DateTime(2025),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {
@@ -442,17 +443,17 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 if (time != null) {
                                   setState(() {
                                     selectedReceivingDate = DateTime(
-                                      date.year, date.month, date.day,
+                                      date.year, date.month,date.day,
                                       time.hour, time.minute,
                                     );
                                   });
                                 }
                               }
                             },
-                            icon: const Icon(Icons.calendar_today),
+                            
                             label: Text(
                               selectedReceivingDate != null
-                                  ? "Receiving: ${selectedReceivingDate!.toLocal().toString().split(' ')[0]}"
+                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
                                   : "Set Receiving Date",
                             ),
                             style: ElevatedButton.styleFrom(
@@ -462,9 +463,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               foregroundColor: Theme.of(context).colorScheme.onSecondary,
                             ),
                           ),
-                        ),
 
-                        const Divider(height: 24),
+                          ),
+
+                        const Divider(height: 14),
 
                         // Title
                         TextField(
@@ -966,7 +968,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
                       final String fromOrTo = fromToController.text ?? '';
-                      final String assignedTo = assignedToController.text ?? '';
+                      final String assignedTo = assignedToController.text.trim().isNotEmpty ? assignedToController.text.trim() : 'N/A';
                       final String remarks = remarksController.text ?? '';
                       final String person = personController.text ?? '';
 
