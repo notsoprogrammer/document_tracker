@@ -1278,30 +1278,35 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     color: const Color(0xFFFFB74D),
                                   ),
                                   const SizedBox(width: 4),
-                                  Text("${doc.code}  "),
                                   if (_expandedTiles.contains(index))
-                                    IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      onPressed: () {
-                                        Clipboard.setData(ClipboardData(text: doc.code));
-                                        SnackbarUtils.showInfoSnackBar(
-                                          context,
-                                          'Code copied to clipboard',
-                                        );
-                                      },
-                                      tooltip: 'Copy Code',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: doc.code));
+                                      SnackbarUtils.showInfoSnackBar(
+                                        context,
+                                        'Code copied to clipboard',
+                                      );
+                                    },
+                                    child: Text(
+                                      doc.code,
+                                      style: const TextStyle(
+                                        color: Colors.blue, // visually indicate it's clickable
+                                        decoration: TextDecoration.underline, // optional
+                                      ),
                                     ),
+                                  )
+                                  else
+                                  Text(
+                                    doc.code,
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
                               _buildUploadStatusIndicator(doc),
                             ],
                           ),
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: Theme.of(
                                   context,
@@ -1322,7 +1327,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
-                                            vertical: 4,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
@@ -1362,7 +1366,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                       
                                   if (_titleExceedsMaxLines("${doc.type} - ${doc.title}", context)) ...[
                                     _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
-                                    const SizedBox(height: 8),
                                   ],
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "From", doc.fromOrTo),
