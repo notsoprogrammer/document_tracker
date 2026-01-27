@@ -10,6 +10,7 @@ import '../utils/date_time_utils.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
+import 'circulated_documents_screen.dart';
 import 'add_flag_ceremony_screen.dart';
 import 'flag_ceremony_documents_screen.dart';
 import 'attendance_movs_screen.dart';

@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -61,7 +61,8 @@ class SQLiteDatabaseService {
         category TEXT,
         calendar_deadline TEXT,
         calendar_added INTEGER DEFAULT 0,
-        attachments TEXT
+        attachments TEXT,
+        flow_stage TEXT
       )
     ''');
 
@@ -318,6 +319,14 @@ class SQLiteDatabaseService {
       }
       try {
         await db.execute('ALTER TABLE documents ADD COLUMN reference_link TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
+        if (oldVersion < 17) {
+      // Add description and reference_link columns to documents table
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN flow_stage TEXT');
       } catch (e) {
         // Column might already exist
       }

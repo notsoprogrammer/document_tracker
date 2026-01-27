@@ -10,6 +10,7 @@ import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
+import '../utils/date_time_utils.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -60,7 +61,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
         _updateFilteredDocuments();
       });
     });
-    _filteredDocuments = widget.documents.where((doc) => doc.incoming).toList();
+    _filteredDocuments = widget.documents.where((doc) => doc.flowStage == 'incoming').toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
       final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
@@ -107,7 +108,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => doc.incoming).toList(),
+        widget.documents.where((doc) => doc.flowStage == 'incoming').toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -1508,6 +1509,37 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     runSpacing: 8,
                                     alignment: WrapAlignment.center,
                                     children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.forward),
+                                        label: const Text("Forward Document"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF4CAF50),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          if (_username != null && _username!.isNotEmpty) {
+                                            // Forward the document
+                                            widget.documents[originalIndex].forwardDocument(_username!);
+                                            // Update the document in the service
+                                            final documentService = CachedDocumentService();
+                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                            // Add history entry
+                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
+                                              action: 'Document forwarded',
+                                              person: _username!,
+                                              timestamp: getPhilippineTime(),
+                                            ));
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
                                       ElevatedButton.icon(
                                         icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),

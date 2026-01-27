@@ -1,11 +1,21 @@
-# TODO: Add Option to Add Time Instead of Automatically Date and Time in Add Calendar Screen
+# Unified Document Workflow Implementation
 
 ## Tasks
-- [ ] Add boolean state variable `isAllDay` in _AddActivityScreenState
-- [ ] Add Checkbox widget for "All Day" in the Start Date and Time section
-- [ ] Modify the InkWell onTap for start date/time: if isAllDay, only show date picker; else show date and time pickers
-- [ ] Update the InputDecorator child text to show only date if isAllDay, else date and time
-- [ ] Apply similar logic to end date/time if needed (but since optional, perhaps keep as is or add checkbox there too)
-- [ ] Update validation: require date always, time only if not allDay
-- [ ] In save logic, when creating DateTime, if isAllDay, set hour and minute to 0
-- [ ] Test the changes to ensure UI toggles correctly and saves properly
+- [x] Update document filtering logic to use `flowStage` instead of `incoming` boolean
+- [x] Add "Forward Document" button in IncomingDocumentsScreen to transition documents
+- [x] Create CirculatedDocumentsScreen for documents with 'circulated' flowStage
+- [x] Update home screen to include Circulated Documents button
+- [x] Ensure proper badge/tag display for documents that originated as incoming but are now outgoing
+- [x] Verify audit trail logging works correctly
+
+## Files to Edit
+- lib/screens/incoming_documents_screen.dart (add forward button, update filtering)
+- lib/screens/outgoing_documents_screen.dart (update filtering, add badge for originated incoming)
+- lib/screens/home_screen.dart (add circulated button)
+- lib/screens/circulated_documents_screen.dart (new file)
+- lib/models/document.dart (ensure forwardDocument method is correct)
+
+## Followup Steps
+- [ ] Test document transitions and UI flow
+- [ ] Verify history logging
+- [ ] Ensure no duplicate records

@@ -114,7 +114,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       });
     });
     _filteredDocuments = widget.documents
-        .where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs')
+        .where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs')
         .toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -169,7 +169,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => !doc.incoming && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
+        widget.documents.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -1006,6 +1006,25 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (doc.flowStage != 'incoming' && doc.incoming) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFB74D).withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
+                                  ),
+                                  child: const Text(
+                                    'From Incoming',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFFFFB74D),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (doc.needsSync) ...[
                                 const SizedBox(width: 8),
                                 Icon(

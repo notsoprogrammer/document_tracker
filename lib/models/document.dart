@@ -67,6 +67,7 @@ class Document {
   final bool calendarAdded; // Whether added to calendar
   final List<String> attachments; // Combined image and file URLs for calendar
   final String? fileName; // Original file name for display
+  String flowStage; // 'incoming', 'outgoing', 'circulated'
 
   Document({
     required this.code,
@@ -98,7 +99,15 @@ class Document {
     this.calendarAdded = false,
     List<String>? attachments,
     this.fileName,
-  }) : history = history ?? [], imageUrls = imageUrls ?? [], fileUrls = fileUrls ?? [], fileNames = fileNames ?? [], localImagePaths = localImagePaths ?? [], localFilePaths = localFilePaths ?? [], attachments = attachments ?? [] {
+   String? flowStage,
+  }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
+       history = history ?? [],
+       imageUrls = imageUrls ?? [],
+       fileUrls = fileUrls ?? [],
+       fileNames = fileNames ?? [],
+       localImagePaths = localImagePaths ?? [],
+       localFilePaths = localFilePaths ?? [],
+       attachments = attachments ?? [] {
     if (this.history.isEmpty) {
       if (incoming) {
         this.history.add(HistoryEntry(
@@ -137,6 +146,16 @@ class Document {
   void updateStatus(String newStatus, String updatedBy, {String? notes}) {
     addHistoryEntry('Status changed to $newStatus', updatedBy, notes: notes);
     status = newStatus;
+  }
+
+  void forwardDocument(String forwardedBy, {String? notes}) {
+    // Update flowStage based on current state
+    if (flowStage == 'incoming') {
+      flowStage = 'outgoing';
+    } else if (flowStage == 'outgoing') {
+      flowStage = 'circulated';
+    }
+    addHistoryEntry('Document forwarded', forwardedBy, notes: notes);
   }
 
   factory Document.fromJson(Map<String, dynamic> json) {
@@ -380,6 +399,7 @@ class Document {
       calendarAdded: json['calendar_added'] == 1 || json['calendar_added'] == true,
       attachments: attachments,
       fileName: json['file_name'],
+      flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
     );
   }
 
@@ -425,6 +445,7 @@ class Document {
       'calendar_added': calendarAdded,
       'attachments': attachments,
       'file_name': fileName,
+      'flow_stage': flowStage,
     };
   }
 
@@ -458,6 +479,7 @@ class Document {
     bool? calendarAdded,
     List<String>? attachments,
     String? fileName,
+    String? flowStage,
   }) {
     return Document(
       code: code ?? this.code,
@@ -489,6 +511,7 @@ class Document {
       calendarAdded: calendarAdded ?? this.calendarAdded,
       attachments: attachments ?? this.attachments,
       fileName: fileName ?? this.fileName,
+      flowStage: flowStage ?? this.flowStage,
     );
   }
 }
