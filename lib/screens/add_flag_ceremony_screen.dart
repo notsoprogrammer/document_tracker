@@ -129,23 +129,16 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Exit'),
-        content: const Text('Do you want to continue adding or cancel?'),
+        content: const Text('Do you want to exit?'),
         actions: [
           TextButton(
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
             onPressed: () => Navigator.of(context).pop(false), // Continue Adding
-            child: const Text('Continue Adding'),
+            child: const Text('No'),
           ),
           TextButton(
-            style: TextButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+
             onPressed: () => Navigator.of(context).pop(true), // Cancel
-            child: const Text('Cancel'),
+            child: const Text('Yes'),
           ),
         ],
       ),
