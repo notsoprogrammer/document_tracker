@@ -1006,25 +1006,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (doc.flowStage != 'incoming' && doc.incoming) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFB74D).withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
-                                  ),
-                                  child: const Text(
-                                    'From Incoming',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFFFFB74D),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
                               if (doc.needsSync) ...[
                                 const SizedBox(width: 8),
                                 Icon(
@@ -1035,38 +1016,67 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                               ],
                             ],
                           ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.output,
-                              size: 16,
-                              color: const Color(0xFF2196F3),
-                            ),
-                            const SizedBox(width: 4),
-                            Text("${doc.code}  "),
-                            if (_expandedTiles.contains(index))
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 16),
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: doc.code));
-                                  SnackbarUtils.showInfoSnackBar(
-                                    context,
-                                    'Code copied to clipboard',
-                                  );
-                                },
-                                tooltip: 'Copy Code',
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.output,
+                                    size: 16,
+                                    color: const Color(0xFF2196F3),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  if (_expandedTiles.contains(index))
+                                  GestureDetector(
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: doc.code));
+                                      SnackbarUtils.showInfoSnackBar(
+                                        context,
+                                        'Code copied to clipboard',
+                                      );
+                                    },
+                                    child: Text(
+                                      doc.code,
+                                      style: const TextStyle(
+                                        color: Colors.blue, // visually indicate it's clickable
+                                        decoration: TextDecoration.underline, // optional
+                                      ),
+                                    ),
+                                  )
+                                  else
+                                  Text(
+                                    doc.code,
+                                  ),
+                                  if (doc.flowStage != 'incoming' && doc.incoming) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFB74D).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
+                                      ),
+                                      child: const Text(
+                                        'From Incoming',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFFFFB74D),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (doc.needsSync) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.sync, size: 16, color: Colors.orange),
+                                  ],
+                                ],
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        _buildUploadStatusIndicator(doc),
-                      ],
-                    ),
+                              const SizedBox(height: 4),
+                              _buildUploadStatusIndicator(doc),
+                            ],
+                          ),
                           children: [
                             Container(
                               padding: const EdgeInsets.all(16),

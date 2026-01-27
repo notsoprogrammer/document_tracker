@@ -9,8 +9,7 @@ class DocTrackerApp extends StatelessWidget {
     return Builder(
       builder: (context) {
         final mediaQuery = MediaQuery.of(context);
-        // Clamp textScaler between 0.8 and 1.4 for controlled accessibility scaling
-        final clampedScaler = mediaQuery.textScaler.clamp(minScaleFactor: 0.6, maxScaleFactor: 1.0);
+        final clampedScaler = mediaQuery.textScaler.clamp(minScaleFactor: 0.6, maxScaleFactor: 0.9);
         return MediaQuery(
           data: mediaQuery.copyWith(textScaler: clampedScaler),
           child: MaterialApp(

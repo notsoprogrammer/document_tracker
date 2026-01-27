@@ -11,6 +11,7 @@ import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
+import 'outgoing_documents_screen.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1313,10 +1314,57 @@ Widget _buildUploadStatusIndicator(Document doc) {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.forward),
+                                        label: const Text("Move to Outgoing"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF4CAF50),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          if (_username != null && _username!.isNotEmpty) {
+                                            // Forward the document
+                                            widget.documents[originalIndex].forwardDocument(_username!);
+                                            // Update the document in the service
+                                            final documentService = CachedDocumentService();
+                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                            // Add history entry
+                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
+                                              action: 'Document forwarded',
+                                              person: _username!,
+                                              timestamp: getPhilippineTime(),
+                                            ));
+                                            setState(() {});
+                                            // Navigate to Outgoing Documents Screen
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => OutgoingDocumentsScreen(
+                                                  documents: widget.documents,
+                                                  transferDocument: widget.transferDocument,
+                                                  updateDocumentStatus: widget.updateDocumentStatus,
+                                                  deleteDocument: widget.deleteDocument,
+                                                  syncDocument: widget.syncDocument,
+                                                  onRefresh: widget.onRefresh,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      
                                   if (_titleExceedsMaxLines("${doc.type} - ${doc.title}", context)) ...[
                                     _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
                                     const SizedBox(height: 8),
                                   ],
+                                  const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "From", doc.fromOrTo),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.send, "Mode", doc.mode),
@@ -1509,37 +1557,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     runSpacing: 8,
                                     alignment: WrapAlignment.center,
                                     children: [
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.forward),
-                                        label: const Text("Forward Document"),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF4CAF50),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          if (_username != null && _username!.isNotEmpty) {
-                                            // Forward the document
-                                            widget.documents[originalIndex].forwardDocument(_username!);
-                                            // Update the document in the service
-                                            final documentService = CachedDocumentService();
-                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                            // Add history entry
-                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
-                                              action: 'Document forwarded',
-                                              person: _username!,
-                                              timestamp: getPhilippineTime(),
-                                            ));
-                                            setState(() {});
-                                          }
-                                        },
-                                      ),
                                       ElevatedButton.icon(
                                         icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),
