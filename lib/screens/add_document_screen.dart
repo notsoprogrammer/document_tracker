@@ -25,6 +25,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final codeController = TextEditingController();
   final titleController = TextEditingController();
   String? selectedType;
+  final customTypeController = TextEditingController();
   final fromToController = TextEditingController();
   String? selectedFrom;
   bool isCustomFrom = false;
@@ -478,6 +479,20 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             ],
                           ],
                         ),
+                        if (selectedType == 'Others') ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: customTypeController,
+                            enabled: !_isSaving,
+                            decoration: InputDecoration(
+                              labelText: "Specify Document Type",
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                              errorText: _showValidationErrors && customTypeController.text.trim().isEmpty ? "Custom document type is required" : null,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -898,6 +913,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                     if (titleController.text.trim().isNotEmpty &&
                         selectedType != null &&
+                        (selectedType != 'Others' || customTypeController.text.trim().isNotEmpty) &&
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
                         fromToController.text.trim().isNotEmpty &&
@@ -913,7 +929,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       final doc = Document(
                         code: code,
                         title: title,
-                        type: selectedType!,
+                        type: selectedType == 'Others' ? customTypeController.text.trim() : selectedType!,
                         fromOrTo: fromOrTo,
                         mode: selectedMode!,
                         assignedTo: assignedTo,
