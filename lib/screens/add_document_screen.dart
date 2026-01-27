@@ -32,8 +32,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   String? selectedMode;
   final assignedToController = TextEditingController();
   String? selectedStatus;
-  DateTime? selectedDeadline;
   DateTime? selectedCalendarDate;
+  DateTime? selectedReceivingDate;
   String? selectedFilePath;
   final remarksController = TextEditingController();
   final personController = TextEditingController();
@@ -430,7 +430,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             onPressed: _isSaving ? null : () async {
                               final date = await showDatePicker(
                                 context: context,
-                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                initialDate: selectedReceivingDate ?? DateTime.now(),
                                 firstDate: DateTime.now(),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
@@ -441,7 +441,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 );
                                 if (time != null) {
                                   setState(() {
-                                    selectedCalendarDate = DateTime(
+                                    selectedReceivingDate = DateTime(
                                       date.year, date.month, date.day,
                                       time.hour, time.minute,
                                     );
@@ -451,12 +451,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             },
                             icon: const Icon(Icons.calendar_today),
                             label: Text(
-                              selectedCalendarDate != null
-                                  ? "Receiving: ${selectedCalendarDate!.toLocal().toString().split(' ')[0]}"
+                              selectedReceivingDate != null
+                                  ? "Receiving: ${selectedReceivingDate!.toLocal().toString().split(' ')[0]}"
                                   : "Set Receiving Date",
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: selectedCalendarDate != null
+                              backgroundColor: selectedReceivingDate != null
                                   ? Colors.green
                                   : Theme.of(context).colorScheme.secondary,
                               foregroundColor: Theme.of(context).colorScheme.onSecondary,
@@ -508,26 +508,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     : (value) => setState(() => selectedType = value),
                               ),
                             ),
-                            if (widget.incoming) ...[
-                              const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                onPressed: _isSaving ? null : () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    initialDate: selectedCalendarDate ?? DateTime.now(),
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                                  );
-                                  if (date != null) {
-                                    setState(() {
-                                      selectedCalendarDate = date;
-                                    });
-                                  }
-                                },
-                                icon: const Icon(Icons.event),
-                                label: const Text("Add to Calendar"),
-                              ),
-                            ],
                           ],
                         ),
 
@@ -548,6 +528,60 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5EFE6), // soft background
+                            border: Border.all(
+                              color: const Color(0xFF6D94C5), // pastel blue border
+                              width: 1.2,
+                            ),
+                            borderRadius: BorderRadius.circular(8), // subtle, not too round
+                          ),
+                          child: InkWell(
+                            onTap: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
+                              );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedCalendarDate = DateTime(
+                                      date.year,
+                                      date.month,
+                                      date.day,
+                                      time.hour,
+                                      time.minute,
+                                    );
+                                  });
+                                }
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event, color: Color(0xFF6D94C5)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  selectedCalendarDate != null
+                                      ? "Set to Calendar: ${selectedCalendarDate!.toLocal().toString().substring(0,16)}"
+                                      : "Set to Calendar",
+                                  style: TextStyle(
+                                    color: const Color(0xFF6D94C5),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                       ],
                     ),
                   ),
@@ -758,58 +792,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           onChanged: _isSaving ? null : (value) {
                             setState(() {
                               selectedStatus = value;
-                              if (value != 'For Compliance') {
-                                selectedDeadline = null; // Clear deadline if not For Compliance
-                              }
                             });
                           },
                         ),
-                        if (selectedStatus == 'For Compliance') ...[
-                          const SizedBox(height: 12),
-                          InkWell(
-                            onTap: _isSaving ? null : () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: selectedDeadline ?? DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 365)),
-                              );
-                              if (date != null) {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedDeadline != null ? TimeOfDay.fromDateTime(selectedDeadline!) : const TimeOfDay(hour: 9, minute: 0),
-                                );
-                                if (time != null) {
-                                  setState(() {
-                                    selectedDeadline = DateTime(
-                                      date.year,
-                                      date.month,
-                                      date.day,
-                                      time.hour,
-                                      time.minute,
-                                    );
-                                  });
-                                }
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: "Compliance Deadline",
-                                hintText: "Select date and time",
-                                border: OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Theme.of(context).colorScheme.surface,
-                                suffixIcon: const Icon(Icons.calendar_today),
-                                errorText: _showValidationErrors && selectedDeadline == null ? "Deadline is required for For Compliance" : null,
-                              ),
-                              child: Text(
-                                selectedDeadline != null
-                                    ? "${selectedDeadline!.month}/${selectedDeadline!.day}/${selectedDeadline!.year} ${selectedDeadline!.hour.toString().padLeft(2, '0')}:${selectedDeadline!.minute.toString().padLeft(2, '0')}"
-                                    : '',
-                              ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -976,8 +961,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         (selectedType != 'Others' || customTypeController.text.trim().isNotEmpty) &&
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
-                        fromToController.text.trim().isNotEmpty &&
-                        (selectedStatus != 'For Compliance' || selectedDeadline != null)) {
+                        fromToController.text.trim().isNotEmpty){
 
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
@@ -1003,11 +987,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         fileNames: [],
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
-                        complianceDeadline: selectedDeadline,
                         calendarDeadline: selectedCalendarDate,
                         calendarAdded: selectedCalendarDate != null,
                         attachments: [..._selectedImagePaths, ..._selectedDocumentPaths],
-                        receivingDate: selectedCalendarDate,
+                        receivingDate: selectedReceivingDate,
                       );
 
                       setState(() => _isSaving = true);
