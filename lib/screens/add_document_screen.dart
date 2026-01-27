@@ -413,18 +413,60 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: codeController,
-                          decoration: InputDecoration(
-                            labelText: "Document Code",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                          ),
-                          readOnly: true,
-                        ),
                         const SizedBox(height: 12),
+
+                        // Document Code + Receiving Date
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.confirmation_number, color: Colors.blue),
+                          title: Text(
+                            codeController.text,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          trailing: ElevatedButton.icon(
+                            onPressed: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedCalendarDate = DateTime(
+                                      date.year, date.month, date.day,
+                                      time.hour, time.minute,
+                                    );
+                                  });
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text(
+                              selectedCalendarDate != null
+                                  ? "Receiving: ${selectedCalendarDate!.toLocal().toString().split(' ')[0]}"
+                                  : "Set Receiving Date",
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: selectedCalendarDate != null
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.secondary,
+                              foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                            ),
+                          ),
+                        ),
+
+                        const Divider(height: 24),
+
+                        // Title
                         TextField(
                           controller: titleController,
                           enabled: !_isSaving,
@@ -433,10 +475,16 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && titleController.text.trim().isEmpty ? "Document title is required" : null,
+                            errorText: _showValidationErrors &&
+                                    titleController.text.trim().isEmpty
+                                ? "Document title is required"
+                                : null,
                           ),
                         ),
-                        const SizedBox(height: 12),
+
+                        const SizedBox(height: 16),
+
+                        // Document Type + Add to Calendar
                         Row(
                           children: [
                             Expanded(
@@ -447,15 +495,22 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   border: OutlineInputBorder(),
                                   filled: true,
                                   fillColor: Theme.of(context).colorScheme.surface,
-                                  errorText: _showValidationErrors && selectedType == null ? "Document type is required" : null,
+                                  errorText: _showValidationErrors && selectedType == null
+                                      ? "Document type is required"
+                                      : null,
                                 ),
-                                items: documentTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                                onChanged: _isSaving ? null : (value) => setState(() => selectedType = value),
+                                items: documentTypes
+                                    .map((type) =>
+                                        DropdownMenuItem(value: type, child: Text(type)))
+                                    .toList(),
+                                onChanged: _isSaving
+                                    ? null
+                                    : (value) => setState(() => selectedType = value),
                               ),
                             ),
                             if (widget.incoming) ...[
                               const SizedBox(width: 8),
-                              ElevatedButton.icon(
+                              OutlinedButton.icon(
                                 onPressed: _isSaving ? null : () async {
                                   final date = await showDatePicker(
                                     context: context,
@@ -469,18 +524,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     });
                                   }
                                 },
-                                icon: const Icon(Icons.calendar_today),
+                                icon: const Icon(Icons.event),
                                 label: const Text("Add to Calendar"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: selectedCalendarDate != null ? Colors.green : Theme.of(context).colorScheme.secondary,
-                                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                                ),
                               ),
                             ],
                           ],
                         ),
+
                         if (selectedType == 'Others') ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           TextField(
                             controller: customTypeController,
                             enabled: !_isSaving,
@@ -489,7 +541,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
-                              errorText: _showValidationErrors && customTypeController.text.trim().isEmpty ? "Custom document type is required" : null,
+                              errorText: _showValidationErrors &&
+                                      customTypeController.text.trim().isEmpty
+                                  ? "Custom document type is required"
+                                  : null,
                             ),
                           ),
                         ],
@@ -538,6 +593,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   border: OutlineInputBorder(),
                                   filled: true,
                                   fillColor: Theme.of(context).colorScheme.surface,
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey.shade500,   // softer hint text
+                                      fontStyle: FontStyle.italic,   // optional subtlety
+                                    ),
+
                                   errorText: _showValidationErrors && fromToController.text.trim().isEmpty ? "This field is required" : null,
                                 ),
                                 onChanged: (value) {
@@ -947,6 +1007,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         calendarDeadline: selectedCalendarDate,
                         calendarAdded: selectedCalendarDate != null,
                         attachments: [..._selectedImagePaths, ..._selectedDocumentPaths],
+                        receivingDate: selectedCalendarDate,
                       );
 
                       setState(() => _isSaving = true);

@@ -67,6 +67,7 @@ class Document {
   final bool calendarAdded; // Whether added to calendar
   final List<String> attachments; // Combined image and file URLs for calendar
   final String? fileName; // Original file name for display
+  final DateTime? receivingDate; // Date and time when document was received
   String flowStage; // 'incoming', 'outgoing', 'circulated'
 
   Document({
@@ -99,6 +100,7 @@ class Document {
     this.calendarAdded = false,
     List<String>? attachments,
     this.fileName,
+    this.receivingDate,
    String? flowStage,
   }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
@@ -399,6 +401,7 @@ class Document {
       calendarAdded: json['calendar_added'] == 1 || json['calendar_added'] == true,
       attachments: attachments,
       fileName: json['file_name'],
+      receivingDate: json['receiving_date'] != null ? DateTime.parse(json['receiving_date']) : null,
       flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
     );
   }
@@ -445,6 +448,7 @@ class Document {
       'calendar_added': calendarAdded,
       'attachments': attachments,
       'file_name': fileName,
+      'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,
     };
   }
@@ -479,6 +483,7 @@ class Document {
     bool? calendarAdded,
     List<String>? attachments,
     String? fileName,
+    DateTime? receivingDate,
     String? flowStage,
   }) {
     return Document(
@@ -511,6 +516,7 @@ class Document {
       calendarAdded: calendarAdded ?? this.calendarAdded,
       attachments: attachments ?? this.attachments,
       fileName: fileName ?? this.fileName,
+      receivingDate: receivingDate ?? this.receivingDate,
       flowStage: flowStage ?? this.flowStage,
     );
   }

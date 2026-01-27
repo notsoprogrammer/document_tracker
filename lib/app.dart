@@ -39,20 +39,43 @@ class DocTrackerApp extends StatelessWidget {
               ),
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
-                  elevation: 2,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  backgroundColor: const Color(0xFF6D94C5),
+
+                  foregroundColor: const Color(0xFFF5EFE6),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
               ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            inputDecorationTheme: InputDecorationTheme(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFFBBDEFB), // pastel blue
+                  width: 1.0,
                 ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
               ),
+                  enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFFBBDEFB), // pastel blue when not focused
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF64B5F6), // slightly stronger blue when focused
+                width: 1.5,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            hintStyle: TextStyle(color: Colors.grey.shade500),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
               appBarTheme: const AppBarTheme(
                 elevation: 0,
                 centerTitle: true,
