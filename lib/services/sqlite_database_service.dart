@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 18,
+      version: 19,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -323,7 +323,7 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
-        if (oldVersion < 17) {
+        if (oldVersion < 18) {
       // Add description and reference_link columns to documents table
       try {
         await db.execute('ALTER TABLE documents ADD COLUMN flow_stage TEXT');
