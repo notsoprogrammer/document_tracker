@@ -1319,49 +1319,77 @@ Widget _buildUploadStatusIndicator(Document doc) {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.forward),
-                                        label: const Text("Move to Outgoing"),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF4CAF50),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.forward),
+                                            label: const Text("Move to Outgoing"),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF90C67C),
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              if (_username != null && _username!.isNotEmpty) {
+                                                // Forward the document
+                                                widget.documents[originalIndex].forwardDocument(_username!);
+                                                // Update the document in the service
+                                                final documentService = CachedDocumentService();
+                                                await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                // Add history entry
+                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
+                                                  action: 'Document forwarded',
+                                                  person: _username!,
+                                                  timestamp: getPhilippineTime(),
+                                                ));
+                                                setState(() {});
+                                                // Navigate to Outgoing Documents Screen
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => OutgoingDocumentsScreen(
+                                                      documents: widget.documents,
+                                                      transferDocument: widget.transferDocument,
+                                                      updateDocumentStatus: widget.updateDocumentStatus,
+                                                      deleteDocument: widget.deleteDocument,
+                                                      syncDocument: widget.syncDocument,
+                                                      onRefresh: widget.onRefresh,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            },
                                           ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          if (_username != null && _username!.isNotEmpty) {
-                                            // Forward the document
-                                            widget.documents[originalIndex].forwardDocument(_username!);
-                                            // Update the document in the service
-                                            final documentService = CachedDocumentService();
-                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                            // Add history entry
-                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
-                                              action: 'Document forwarded',
-                                              person: _username!,
-                                              timestamp: getPhilippineTime(),
-                                            ));
-                                            setState(() {});
-                                            // Navigate to Outgoing Documents Screen
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => OutgoingDocumentsScreen(
-                                                  documents: widget.documents,
-                                                  transferDocument: widget.transferDocument,
-                                                  updateDocumentStatus: widget.updateDocumentStatus,
-                                                  deleteDocument: widget.deleteDocument,
-                                                  syncDocument: widget.syncDocument,
-                                                  onRefresh: widget.onRefresh,
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Receiving Date:",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                  fontWeight: FontWeight.w500,
                                                 ),
                                               ),
-                                            );
-                                          }
-                                        },
+                                              Text(
+                                                doc.receivingDate != null
+                                                    ? _formatDateTime(doc.receivingDate!)
+                                                    : "Not set",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                       
                                   if (_titleExceedsMaxLines("${doc.type} - ${doc.title}", context)) ...[
