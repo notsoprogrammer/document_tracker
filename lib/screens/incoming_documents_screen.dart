@@ -1343,11 +1343,14 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 final documentService = CachedDocumentService();
                                                 await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
                                                 // Add history entry
-                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, HistoryEntry(
-                                                  action: 'Document forwarded',
+                                                final historyEntry = HistoryEntry(
+                                                  action: 'Moved to Outgoing',
                                                   person: _username!,
                                                   timestamp: getPhilippineTime(),
-                                                ));
+                                                );
+                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                // Update local document history for immediate UI update
+                                                widget.documents[originalIndex].history.add(historyEntry);
                                                 setState(() {});
                                                 // Navigate to Outgoing Documents Screen
                                                 Navigator.push(

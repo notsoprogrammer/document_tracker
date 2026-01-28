@@ -1096,6 +1096,17 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
                                     const SizedBox(height: 8),
                                   ],
+                                    if (doc.receivingDate != null) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Received: ${_formatDateTime(doc.receivingDate!)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "To", doc.fromOrTo),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.send, "Mode", doc.mode),
@@ -1185,6 +1196,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         return me.key == 0 ||
                                             me.value.action.startsWith(
                                               'Status changed to ',
+                                            ) ||
+                                            me.value.action.startsWith(
+                                              'Moved to Outgoing',
                                             );
                                       }).toList();
 
@@ -1245,16 +1259,27 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
                                         String mainLine;
                                         if (originalIndex == 0) {
-                                          // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
-                                          mainLine =
-                                              "Created and forwarded to $office c/o $personnel";
+                                          // Check if the first entry is "Document Received"
+                                          if (entry.action == 'Document Received') {
+                                            mainLine = "Document Received";
+                                          } else {
+                                            // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
+                                            mainLine =
+                                                "Created and forwarded to $office c/o $personnel";
+                                          }
                                         } else {
-                                          // Status change: format as "(Status) c/o (office) - (personnel)"
-                                          final status = entry.action.replaceFirst(
-                                            'Status changed to ',
-                                            '',
-                                          );
-                                          mainLine = "$status: $office - $personnel";
+                                          // Status change or move action
+                                          if (entry.action.startsWith('Status changed to ')) {
+                                            final status = entry.action.replaceFirst(
+                                              'Status changed to ',
+                                              '',
+                                            );
+                                            mainLine = "$status: $office - $personnel";
+                                          } else if (entry.action == 'Moved to Outgoing') {
+                                            mainLine = "Moved to Outgoing";
+                                          } else {
+                                            mainLine = entry.action; // fallback
+                                          }
                                         }
 
                                         return Padding(

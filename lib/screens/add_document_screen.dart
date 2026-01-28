@@ -993,6 +993,13 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         calendarAdded: selectedCalendarDate != null,
                         attachments: [..._selectedImagePaths, ..._selectedDocumentPaths],
                         receivingDate: selectedReceivingDate,
+                        history: widget.incoming ? [
+                          HistoryEntry(
+                            action: 'Document Received',
+                            person: person,
+                            timestamp: selectedReceivingDate ?? DateTime.now(),
+                          )
+                        ] : [],
                       );
 
                       setState(() => _isSaving = true);

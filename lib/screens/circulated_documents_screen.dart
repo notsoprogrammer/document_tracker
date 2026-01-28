@@ -261,15 +261,109 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
                             return Card(
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
-                              child: ListTile(
+                              child: ExpansionTile(
                                 title: Text(doc.title ?? "Untitled"),
                                 subtitle: Text(
-                                  "Last updated: \${_formatDateTime(doc.history.isNotEmpty ? doc.history.last.timestamp : (doc.createdAt ?? DateTime.now()))}",
+                                  "Received: \${doc.receivingDate != null ? _formatDateTime(doc.receivingDate!) : 'Not set'} | Last updated: \${_formatDateTime(doc.history.isNotEmpty ? doc.history.last.timestamp : (doc.createdAt ?? DateTime.now()))}",
                                 ),
                                 trailing: _buildUploadStatusIndicator(doc),
-                                onTap: () {
-                                  // Handle tap
-                                },
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                                      borderRadius: const BorderRadius.only(
+                                        bottomLeft: Radius.circular(12),
+                                        bottomRight: Radius.circular(12),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildDetailRow(Icons.description, "Type", doc.type ?? "N/A"),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.person, "From", doc.fromOrTo),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.assignment_ind, "Assigned To", doc.assignedTo),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.info, "Status", doc.status),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.comment, "Remarks", doc.remarks),
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.receipt, "Received by", doc.person),
+                                        const SizedBox(height: 16),
+                                        ExpansionTile(
+                                          leading: const Icon(Icons.history),
+                                          title: Text(
+                                            "Document History (${doc.history.isEmpty ? '0' : doc.history.length.toString()})",
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          children: (() {
+                                            final entries = doc.history;
+                                            if (entries.isEmpty) {
+                                              return [
+                                                const Padding(
+                                                  padding: EdgeInsets.all(16),
+                                                  child: Text("No history available"),
+                                                ),
+                                              ];
+                                            }
+                                            return entries.map((entry) {
+                                              return Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.circle,
+                                                      size: 12,
+                                                      color: const Color(0xFFFFB74D),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            entry.action,
+                                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                                          ),
+                                                          Text(
+                                                            "by: ${entry.person} | ${_formatDateTime(entry.timestamp)}",
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                                            ),
+                                                          ),
+                                                          if (entry.notes != null && entry.notes!.isNotEmpty) ...[
+                                                            const SizedBox(height: 4),
+                                                            Text(
+                                                              "Notes: ${entry.notes}",
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontStyle: FontStyle.italic,
+                                                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList();
+                                          })(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },

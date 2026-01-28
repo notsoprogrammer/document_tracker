@@ -102,6 +102,7 @@ class Document {
     this.fileName,
     this.receivingDate,
    String? flowStage,
+   bool addInitialHistory = true,
   }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
@@ -110,7 +111,7 @@ class Document {
        localImagePaths = localImagePaths ?? [],
        localFilePaths = localFilePaths ?? [],
        attachments = attachments ?? [] {
-    if (this.history.isEmpty) {
+    if (addInitialHistory && this.history.isEmpty) {
       if (incoming) {
         this.history.add(HistoryEntry(
           action: 'Document Received',
@@ -403,6 +404,7 @@ class Document {
       fileName: json['file_name'],
       receivingDate: json['receiving_date'] != null ? DateTime.parse(json['receiving_date']) : null,
       flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
+      addInitialHistory: false,
     );
   }
 
