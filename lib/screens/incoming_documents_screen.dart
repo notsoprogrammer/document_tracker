@@ -1355,32 +1355,39 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                             ),
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => MoveDocumentDialog(
-                                                  document: doc,
-                                                  moveAction: 'Move to Outgoing',
-                                                  onDocumentMoved: () {
-                                                    setState(() {});
-                                                    // Navigate to Outgoing Documents Screen
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) => OutgoingDocumentsScreen(
-                                                          documents: widget.documents,
-                                                          transferDocument: widget.transferDocument,
-                                                          updateDocumentStatus: widget.updateDocumentStatus,
-                                                          deleteDocument: widget.deleteDocument,
-                                                          syncDocument: widget.syncDocument,
-                                                          onRefresh: widget.onRefresh,
-                                                          syncAllDocuments: widget.syncAllDocuments,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              );
+                                            onPressed: () async {
+                                              if (_username != null && _username!.isNotEmpty) {
+                                                // Move the document to outgoing
+                                                widget.documents[originalIndex].flowStage = 'outgoing';
+                                                // Update the document in the service
+                                                final documentService = CachedDocumentService();
+                                                await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                // Add history entry
+                                                final historyEntry = HistoryEntry(
+                                                  action: 'Moved to Outgoing',
+                                                  person: _username!,
+                                                  timestamp: getPhilippineTime(),
+                                                );
+                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                // Update local document history for immediate UI update
+                                                widget.documents[originalIndex].history.add(historyEntry);
+                                                setState(() {});
+                                                // Navigate to Outgoing Documents Screen
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => OutgoingDocumentsScreen(
+                                                      documents: widget.documents,
+                                                      transferDocument: widget.transferDocument,
+                                                      updateDocumentStatus: widget.updateDocumentStatus,
+                                                      deleteDocument: widget.deleteDocument,
+                                                      syncDocument: widget.syncDocument,
+                                                      onRefresh: widget.onRefresh,
+                                                      syncAllDocuments: widget.syncAllDocuments,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
                                             },
                                           ),
                                           Column(
