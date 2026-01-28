@@ -1225,26 +1225,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     // compute visible entries (creation + status changes)
                                     title: Text(
                                       "Document History (" +
-                                          (doc.history.isEmpty
-                                              ? '0'
-                                              : doc.history
-                                                    .asMap()
-                                                    .entries
-                                                    .where(
-                                                      (me) =>
-                                                          me.key == 0 ||
-                                                          me.value.action.startsWith(
-                                                            'Status changed to ',
-                                                          ) ||
-                                                          me.value.action.startsWith(
-                                                            'Moved to Incoming',
-                                                          ) ||
-                                                          me.value.action.startsWith(
-                                                            'Moved to Outgoing',
-                                                          ),
-                                                    )
-                                                    .length
-                                                    .toString()) +
+                                          doc.history.length.toString() +
                                           ")",
                                       style: const TextStyle(
                                         fontSize: 14,
@@ -1272,6 +1253,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             ) ||
                                             me.value.action.startsWith(
                                               'Moved to Outgoing',
+                                            ) ||
+                                            me.value.action.startsWith(
+                                              'Moved to Incoming',
                                             );
                                       }).toList();
 

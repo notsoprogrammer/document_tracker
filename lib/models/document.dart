@@ -151,14 +151,14 @@ class Document {
     status = newStatus;
   }
 
-  void forwardDocument(String forwardedBy, {String? notes}) {
+  void forwardDocument(String forwardedBy, {String? notes, String? action}) {
     // Update flowStage based on current state
     if (flowStage == 'incoming') {
       flowStage = 'outgoing';
     } else if (flowStage == 'outgoing') {
       flowStage = 'circulated';
     }
-    addHistoryEntry('Document forwarded', forwardedBy, notes: notes);
+    addHistoryEntry(action ?? 'Document forwarded', forwardedBy, notes: notes);
   }
 
   factory Document.fromJson(Map<String, dynamic> json) {

@@ -1357,19 +1357,11 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                             onPressed: () async {
                                               if (_username != null && _username!.isNotEmpty) {
                                                 // Forward the document
-                                                widget.documents[originalIndex].forwardDocument(_username!);
+                                                widget.documents[originalIndex].forwardDocument(_username!, action: 'Moved to Outgoing');
                                                 // Update the document in the service
                                                 final documentService = CachedDocumentService();
                                                 await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                                // Add history entry
-                                                final historyEntry = HistoryEntry(
-                                                  action: 'Moved to Outgoing',
-                                                  person: _username!,
-                                                  timestamp: getPhilippineTime(),
-                                                );
-                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
-                                                // Update local document history for immediate UI update
-                                                widget.documents[originalIndex].history.add(historyEntry);
+                                                // History entry is already added by forwardDocument
                                                 setState(() {});
                                                 // Navigate to Outgoing Documents Screen
                                                 Navigator.push(
@@ -1491,23 +1483,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     leading: const Icon(Icons.history),
                                     title: Text(
                                       "Document History (" +
-                                          (doc.history.isEmpty
-                                              ? '0'
-                                              : doc.history
-                                                    .asMap()
-                                                    .entries
-                                                    .where(
-                                                      (me) =>
-                                                          me.key == 0 ||
-                                                          me.value.action.startsWith(
-                                                            'Status changed to ',
-                                                          ) ||
-                                                          me.value.action.startsWith(
-                                                            'Transferred to ',
-                                                          ),
-                                                    )
-                                                    .length
-                                                    .toString()) +
+                                          doc.history.length.toString() +
                                           ")",
                                       style: const TextStyle(
                                         fontSize: 14,
@@ -1539,6 +1515,9 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 ) ||
                                                 me.value.action.startsWith(
                                                   'Moved to Incoming',
+                                                ) ||
+                                                me.value.action.startsWith(
+                                                  'Moved to Outgoing',
                                                 ),
                                           )
                                           .toList();
