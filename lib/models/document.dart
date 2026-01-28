@@ -69,6 +69,7 @@ class Document {
   final String? fileName; // Original file name for display
   final DateTime? receivingDate; // Date and time when document was received
   String flowStage; // 'incoming', 'outgoing', 'circulated'
+  final List<String> remarksList; // List of sequential remarks
 
   Document({
     required this.code,
@@ -103,6 +104,7 @@ class Document {
     this.receivingDate,
    String? flowStage,
    bool addInitialHistory = true,
+   List<String>? remarksList,
   }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
@@ -110,7 +112,8 @@ class Document {
        fileNames = fileNames ?? [],
        localImagePaths = localImagePaths ?? [],
        localFilePaths = localFilePaths ?? [],
-       attachments = attachments ?? [] {
+       attachments = attachments ?? [],
+       remarksList = remarksList ?? [] {
     if (addInitialHistory && this.history.isEmpty) {
       if (incoming) {
         this.history.add(HistoryEntry(
@@ -372,6 +375,24 @@ class Document {
       }
     }
 
+    // Parse remarks_list if present
+    List<String> remarksList = [];
+    if (json['remarks_list'] != null) {
+      if (json['remarks_list'] is List) {
+        remarksList = List<String>.from(json['remarks_list']);
+      } else if (json['remarks_list'] is String) {
+        // Handle case where remarks_list is stored as JSON string
+        try {
+          final decoded = jsonDecode(json['remarks_list']);
+          if (decoded is List) {
+            remarksList = List<String>.from(decoded);
+          }
+        } catch (e) {
+          // If parsing fails, ignore
+        }
+      }
+    }
+
     return Document(
       code: json['code'],
       title: json['title'],
@@ -405,6 +426,7 @@ class Document {
       receivingDate: json['receiving_date'] != null ? DateTime.parse(json['receiving_date']) : null,
       flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
       addInitialHistory: false,
+      remarksList: remarksList,
     );
   }
 
@@ -452,6 +474,7 @@ class Document {
       'file_name': fileName,
       'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,
+      'remarks_list': remarksList,
     };
   }
 
@@ -487,6 +510,7 @@ class Document {
     String? fileName,
     DateTime? receivingDate,
     String? flowStage,
+    List<String>? remarksList,
   }) {
     return Document(
       code: code ?? this.code,
@@ -520,6 +544,7 @@ class Document {
       fileName: fileName ?? this.fileName,
       receivingDate: receivingDate ?? this.receivingDate,
       flowStage: flowStage ?? this.flowStage,
+      remarksList: remarksList ?? this.remarksList,
     );
   }
 }

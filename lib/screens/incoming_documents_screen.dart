@@ -12,6 +12,7 @@ import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
 import 'outgoing_documents_screen.dart';
+import '../widgets/move_document_dialog.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1354,31 +1355,32 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                             ),
-                                            onPressed: () async {
-                                              if (_username != null && _username!.isNotEmpty) {
-                                                // Forward the document
-                                                widget.documents[originalIndex].forwardDocument(_username!, action: 'Moved to Outgoing');
-                                                // Update the document in the service
-                                                final documentService = CachedDocumentService();
-                                                await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                                // History entry is already added by forwardDocument
-                                                setState(() {});
-                                                // Navigate to Outgoing Documents Screen
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => OutgoingDocumentsScreen(
-                                                      documents: widget.documents,
-                                                      transferDocument: widget.transferDocument,
-                                                      updateDocumentStatus: widget.updateDocumentStatus,
-                                                      deleteDocument: widget.deleteDocument,
-                                                      syncDocument: widget.syncDocument,
-                                                      onRefresh: widget.onRefresh,
-                                                      syncAllDocuments: widget.syncAllDocuments,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => MoveDocumentDialog(
+                                                  document: doc,
+                                                  moveAction: 'Move to Outgoing',
+                                                  onDocumentMoved: () {
+                                                    setState(() {});
+                                                    // Navigate to Outgoing Documents Screen
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => OutgoingDocumentsScreen(
+                                                          documents: widget.documents,
+                                                          transferDocument: widget.transferDocument,
+                                                          updateDocumentStatus: widget.updateDocumentStatus,
+                                                          deleteDocument: widget.deleteDocument,
+                                                          syncDocument: widget.syncDocument,
+                                                          onRefresh: widget.onRefresh,
+                                                          syncAllDocuments: widget.syncAllDocuments,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              );
                                             },
                                           ),
                                           Column(

@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 20,
+      version: 21,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -63,7 +63,8 @@ class SQLiteDatabaseService {
         calendar_added INTEGER DEFAULT 0,
         attachments TEXT,
         receiving_date TEXT,
-        flow_stage TEXT
+        flow_stage TEXT,
+        remarks_list TEXT
       )
     ''');
 
@@ -340,6 +341,14 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
+    if (oldVersion < 21) {
+      // Add remarks_list column to documents table
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN remarks_list TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -372,6 +381,7 @@ class SQLiteDatabaseService {
     docData['local_image_paths'] = jsonEncode(docData['local_image_paths'] ?? []);
     docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
     docData['attachments'] = jsonEncode(docData['attachments'] ?? []);
+    docData['remarks_list'] = jsonEncode(docData['remarks_list'] ?? []);
     docData['calendar_added'] = (docData['calendar_added'] == true || docData['calendar_added'] == 1) ? 1 : 0;
     docData['created_at'] = getPhilippineTime().toIso8601String();
     docData['updated_at'] = getPhilippineTime().toIso8601String();
@@ -416,6 +426,9 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('attachments')) {
       updates['attachments'] = jsonEncode(updates['attachments']);
+    }
+    if (updates.containsKey('remarks_list')) {
+      updates['remarks_list'] = jsonEncode(updates['remarks_list']);
     }
     if (updates.containsKey('calendar_added')) {
       updates['calendar_added'] = (updates['calendar_added'] == true || updates['calendar_added'] == 1) ? 1 : 0;
