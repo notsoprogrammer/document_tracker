@@ -1096,17 +1096,84 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     _buildDetailRow(Icons.title, "Document Title", "${doc.type} - ${doc.title}"),
                                     const SizedBox(height: 8),
                                   ],
-                                    if (doc.receivingDate != null) ...[
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Received: ${_formatDateTime(doc.receivingDate!)}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.arrow_downward),
+                                        label: const Text("Move to Incoming"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFFFFB74D),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
                                         ),
+                                        onPressed: () async {
+                                          if (_username != null && _username!.isNotEmpty) {
+                                            // Move the document back to incoming
+                                            widget.documents[originalIndex].flowStage = 'incoming';
+                                            // Update the document in the service
+                                            final documentService = CachedDocumentService();
+                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                            // Add history entry
+                                            final historyEntry = HistoryEntry(
+                                              action: 'Moved to Incoming',
+                                              person: _username!,
+                                              timestamp: getPhilippineTime(),
+                                            );
+                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                            // Update local document history for immediate UI update
+                                            widget.documents[originalIndex].history.add(historyEntry);
+                                            setState(() {});
+                                            // Navigate to Incoming Documents Screen
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => IncomingDocumentsScreen(
+                                                  documents: widget.documents,
+                                                  transferDocument: widget.transferDocument,
+                                                  updateDocumentStatus: widget.updateDocumentStatus,
+                                                  deleteDocument: widget.deleteDocument,
+                                                  syncDocument: widget.syncDocument,
+                                                  onRefresh: widget.onRefresh,
+                                                  syncAllDocuments: widget.syncAllDocuments,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
                                       ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Receiving Date:",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              Text(
+                                                doc.receivingDate != null
+                                                    ? _formatDateTime(doc.receivingDate!)
+                                                    : "Not set",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                     ],
-                                    const SizedBox(height: 8),
+                                  ),
+                                  const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "To", doc.fromOrTo),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.send, "Mode", doc.mode),
@@ -1168,6 +1235,12 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                           me.key == 0 ||
                                                           me.value.action.startsWith(
                                                             'Status changed to ',
+                                                          ) ||
+                                                          me.value.action.startsWith(
+                                                            'Moved to Incoming',
+                                                          ) ||
+                                                          me.value.action.startsWith(
+                                                            'Moved to Outgoing',
                                                           ),
                                                     )
                                                     .length
@@ -1352,55 +1425,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     runSpacing: 8,
                                     alignment: WrapAlignment.center,
                                     children: [
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.arrow_downward),
-                                        label: const Text("Move to Incoming"),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFFFB74D),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          if (_username != null && _username!.isNotEmpty) {
-                                            // Move the document back to incoming
-                                            widget.documents[originalIndex].flowStage = 'incoming';
-                                            // Update the document in the service
-                                            final documentService = CachedDocumentService();
-                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                            // Add history entry
-                                            final historyEntry = HistoryEntry(
-                                              action: 'Moved to Incoming',
-                                              person: _username!,
-                                              timestamp: getPhilippineTime(),
-                                            );
-                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
-                                            // Update local document history for immediate UI update
-                                            widget.documents[originalIndex].history.add(historyEntry);
-                                            setState(() {});
-                                            // Navigate to Incoming Documents Screen
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => IncomingDocumentsScreen(
-                                                  documents: widget.documents,
-                                                  transferDocument: widget.transferDocument,
-                                                  updateDocumentStatus: widget.updateDocumentStatus,
-                                                  deleteDocument: widget.deleteDocument,
-                                                  syncDocument: widget.syncDocument,
-                                                  onRefresh: widget.onRefresh,
-                                                  syncAllDocuments: widget.syncAllDocuments,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
                                       ElevatedButton.icon(
                                         icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),
