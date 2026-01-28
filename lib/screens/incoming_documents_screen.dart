@@ -1299,6 +1299,25 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   Text(
                                     doc.code,
                                   ),
+                                  if (doc.flowStage == 'incoming' && !doc.incoming) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2196F3).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFF2196F3).withOpacity(0.4)),
+                                      ),
+                                      child: const Text(
+                                        'Fr. Outgoing',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF2196F3),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               _buildUploadStatusIndicator(doc),
@@ -1363,6 +1382,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                       deleteDocument: widget.deleteDocument,
                                                       syncDocument: widget.syncDocument,
                                                       onRefresh: widget.onRefresh,
+                                                      syncAllDocuments: widget.syncAllDocuments,
                                                     ),
                                                   ),
                                                 );
@@ -1516,6 +1536,9 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 ) ||
                                                 me.value.action.startsWith(
                                                   'Transferred to ',
+                                                ) ||
+                                                me.value.action.startsWith(
+                                                  'Moved to Incoming',
                                                 ),
                                           )
                                           .toList();

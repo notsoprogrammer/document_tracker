@@ -10,6 +10,8 @@ import '../services/upload_queue_manager.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
+import '../utils/date_time_utils.dart';
+import 'incoming_documents_screen.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -19,6 +21,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
+  final Future<void> Function() syncAllDocuments;
 
   const OutgoingDocumentsScreen({
     super.key,
@@ -29,6 +32,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
     required this.deleteDocument,
     required this.syncDocument,
     this.onRefresh,
+    required this.syncAllDocuments,
   });
 
   @override
@@ -1058,7 +1062,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
                                       ),
                                       child: const Text(
-                                        'From Incoming',
+                                        'Fr. Incoming',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Color(0xFFFFB74D),
@@ -1066,10 +1070,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         ),
                                       ),
                                     ),
-                                  ],
-                                  if (doc.needsSync) ...[
-                                    const SizedBox(width: 6),
-                                    const Icon(Icons.sync, size: 16, color: Colors.orange),
                                   ],
                                 ],
                               ),
@@ -1352,6 +1352,55 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     runSpacing: 8,
                                     alignment: WrapAlignment.center,
                                     children: [
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.arrow_downward),
+                                        label: const Text("Move to Incoming"),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFFFFB74D),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          if (_username != null && _username!.isNotEmpty) {
+                                            // Move the document back to incoming
+                                            widget.documents[originalIndex].flowStage = 'incoming';
+                                            // Update the document in the service
+                                            final documentService = CachedDocumentService();
+                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                            // Add history entry
+                                            final historyEntry = HistoryEntry(
+                                              action: 'Moved to Incoming',
+                                              person: _username!,
+                                              timestamp: getPhilippineTime(),
+                                            );
+                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                            // Update local document history for immediate UI update
+                                            widget.documents[originalIndex].history.add(historyEntry);
+                                            setState(() {});
+                                            // Navigate to Incoming Documents Screen
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => IncomingDocumentsScreen(
+                                                  documents: widget.documents,
+                                                  transferDocument: widget.transferDocument,
+                                                  updateDocumentStatus: widget.updateDocumentStatus,
+                                                  deleteDocument: widget.deleteDocument,
+                                                  syncDocument: widget.syncDocument,
+                                                  onRefresh: widget.onRefresh,
+                                                  syncAllDocuments: widget.syncAllDocuments,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
                                       ElevatedButton.icon(
                                         icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),
