@@ -111,19 +111,37 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       return;
     }
 
-    // Check if there are any pending uploads for this document
-    final queueManager = UploadQueueManager();
-    final pendingUploads = queueManager.getPendingUploads(widget.document.code);
-    final uploadingUploads = queueManager.getAllItems().where((item) => item['documentCode'] == widget.document.code && item['status'] == 'uploading').toList();
-
-    if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-      SnackbarUtils.showErrorSnackBar(context, 'Cannot move document while uploads are pending. Please wait for all uploads to complete.');
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
+
+    try {
+      // First, ensure all local files are uploaded to Google Drive
+      final documentService = CachedDocumentService();
+      await documentService.processPendingUploads();
+
+      // Wait a bit for uploads to complete and check status
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Check if there are still any pending uploads for this document
+      final queueManager = UploadQueueManager();
+      final pendingUploads = queueManager.getPendingUploads(widget.document.code);
+      final uploadingUploads = queueManager.getAllItems().where((item) => item['documentCode'] == widget.document.code && item['status'] == 'uploading').toList();
+
+      if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
+        SnackbarUtils.showErrorSnackBar(context, 'Cannot move document while uploads are pending. Please wait for all uploads to complete.');
+        return;
+      }
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Failed to upload files: $e');
+      return;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
 
     try {
       // Create updated document with new remarks and images
@@ -154,10 +172,18 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       );
 
       // Add history entry for the move
+      String moveNotes = 'Remarks: ${_remarksController.text.trim()}';
+      if (_selectedImagePaths.isNotEmpty || _selectedFilePaths.isNotEmpty) {
+        final attachmentNames = [
+          ..._selectedImagePaths.map((p) => p.split('/').last.split('\\').last),
+          ..._selectedFilePaths.map((p) => p.split('/').last.split('\\').last),
+        ].join(', ');
+        moveNotes += ' | Attachments: $attachmentNames';
+      }
       updatedDocument.addHistoryEntry(
         widget.moveAction.replaceFirst('Move to', 'Moved to'),
         _username!,
-        notes: 'Remarks: ${_remarksController.text.trim()}',
+        notes: moveNotes,
       );
 
       // Add history entry for added remark
