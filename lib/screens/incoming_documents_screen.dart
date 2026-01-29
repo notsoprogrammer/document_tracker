@@ -1358,42 +1358,44 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                             onPressed: () {
                                               showDialog(
                                                 context: context,
-                                                builder: (context) => MoveDocumentDialog(
+                                                builder: (dialogContext) => MoveDocumentDialog(
                                                   document: doc,
                                                   moveAction: 'Move to Outgoing',
                                                   onDocumentMoved: () async {
-                                                  if (_username != null && _username!.isNotEmpty) {
-                                                // Move the document to outgoing
-                                                widget.documents[originalIndex].flowStage = 'outgoing';
-                                                // Update the document in the service
-                                                final documentService = CachedDocumentService();
-                                                await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                                // Add history entry
-                                                final historyEntry = HistoryEntry(
-                                                  action: 'Moved to Outgoing',
-                                                  person: _username!,
-                                                  timestamp: getPhilippineTime(),
-                                                );
-                                                await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
-                                                // Update local document history for immediate UI update
-                                                widget.documents[originalIndex].history.add(historyEntry);
-                                                setState(() {});
-                                                    // Navigate to Outgoing Documents Screen
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) => OutgoingDocumentsScreen(
-                                                          documents: widget.documents,
-                                                          transferDocument: widget.transferDocument,
-                                                          updateDocumentStatus: widget.updateDocumentStatus,
-                                                          deleteDocument: widget.deleteDocument,
-                                                          syncDocument: widget.syncDocument,
-                                                          onRefresh: widget.onRefresh,
-                                                          syncAllDocuments: widget.syncAllDocuments,
+                                                    if (_username != null && _username!.isNotEmpty) {
+                                                      // Move the document to outgoing
+                                                      widget.documents[originalIndex].flowStage = 'outgoing';
+                                                      // Update the document in the service
+                                                      final documentService = CachedDocumentService();
+                                                      await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                      // Add history entry
+                                                      final historyEntry = HistoryEntry(
+                                                        action: 'Moved to Outgoing',
+                                                        person: _username!,
+                                                        timestamp: getPhilippineTime(),
+                                                      );
+                                                      await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                      // Update local document history for immediate UI update
+                                                      widget.documents[originalIndex].history.add(historyEntry);
+                                                      setState(() {});
+                                                      // Close the dialog first, then navigate
+                                                      Navigator.of(dialogContext).pop();
+                                                      // Navigate to Outgoing Documents Screen and remove previous routes up to HomeScreen
+                                                      Navigator.of(context).pushAndRemoveUntil(
+                                                        MaterialPageRoute(
+                                                          builder: (routeContext) => OutgoingDocumentsScreen(
+                                                            documents: widget.documents,
+                                                            transferDocument: widget.transferDocument,
+                                                            updateDocumentStatus: widget.updateDocumentStatus,
+                                                            deleteDocument: widget.deleteDocument,
+                                                            syncDocument: widget.syncDocument,
+                                                            onRefresh: widget.onRefresh,
+                                                            syncAllDocuments: widget.syncAllDocuments,
+                                                          ),
                                                         ),
-                                                      ),
-                                                    );
-                                                  }
+                                                        (route) => route.isFirst, // Keep HomeScreen, remove intermediate routes
+                                                      );
+                                                    }
                                                   },
                                                 ),
                                               );
@@ -1552,30 +1554,125 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                         ];
                                       }
 
-                                      final visible = entries
-                                          .asMap()
-                                          .entries
-                                          .where(
-                                            (me) =>
-                                                me.key == 0 ||
-                                                me.value.action.startsWith(
-                                                  'Status changed to ',
-                                                ) ||
-                                                me.value.action.startsWith(
-                                                  'Transferred to ',
-                                                ) ||
-                                                me.value.action.startsWith(
-                                                  'Moved to Incoming',
-                                                ) ||
-                                                me.value.action.startsWith(
-                                                  'Moved to Outgoing',
-                                                ),
-                                          )
-                                          .toList();
+                                      // Create display items, skipping "Added Remark" and collecting remarks for move entries
+                                          List<Map<String, dynamic>> displayItems = [];
+                                          int i = 0;
 
-                                      return visible.map((mapEntry) {
-                                        final originalIndex = mapEntry.key;
-                                        final entry = mapEntry.value;
+                                          while (i < entries.length) {
+                                            final entry = entries[i];
+
+                                            // Skip "Added Remark" entries entirely
+                                            if (entry.action.startsWith('Added Remark ')) {
+                                              i++;
+                                              continue;
+                                            }
+
+                                            Map<String, dynamic> item = {'entry': entry, 'remarks': <String>[]};
+
+                                            if (entry.action == 'Moved to Incoming' || entry.action == 'Moved to Outgoing') {
+                                              // Collect subsequent "Added Remark" entries into this move
+                                              int j = i + 1;
+                                              while (j < entries.length && entries[j].action.startsWith('Added Remark ')) {
+                                                final remarkNumber = int.tryParse(entries[j].action.split(' ').last);
+                                                if (remarkNumber != null && remarkNumber <= doc.remarksList.length) {
+                                                  item['remarks'].add(doc.remarksList[remarkNumber - 1]);
+                                                }
+                                                j++;
+                                              }
+                                              // Advance i to skip over the remarks we just bundled
+                                              i = j;
+                                            } else {
+                                              i++;
+                                            }
+
+                                            displayItems.add(item);
+                                          }
+
+                                      return displayItems.map((item) {
+                                        final entry = item['entry'] as HistoryEntry;
+                                        final remarks = item['remarks'] as List<String>;
+                                        final originalIndex = entries.indexOf(entry);
+                                        String office = doc.fromOrTo;
+                                        String personnel = doc.assignedTo;
+                                        String? additionalNotes;
+
+                                        // If the history entry has notes, parse them to get office and personnel (creation stores a snapshot there).
+                                        if (entry.notes != null &&
+                                            entry.notes!.isNotEmpty) {
+                                          final parts = entry.notes!.split('|');
+                                          if (originalIndex == 0) {
+                                            // Creation: notes = "office|personnel"
+                                            if (parts.length >= 2) {
+                                              office = parts[0].trim();
+                                              personnel = parts[1].trim();
+                                            }
+                                          } else {
+                                            // Status change: notes = "office - personnel|additional"
+                                            final officePersonnelStr = parts[0]
+                                                .trim();
+                                            final sepIndex = officePersonnelStr
+                                                .lastIndexOf(' - ');
+                                            if (sepIndex != -1) {
+                                              office = officePersonnelStr
+                                                  .substring(0, sepIndex)
+                                                  .trim();
+                                              personnel = officePersonnelStr
+                                                  .substring(sepIndex + 3)
+                                                  .trim();
+                                            } else {
+                                              final officePersonnel =
+                                                  officePersonnelStr.split(' - ');
+                                              if (officePersonnel.length >= 2) {
+                                                office = officePersonnel[0].trim();
+                                                personnel = officePersonnel[1].trim();
+                                              }
+                                            }
+                                            if (parts.length > 1) {
+                                              additionalNotes = parts
+                                                  .sublist(1)
+                                                  .join('|')
+                                                  .trim();
+                                            }
+                                          }
+                                        } else if (originalIndex == 0 && entry.action.startsWith('Document Created')) {
+                                          // For outgoing creation entry without notes, parse from action
+                                          final action = entry.action;
+                                          final match = RegExp(r'Document Created and forwarded to (.+) c/o (.+)').firstMatch(action);
+                                          if (match != null) {
+                                            office = match.group(1)!.trim();
+                                            personnel = match.group(2)!.trim();
+                                          }
+                                        }
+
+                                        String mainLine;
+                                        if (originalIndex == 0) {
+                                          // Check if the first entry is "Document Received"
+                                          if (entry.action == 'Document Received') {
+                                            mainLine = "Document Received";
+                                          } else {
+                                            // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
+                                            mainLine =
+                                                "Created and forwarded to $office c/o $personnel";
+                                          }
+                                        } else {
+                                          if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
+                                            mainLine = entry.action;
+                                          } 
+                                          else if (entry.action.startsWith('Transferred to ')) {
+                                          // NEW branch
+                                          mainLine = entry.action; // or parse office/personnel if needed
+
+                                          }else if (entry.action.startsWith('Status changed to ')) {
+                                            final status = entry.action.replaceFirst(
+                                              'Status changed to ',
+                                              '',
+                                            );
+                                            mainLine = "$status: $office - $personnel";
+                                          } else {
+                                            mainLine = entry.action; // fallback
+                                          }
+                                        }
+
                                         return Padding(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -1597,7 +1694,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      entry.action,
+                                                      mainLine,
                                                       style: const TextStyle(
                                                         fontWeight: FontWeight.w500,
                                                       ),
@@ -1614,8 +1711,34 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                             .withOpacity(0.6),
                                                       ),
                                                     ),
+                                                    if (remarks.isNotEmpty) ...[
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        "Remarks: ${remarks.join(', ')}",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontStyle: FontStyle.italic,
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurface
+                                                              .withOpacity(0.7),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    if (doc.fileNames.isNotEmpty && (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming')) ...[
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        "Attachments: ${doc.fileNames.join(', ')}",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                        ),
+                                                      ),
+                                                    ],
                                                     if (entry.notes != null &&
-                                                        entry.notes!.isNotEmpty) ...[
+                                                        entry.notes!.isNotEmpty &&
+                                                        entry.action != 'Moved to Outgoing' &&
+                                                        entry.action != 'Moved to Incoming') ...[
                                                       const SizedBox(height: 4),
                                                       Text(
                                                         "Notes: ${entry.notes}",

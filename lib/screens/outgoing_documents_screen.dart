@@ -12,6 +12,7 @@ import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
 import 'incoming_documents_screen.dart';
+import '../widgets/move_document_dialog.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1112,43 +1113,53 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
                                           ),
-                                        ),
-                                        onPressed: () async {
-                                          if (_username != null && _username!.isNotEmpty) {
-                                            // Move the document back to incoming
-                                            widget.documents[originalIndex].flowStage = 'incoming';
-                                            // Update the document in the service
-                                            final documentService = CachedDocumentService();
-                                            await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                            // Add history entry
-                                            final historyEntry = HistoryEntry(
-                                              action: 'Moved to Incoming',
-                                              person: _username!,
-                                              timestamp: getPhilippineTime(),
-                                            );
-                                            await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
-                                            // Update local document history for immediate UI update
-                                            widget.documents[originalIndex].history.add(historyEntry);
-                                            setState(() {});
-                                            // Navigate to Incoming Documents Screen
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => IncomingDocumentsScreen(
-                                                  documents: widget.documents,
-                                                  transferDocument: widget.transferDocument,
-                                                  updateDocumentStatus: widget.updateDocumentStatus,
-                                                  deleteDocument: widget.deleteDocument,
-                                                  syncDocument: widget.syncDocument,
-                                                  onRefresh: widget.onRefresh,
-                                                  syncAllDocuments: widget.syncAllDocuments,
+                                        ),    
+                                        onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (dialogContext) => MoveDocumentDialog(
+                                                  document: doc,
+                                                  moveAction: 'Move to Incoming',
+                                                  onDocumentMoved: () async {
+                                                    if (_username != null && _username!.isNotEmpty) {
+                                                      // Move the document to outgoing
+                                                      widget.documents[originalIndex].flowStage = 'incoming';
+                                                      // Update the document in the service
+                                                      final documentService = CachedDocumentService();
+                                                      await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                      // Add history entry
+                                                      final historyEntry = HistoryEntry(
+                                                        action: 'Moved to Incoming',
+                                                        person: _username!,
+                                                        timestamp: getPhilippineTime(),
+                                                      );
+                                                      await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                      // Update local document history for immediate UI update
+                                                      widget.documents[originalIndex].history.add(historyEntry);
+                                                      setState(() {});
+                                                      // Close the dialog first, then navigate
+                                                      Navigator.of(dialogContext).pop();
+                                                      // Navigate to Incoming Documents Screen and remove previous routes up to HomeScreen
+                                                      Navigator.of(context).pushAndRemoveUntil(
+                                                        MaterialPageRoute(
+                                                          builder: (routeContext) => IncomingDocumentsScreen(
+                                                            documents: widget.documents,
+                                                            transferDocument: widget.transferDocument,
+                                                            updateDocumentStatus: widget.updateDocumentStatus,
+                                                            deleteDocument: widget.deleteDocument,
+                                                            syncDocument: widget.syncDocument,
+                                                            onRefresh: widget.onRefresh,
+                                                            syncAllDocuments: widget.syncAllDocuments,
+                                                          ),
+                                                        ),
+                                                        (route) => route.isFirst, // Keep HomeScreen, remove intermediate routes
+                                                      );
+                                                    }
+                                                  },
                                                 ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                      Column(
+                                              );
+                                            },
+                                          ),                                      Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
@@ -1277,24 +1288,44 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       }
 
                                       // Only include the creation entry (index 0), status-change entries, and transfer entries.
-                                      final visible = entries.asMap().entries.where((
-                                        me,
-                                      ) {
-                                        return me.key == 0 ||
-                                            me.value.action.startsWith(
-                                              'Status changed to ',
-                                            ) ||
-                                            me.value.action.startsWith(
-                                              'Moved to Outgoing',
-                                            ) ||
-                                            me.value.action.startsWith(
-                                              'Moved to Incoming',
-                                            );
-                                      }).toList();
+                                      // Create display items, skipping "Added Remark" and collecting remarks for move entries
+                                          List<Map<String, dynamic>> displayItems = [];
+                                          int i = 0;
 
-                                      return visible.map((mapEntry) {
-                                        final originalIndex = mapEntry.key;
-                                        final entry = mapEntry.value;
+                                          while (i < entries.length) {
+                                            final entry = entries[i];
+
+                                            // Skip "Added Remark" entries entirely
+                                            if (entry.action.startsWith('Added Remark ')) {
+                                              i++;
+                                              continue;
+                                            }
+
+                                            Map<String, dynamic> item = {'entry': entry, 'remarks': <String>[]};
+
+                                            if (entry.action == 'Moved to Incoming' || entry.action == 'Moved to Outgoing') {
+                                              // Collect subsequent "Added Remark" entries into this move
+                                              int j = i + 1;
+                                              while (j < entries.length && entries[j].action.startsWith('Added Remark ')) {
+                                                final remarkNumber = int.tryParse(entries[j].action.split(' ').last);
+                                                if (remarkNumber != null && remarkNumber <= doc.remarksList.length) {
+                                                  item['remarks'].add(doc.remarksList[remarkNumber - 1]);
+                                                }
+                                                j++;
+                                              }
+                                              // Advance i to skip over the remarks we just bundled
+                                              i = j;
+                                            } else {
+                                              i++;
+                                            }
+
+                                            displayItems.add(item);
+                                          }
+
+                                      return displayItems.map((item) {
+                                        final entry = item['entry'] as HistoryEntry;
+                                        final remarks = item['remarks'] as List<String>;
+                                        final originalIndex = entries.indexOf(entry);
                                         String office = doc.fromOrTo;
                                         String personnel = doc.assignedTo;
                                         String? additionalNotes;
@@ -1358,19 +1389,24 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                 "Created and forwarded to $office c/o $personnel";
                                           }
                                         } else {
-                                          // Status change or move action
-                                          if (entry.action.startsWith('Status changed to ')) {
+                                          if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
+                                            mainLine = entry.action;
+                                          } 
+                                          else if (entry.action.startsWith('Transferred to ')) {
+                                          // NEW branch
+                                          mainLine = entry.action; // or parse office/personnel if needed
+
+                                          }else if (entry.action.startsWith('Status changed to ')) {
                                             final status = entry.action.replaceFirst(
                                               'Status changed to ',
                                               '',
                                             );
                                             mainLine = "$status: $office - $personnel";
-                                          } else if (entry.action == 'Moved to Outgoing') {
-                                            mainLine = "Moved to Outgoing";
                                           } else {
                                             mainLine = entry.action; // fallback
                                           }
                                         }
+
 
                                         return Padding(
                                           padding: const EdgeInsets.symmetric(

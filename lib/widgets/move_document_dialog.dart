@@ -116,7 +116,26 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
     });
 
     try {
-      // First, ensure all local files are uploaded to Google Drive
+      // First, add newly selected files to upload queue
+      final queueManager = UploadQueueManager();
+      for (final imagePath in _selectedImagePaths) {
+        queueManager.addToQueue(
+          documentCode: widget.document.code,
+          filePath: imagePath,
+          isImage: true,
+          localPath: imagePath,
+        );
+      }
+      for (final filePath in _selectedFilePaths) {
+        queueManager.addToQueue(
+          documentCode: widget.document.code,
+          filePath: filePath,
+          isImage: false,
+          localPath: filePath,
+        );
+      }
+
+      // Then process all pending uploads (including newly added ones)
       final documentService = CachedDocumentService();
       await documentService.processPendingUploads();
 
@@ -124,7 +143,6 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       await Future.delayed(const Duration(seconds: 2));
 
       // Check if there are still any pending uploads for this document
-      final queueManager = UploadQueueManager();
       final pendingUploads = queueManager.getPendingUploads(widget.document.code);
       final uploadingUploads = queueManager.getAllItems().where((item) => item['documentCode'] == widget.document.code && item['status'] == 'uploading').toList();
 
