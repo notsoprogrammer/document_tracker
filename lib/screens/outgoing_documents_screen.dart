@@ -1363,14 +1363,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         }
 
                                         String mainLine;
-                                        if (originalIndex == 0) {
-                                          // Check if the first entry is "Document Received"
-                                          if (entry.action == 'Document Received') {
+                                          if (originalIndex == 0) {
+                                          if (doc.incoming) {
+                                            // For documents originally added in Incoming
                                             mainLine = "Document Received";
                                           } else {
-                                            // Creation: keep original assignedTo (do not change even if later updates modify assignedTo)
-                                            mainLine =
-                                                "Created and forwarded to $office c/o $personnel";
+                                            // For documents originally added in Outgoing
+                                            mainLine = "Created and forwarded to $office c/o $personnel";
                                           }
                                         } else {
                                           if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
