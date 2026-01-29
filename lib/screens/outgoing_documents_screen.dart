@@ -1137,6 +1137,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                       await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
                                                       // Update local document history for immediate UI update
                                                       widget.documents[originalIndex].history.add(historyEntry);
+                                                      await CachedDocumentService().updateDocument(widget.documents[originalIndex].code, {'needs_sync': true});
+                                                      // Automatically sync all documents
+                                                      await widget.syncAllDocuments();
+                                                      // Force UI refresh to show updated history
+                                                      setState(() {});
                                                       Navigator.of(dialogContext).pop();
                                                     }
                                                   },

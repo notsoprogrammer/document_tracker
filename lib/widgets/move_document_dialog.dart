@@ -212,6 +212,11 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         _username!,
       );
 
+      // Update the local document's history immediately for UI update
+      for (var entry in updatedDocument.history.where((h) => !widget.document.history.contains(h))) {
+        widget.document.history.add(entry);
+      }
+
       // Update document in database
       final documentService = CachedDocumentService();
       await documentService.updateDocument(widget.document.code, {

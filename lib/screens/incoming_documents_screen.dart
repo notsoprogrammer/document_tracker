@@ -1366,7 +1366,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                     if (_username != null && _username!.isNotEmpty) {
                                                       // Move the document to outgoing
                                                       widget.documents[originalIndex].flowStage = 'outgoing';
-                                                      // Update filtered documents to remove the moved document immediately
+                                                    // Update filtered documents to remove the moved document immediately
                                                       _updateFilteredDocuments();
                                                       // Update the document in the service
                                                       final documentService = CachedDocumentService();
@@ -1380,6 +1380,12 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                       await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
                                                       // Update local document history
                                                       widget.documents[originalIndex].history.add(historyEntry);
+                                                      await CachedDocumentService().updateDocument(widget.documents[originalIndex].code, {'needs_sync': true});
+
+                                                      // Automatically sync all documents
+                                                      await widget.syncAllDocuments();
+                                                      // Force UI refresh to show updated history
+                                                      setState(() {});
                                                       // Close the dialog
                                                       Navigator.of(dialogContext).pop();
                                                     }
