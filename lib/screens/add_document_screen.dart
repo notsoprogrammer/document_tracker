@@ -146,6 +146,41 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Received','Delivered', 'Returned', 'Completed', 'Urgent', 'For Follow-up'
   ];
 
+  final List<String> otherDocumentTypes = [
+    "AIP",
+    "Annual Accomplishment Report",
+    "Annual Budget",
+    "Barangay – AIP",
+    "Barangay – GAD",
+    "Cash Advance",
+    "CDC – Attendance",
+    "CDC – Minutes",
+    "CDC – Resolution",
+    "Certificate/Attendance",
+    "Clean-up Drives",
+    "CLUP Zoning Reclassification",
+    "CSOs",
+    "Dept. Heads Meeting",
+    "DTR",
+    "Earthquake Drills",
+    "Ecological Profile",
+    "L&D/IDP/DNA",
+    "Liquidation/Reimbursement",
+    "Locational Clearance",
+    "Man. Com",
+    "Monthly Accomplishment Report",
+    "Monthly Staff Meeting",
+    "OPCR",
+    "PFMAR/PFMIP",
+    "PR/PPMP",
+    "Quarterly Accomplishment Report",
+    "Research/Studies/Trainings",
+    "Sectoral Plans",
+    "Tree Planting",
+    "Zoning Certification",
+    "Zoning Clearance"
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -515,19 +550,67 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                         if (selectedType == 'Others') ...[
                           const SizedBox(height: 16),
-                          TextField(
-                            controller: customTypeController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: "Specify Document Type",
-                              border: OutlineInputBorder(),
-                              filled: true,
-                              fillColor: Theme.of(context).colorScheme.surface,
-                              errorText: _showValidationErrors &&
-                                      customTypeController.text.trim().isEmpty
-                                  ? "Custom document type is required"
-                                  : null,
-                            ),
+                          Autocomplete<String>(
+                            optionsBuilder: (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text.isEmpty) {
+                                return otherDocumentTypes.take(4);
+                              }
+                              return otherDocumentTypes.where((String option) {
+                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                              });
+                            },
+                            onSelected: (String selection) {
+                              customTypeController.text = selection;
+                            },
+                            fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                              fieldTextEditingController.text = customTypeController.text;
+                              return TextField(
+                                controller: fieldTextEditingController,
+                                focusNode: fieldFocusNode,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  labelText: "Specify Document Type",
+                                  hintText: "Type or select from list",
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Theme.of(context).colorScheme.surface,
+                                  errorText: _showValidationErrors &&
+                                          customTypeController.text.trim().isEmpty
+                                      ? "Custom document type is required"
+                                      : null,
+                                ),
+                                onChanged: (value) {
+                                  customTypeController.text = value;
+                                },
+                              );
+                            },
+                            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4.0,
+                                  child: SizedBox(
+                                    width: 350,
+                                    height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.all(8.0),
+                                      itemCount: options.length,
+                                      itemBuilder: (BuildContext context, int index) {
+                                        final String option = options.elementAt(index);
+                                        return GestureDetector(
+                                          onTap: () {
+                                            onSelected(option);
+                                          },
+                                          child: ListTile(
+                                            title: Text(option),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                         const SizedBox(height: 16),
