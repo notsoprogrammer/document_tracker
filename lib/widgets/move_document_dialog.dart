@@ -7,6 +7,7 @@ import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/upload_queue_manager.dart';
 
 class MoveDocumentDialog extends StatefulWidget {
   final Document document;
@@ -110,6 +111,16 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       return;
     }
 
+    // Check if there are any pending uploads for this document
+    final queueManager = UploadQueueManager();
+    final pendingUploads = queueManager.getPendingUploads(widget.document.code);
+    final uploadingUploads = queueManager.getAllItems().where((item) => item['documentCode'] == widget.document.code && item['status'] == 'uploading').toList();
+
+    if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
+      SnackbarUtils.showErrorSnackBar(context, 'Cannot move document while uploads are pending. Please wait for all uploads to complete.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -117,7 +128,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
     try {
       // Create updated document with new remarks and images
       final updatedRemarksList = List<String>.from(widget.document.remarksList)
-        ..add(_remarksController.text.trim());
+        ..add('Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}');
 
       final updatedImageUrls = List<String>.from(widget.document.imageUrls);
       final updatedFileUrls = List<String>.from(widget.document.fileUrls);
@@ -144,7 +155,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
       // Add history entry for the move
       updatedDocument.addHistoryEntry(
-        widget.moveAction,
+        widget.moveAction.replaceFirst('Move to', 'Moved to'),
         _username!,
         notes: 'Remarks: ${_remarksController.text.trim()}',
       );
@@ -170,9 +181,9 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       }
 
       if (mounted) {
+        SnackbarUtils.showSuccessSnackBar(context, 'Document moved successfully');
         Navigator.of(context).pop();
         widget.onDocumentMoved();
-        SnackbarUtils.showSuccessSnackBar(context, 'Document moved successfully');
       }
     } catch (e) {
       if (mounted) {

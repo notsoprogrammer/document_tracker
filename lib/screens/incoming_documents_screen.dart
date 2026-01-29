@@ -1355,8 +1355,14 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                             ),
-                                            onPressed: () async {
-                                              if (_username != null && _username!.isNotEmpty) {
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => MoveDocumentDialog(
+                                                  document: doc,
+                                                  moveAction: 'Move to Outgoing',
+                                                  onDocumentMoved: () async {
+                                                  if (_username != null && _username!.isNotEmpty) {
                                                 // Move the document to outgoing
                                                 widget.documents[originalIndex].flowStage = 'outgoing';
                                                 // Update the document in the service
@@ -1372,22 +1378,25 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 // Update local document history for immediate UI update
                                                 widget.documents[originalIndex].history.add(historyEntry);
                                                 setState(() {});
-                                                // Navigate to Outgoing Documents Screen
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => OutgoingDocumentsScreen(
-                                                      documents: widget.documents,
-                                                      transferDocument: widget.transferDocument,
-                                                      updateDocumentStatus: widget.updateDocumentStatus,
-                                                      deleteDocument: widget.deleteDocument,
-                                                      syncDocument: widget.syncDocument,
-                                                      onRefresh: widget.onRefresh,
-                                                      syncAllDocuments: widget.syncAllDocuments,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
+                                                    // Navigate to Outgoing Documents Screen
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => OutgoingDocumentsScreen(
+                                                          documents: widget.documents,
+                                                          transferDocument: widget.transferDocument,
+                                                          updateDocumentStatus: widget.updateDocumentStatus,
+                                                          deleteDocument: widget.deleteDocument,
+                                                          syncDocument: widget.syncDocument,
+                                                          onRefresh: widget.onRefresh,
+                                                          syncAllDocuments: widget.syncAllDocuments,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                  },
+                                                ),
+                                              );
                                             },
                                           ),
                                           Column(
@@ -1476,11 +1485,44 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   ],
 
                                   const SizedBox(height: 8),
-                                  _buildDetailRow(
-                                    Icons.comment,
-                                    "Remarks",
-                                    doc.remarks,
-                                  ),
+                                  if (doc.remarksList.isNotEmpty) ...[
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(Icons.comment, size: 20, color: Theme.of(context).colorScheme.primary),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Remarks",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              ...doc.remarksList.map((remark) => Padding(
+                                                padding: const EdgeInsets.only(bottom: 4),
+                                                child: Text(
+                                                  remark,
+                                                  style: const TextStyle(fontSize: 14),
+                                                ),
+                                              )),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ] else ...[
+                                    _buildDetailRow(
+                                      Icons.comment,
+                                      "Remarks",
+                                      doc.remarks,
+                                    ),
+                                  ],
                                   const SizedBox(height: 8),
                                   _buildDetailRow(
                                     Icons.receipt,
