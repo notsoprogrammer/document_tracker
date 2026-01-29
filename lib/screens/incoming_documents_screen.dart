@@ -1583,7 +1583,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
 
                                       return displayItems.map((item) {
                                         final entry = item['entry'] as HistoryEntry;
-                                        final remarks = item['remarks'] as List<String>;
                                         final originalIndex = entries.indexOf(entry);
                                         String office = doc.fromOrTo;
                                         String personnel = doc.assignedTo;
@@ -1648,7 +1647,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                         } else {
                                           if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
                                             mainLine = entry.action;
-                                          } 
+                                          }
                                           else if (entry.action.startsWith('Transferred to ')) {
                                           // NEW branch
                                           mainLine = entry.action; // or parse office/personnel if needed
@@ -1661,6 +1660,20 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                             mainLine = "$status: $office - $personnel";
                                           } else {
                                             mainLine = entry.action; // fallback
+                                          }
+                                        }
+
+                                        // Parse notes for move entries to extract remarks and attachments
+                                        String? remarksText;
+                                        String? attachmentsText;
+                                        if ((entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') && entry.notes != null) {
+                                          final parts = entry.notes!.split(' | ');
+                                          for (final part in parts) {
+                                            if (part.startsWith('Remarks: ')) {
+                                              remarksText = part.substring('Remarks: '.length);
+                                            } else if (part.startsWith('Attachments: ')) {
+                                              attachmentsText = part.substring('Attachments: '.length);
+                                            }
                                           }
                                         }
 
@@ -1702,10 +1715,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                             .withOpacity(0.6),
                                                       ),
                                                     ),
-                                                    if (remarks.isNotEmpty) ...[
+                                                    if (remarksText != null && remarksText.isNotEmpty) ...[
                                                       const SizedBox(height: 4),
                                                       Text(
-                                                        "Remarks: ${remarks.join(', ')}",
+                                                        "Remarks: $remarksText",
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           fontStyle: FontStyle.italic,
@@ -1716,10 +1729,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                         ),
                                                       ),
                                                     ],
-                                                    if (doc.fileNames.isNotEmpty && (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming')) ...[
+                                                    if (attachmentsText != null && attachmentsText.isNotEmpty) ...[
                                                       const SizedBox(height: 4),
                                                       Text(
-                                                        "Attachments: ${doc.fileNames.join(', ')}",
+                                                        "Attachments: $attachmentsText",
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),

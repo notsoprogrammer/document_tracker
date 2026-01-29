@@ -1313,7 +1313,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
                                       return displayItems.map((item) {
                                         final entry = item['entry'] as HistoryEntry;
-                                        final remarks = item['remarks'] as List<String>;
                                         final originalIndex = entries.indexOf(entry);
                                         String office = doc.fromOrTo;
                                         String personnel = doc.assignedTo;
