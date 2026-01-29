@@ -64,20 +64,22 @@ final List<String> coreFunctions = [
   'CLUP Zoning Reclassification',
   'CSOs',
   'Ecological Profile',
+  'Locational Clearance'
   'Research/Studies/Trainings',
   'Sectoral Plans',
-  'Zoning/Loc. Certification',
-  'Zoning/Loc. Clearance',
+  'Zoning Certification',
+  'Zoning Clearance',
 ];
 
 final List<String> strategicFunctions = [
   'Liquidation/ Reimbursement',
-  'PFMAT',
+  'PFMAR/PFMIP',
   'PR/PPMP',
 ];
 
 final List<String> supportFunctions = [
-  'Budget',
+  'Annual Accomplishment Report',
+  'Annual Budget',
   'Cash Advance',
   'Certificate/Attendance',
   'Clean-up Drives',
@@ -92,6 +94,7 @@ final List<String> supportFunctions = [
   'Quarterly Accomplishment Report',
   'Tree Planting',
 ];
+
 
   List<String> get allOptions => [...coreFunctions, ...strategicFunctions, ...supportFunctions];
 
