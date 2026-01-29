@@ -13,12 +13,14 @@ class MoveDocumentDialog extends StatefulWidget {
   final Document document;
   final String moveAction; // 'Move to Outgoing' or 'Move to Incoming'
   final VoidCallback onDocumentMoved;
+  final Function(String) syncDocument;
 
   const MoveDocumentDialog({
     super.key,
     required this.document,
     required this.moveAction,
     required this.onDocumentMoved,
+    required this.syncDocument,
   });
 
   @override
@@ -224,8 +226,10 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         await documentService.addHistoryEntry(widget.document.code, entry);
       }
 
+      // Sync the document before completing the move
+      await widget.syncDocument(widget.document.code);
+
       if (mounted) {
-        SnackbarUtils.showSuccessSnackBar(context, 'Document moved successfully');
         Navigator.of(context).pop();
         widget.onDocumentMoved();
       }

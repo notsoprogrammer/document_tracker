@@ -1120,11 +1120,12 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                 builder: (dialogContext) => MoveDocumentDialog(
                                                   document: doc,
                                                   moveAction: 'Move to Incoming',
+                                                  syncDocument: widget.syncDocument,
                                                   onDocumentMoved: () async {
                                                     if (_username != null && _username!.isNotEmpty) {
                                                       // Move the document to outgoing
                                                       widget.documents[originalIndex].flowStage = 'incoming';
-                                                      // Update the document in the service
+                                                       _updateFilteredDocuments();
                                                       final documentService = CachedDocumentService();
                                                       await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
                                                       // Add history entry
@@ -1136,24 +1137,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                       await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
                                                       // Update local document history for immediate UI update
                                                       widget.documents[originalIndex].history.add(historyEntry);
-                                                      setState(() {});
-                                                      // Close the dialog first, then navigate
                                                       Navigator.of(dialogContext).pop();
-                                                      // Navigate to Incoming Documents Screen and remove previous routes up to HomeScreen
-                                                      Navigator.of(context).pushAndRemoveUntil(
-                                                        MaterialPageRoute(
-                                                          builder: (routeContext) => IncomingDocumentsScreen(
-                                                            documents: widget.documents,
-                                                            transferDocument: widget.transferDocument,
-                                                            updateDocumentStatus: widget.updateDocumentStatus,
-                                                            deleteDocument: widget.deleteDocument,
-                                                            syncDocument: widget.syncDocument,
-                                                            onRefresh: widget.onRefresh,
-                                                            syncAllDocuments: widget.syncAllDocuments,
-                                                          ),
-                                                        ),
-                                                        (route) => route.isFirst, // Keep HomeScreen, remove intermediate routes
-                                                      );
                                                     }
                                                   },
                                                 ),
