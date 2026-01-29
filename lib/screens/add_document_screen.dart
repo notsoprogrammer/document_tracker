@@ -553,7 +553,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           Autocomplete<String>(
                             optionsBuilder: (TextEditingValue textEditingValue) {
                               if (textEditingValue.text.isEmpty) {
-                                return otherDocumentTypes.take(4);
+                                return otherDocumentTypes;
                               }
                               return otherDocumentTypes.where((String option) {
                                 return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
