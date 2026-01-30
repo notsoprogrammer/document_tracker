@@ -90,7 +90,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
         allowMultiple: true,
-        withData: kIsWeb, // Use withData on web to get file bytes
+        withData: true, // Need bytes for web uploads
       );
       if (result != null && result.files.isNotEmpty && mounted) {
         int imagesAdded = 0;
@@ -173,7 +173,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       }
     } catch (e) {
       if (mounted) {
-        SnackbarUtils.showErrorSnackBar(context, 'Failed to pick files');
+        SnackbarUtils.showErrorSnackBar(context, 'Failed to pick files: $e');
       }
     }
   }
