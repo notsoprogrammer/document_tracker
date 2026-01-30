@@ -116,6 +116,8 @@ flutter:
 flutter_icons:
   android: true
   ios: true
+  web:
+    generate: true
   image_path: "assets/image/appLogo.png"
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
