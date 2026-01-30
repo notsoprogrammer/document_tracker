@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/notification_service.dart';
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadDocuments();
+    _checkAndRequestNotificationPermission();
   }
 
   @override
@@ -799,6 +801,57 @@ Positioned(
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send test notification: $e')),
       );
+    }
+  }
+
+  Future<void> _checkAndRequestNotificationPermission() async {
+    if (!kIsWeb) return; // Only for web
+
+    try {
+      final notificationService = NotificationService();
+      final permissions = await notificationService.checkPermissions();
+      final isGranted = permissions['notification'] ?? false;
+
+      if (!isGranted) {
+        // Show dialog to request permission
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Enable Notifications'),
+              content: const Text(
+                'This app uses notifications to keep you updated on important document deadlines and updates. '
+                'Would you like to enable notifications?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Not Now'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    try {
+                      await notificationService.requestNotificationPermission();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Notification permission requested')),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to request permission: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Enable'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error checking notification permissions: $e');
     }
   }
 

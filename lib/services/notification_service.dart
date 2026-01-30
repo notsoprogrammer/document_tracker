@@ -82,6 +82,10 @@ class NotificationService {
     );
   }
 
+  Future<void> requestNotificationPermission() async {
+    await _requestNotificationPermission();
+  }
+
   /* -----------------------------------------------------------
    * FCM SETUP
    * ---------------------------------------------------------*/
