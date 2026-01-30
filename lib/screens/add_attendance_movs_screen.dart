@@ -550,50 +550,54 @@ final List<String> supportFunctions = [
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
                                     allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png','heic'],
-                                    allowMultiple: false,
+                                    allowMultiple: true,
                                     withData: true,
                                   );
                                   if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    String? filePath = file.path;
-                                    if (filePath == null || filePath.isEmpty) {
-                                      if (file.bytes != null) {
-                                        final tempDir = Directory.systemTemp;
-                                        final tempFile = File('${tempDir.path}/${file.name}');
-                                        await tempFile.writeAsBytes(file.bytes!);
-                                        filePath = tempFile.path;
+                                    int imagesAdded = 0;
+                                    int documentsAdded = 0;
+                                    for (final file in result.files) {
+                                      String? filePath = file.path;
+                                      if (filePath == null || filePath.isEmpty) {
+                                        if (file.bytes != null) {
+                                          final tempDir = Directory.systemTemp;
+                                          final tempFile = File('${tempDir.path}/${file.name}');
+                                          await tempFile.writeAsBytes(file.bytes!);
+                                          filePath = tempFile.path;
+                                        }
                                       }
-                                    }
 
-                                    if (filePath != null && filePath.isNotEmpty) {
-                                      final fileSize = File(filePath).lengthSync();
-                                      if (fileSize > 50 * 1024 * 1024) {
-                                        setState(() => _isPickingFile = false);
-                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
-                                      } else {
+                                      if (filePath != null && filePath.isNotEmpty) {
+                                        final fileSize = File(filePath).lengthSync();
+                                        if (fileSize > 50 * 1024 * 1024) {
+                                          SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
+                                          continue;
+                                        }
                                         if (_isImage(file.name)) {
                                           int currentImageCount = _selectedImagePaths.where(_isImage).length;
                                           if (currentImageCount >= 10) {
-                                            setState(() => _isPickingFile = false);
                                             SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
-                                            return;
+                                            break;
                                           }
-                                          setState(() {
-                                            _selectedImagePaths.add(filePath!);
-                                            _isPickingFile = false;
-                                          });
-                                          SnackbarUtils.showSuccessSnackBar(context, 'Image added: ${file.name}');
+                                          _selectedImagePaths.add(filePath);
+                                          imagesAdded++;
                                         } else {
-                                          setState(() {
-                                            _selectedDocumentPaths.add(filePath!);
-                                            _isPickingFile = false;
-                                          });
-                                          SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
+                                          if (_selectedDocumentPaths.isEmpty) {
+                                            _selectedDocumentPaths.add(filePath);
+                                            documentsAdded++;
+                                          }
                                         }
                                       }
-                                    } else {
-                                      setState(() => _isPickingFile = false);
-                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
+                                    }
+                                    setState(() => _isPickingFile = false);
+                                    if (imagesAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$imagesAdded image(s) added');
+                                    }
+                                    if (documentsAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$documentsAdded file(s) added');
+                                    }
+                                    if (imagesAdded == 0 && documentsAdded == 0) {
+                                      SnackbarUtils.showErrorSnackBar(context, 'No valid files added');
                                     }
                                   } else {
                                     setState(() => _isPickingFile = false);
@@ -601,7 +605,7 @@ final List<String> supportFunctions = [
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
-                                label: const Text("Pick File"),
+                                label: const Text("Pick Files"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
