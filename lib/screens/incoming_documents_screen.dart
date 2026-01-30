@@ -783,7 +783,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
     );
   }
 
-  void _showImageDialog(BuildContext context, List<String> imageUrls) {
+  void _showImageDialog(BuildContext context, Document document) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -795,39 +795,58 @@ Widget _buildUploadStatusIndicator(Document doc) {
           child: Stack(
             children: [
               PageView.builder(
-                itemCount: imageUrls.length,
+                itemCount: document.imageUrls.length,
                 itemBuilder: (context, index) {
-                  return InteractiveViewer(
-                    child: Center(
-                      child: Image.network(
-                        imageUrls[index],
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Please wait...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Text('Failed to load image'),
-                          );
-                        },
+                  String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          fileName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: InteractiveViewer(
+                          child: Center(
+                            child: Image.network(
+                              document.imageUrls[index],
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        'Please wait...',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Text('Failed to load image'),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -1837,7 +1856,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           label: const Text("View Image"),
                                           onPressed: () => _showImageDialog(
                                             context,
-                                            doc.imageUrls,
+                                            doc,
                                           ),
                                           style: ElevatedButton.styleFrom(
                                             padding: const EdgeInsets.symmetric(
