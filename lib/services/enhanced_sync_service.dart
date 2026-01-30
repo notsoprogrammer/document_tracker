@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/document.dart';
 import 'cached_document_service.dart';
-import 'sqlite_database_service.dart';
+import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import 'connectivity_service.dart';
 import 'upload_queue_manager.dart';
