@@ -3,7 +3,7 @@ name: Deploy Flutter Web to Firebase Hosting
 on:
   push:
     branches:
-      - main   # runs when you push to main branch
+      - main
 
 jobs:
   build-and-deploy:
@@ -21,11 +21,33 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create Supabase config
+        run: |
+          cat << 'EOF' > lib/config/supabase_config.dart
+          class SupabaseConfig {
+            static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+            static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+          }
+      
+          const String developerPassword = String.fromEnvironment('DEVELOPER_PASSWORD');
+          EOF
+          
+      - name: Create Auth config
+        run: |
+          echo "const String developerPassword = String.fromEnvironment('DEVELOPER_PASSWORD');" > lib/config/auth_config.dart
+           
       - name: Build Flutter web
-        run: flutter build web --release
+        run: flutter build web --release --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} --dart-define=DEVELOPER_PASSWORD=${{ secrets.DEVELOPER_PASSWORD }}
 
       - name: Set up Firebase credentials
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase.json" >> $GITHUB_ENV
+          
+      - name: Set up Firebase credentials
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase.json" >> $GITHUB_ENV
 
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --project docu-tracker-ac4ea
