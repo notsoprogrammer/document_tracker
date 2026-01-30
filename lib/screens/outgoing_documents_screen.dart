@@ -1247,6 +1247,14 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     ),
                                   ],
                                   const SizedBox(height: 8),
+                                  if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
+                                    _buildDetailRow(
+                                      Icons.link,
+                                      "Drive Link",
+                                      doc.referenceLink!,
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
                                   _buildDetailRow(
                                     Icons.send,
                                     "Released by",

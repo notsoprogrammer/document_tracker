@@ -1519,6 +1519,14 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     ),
                                   ],
                                   const SizedBox(height: 8),
+                                  if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
+                                    _buildDetailRow(
+                                      Icons.link,
+                                      "Drive Link",
+                                      doc.referenceLink!,
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
                                   _buildDetailRow(
                                     Icons.receipt,
                                     "Received by",

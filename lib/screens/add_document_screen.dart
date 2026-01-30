@@ -37,6 +37,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   DateTime? selectedReceivingDate;
   String? selectedFilePath;
   final remarksController = TextEditingController();
+  final referenceLinkController = TextEditingController();
   final personController = TextEditingController();
   
 
@@ -1019,6 +1020,17 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ],
                         const SizedBox(height: 12),
                         TextField(
+                          controller: referenceLinkController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Drive Link (optional)",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
@@ -1076,6 +1088,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         calendarAdded: selectedCalendarDate != null,
                         attachments: [..._selectedImagePaths, ..._selectedDocumentPaths],
                         receivingDate: selectedReceivingDate,
+                        referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         history: widget.incoming ? [
                           HistoryEntry(
                             action: 'Document Received',
