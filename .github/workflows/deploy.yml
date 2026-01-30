@@ -1,0 +1,31 @@
+name: Deploy Flutter Web to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main   # runs when you push to main branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Flutter web
+        run: flutter build web --release
+
+      - name: Set up Firebase credentials
+        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting --project docu-tracker-ac4ea
