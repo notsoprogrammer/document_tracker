@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "build/web",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -12,5 +12,28 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "docu-tracker-ac4ea",
+          "appId": "1:269775325253:android:c0e241b9c6908a22dd7b2c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "docu-tracker-ac4ea",
+          "configurations": {
+            "android": "1:269775325253:android:c0e241b9c6908a22dd7b2c",
+            "ios": "1:269775325253:ios:1aa5a72aeb99964fdd7b2c",
+            "macos": "1:269775325253:ios:6d12f584ffcaeaf3dd7b2c",
+            "web": "1:269775325253:web:17eab4c40d7eae6ddd7b2c",
+            "windows": "1:269775325253:web:212188e9de9d9ce0dd7b2c"
+          }
+        }
+      }
+    }
   }
 }
