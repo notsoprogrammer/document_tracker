@@ -32,6 +32,10 @@ class SQLiteDatabaseService {
     _notificationsHistoryBox = await Hive.openBox<Map>(_notificationsHistoryBoxName);
   }
 
+  Future<void> get database async {
+    await _initHive();
+  }
+
   Future<Box<Map>> get _documents async {
     if (_documentsBox == null) {
       await _initHive();
