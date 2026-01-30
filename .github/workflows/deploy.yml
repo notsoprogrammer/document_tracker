@@ -4,7 +4,11 @@ on:
   push:
     branches:
       - main   # runs when you push to main branch
-
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  DEVELOPER_PASSWORD: ${{ secrets.DEVELOPER_PASSWORD }}
+  
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
