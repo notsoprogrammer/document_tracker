@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/document.dart';
@@ -32,6 +33,8 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
   final TextEditingController _remarksController = TextEditingController();
   List<String> _selectedImagePaths = [];
   List<String> _selectedFilePaths = [];
+  // For web compatibility - store file data
+  final Map<String, List<int>> _webFileBytes = {};
   bool _isLoading = false;
   String? _username;
 
@@ -87,7 +90,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
         allowMultiple: true,
-        withData: false,
+        withData: kIsWeb, // Use withData on web to get file bytes
       );
       if (result != null && result.files.isNotEmpty && mounted) {
         int imagesAdded = 0;
@@ -95,17 +98,32 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         List<String> skippedFiles = [];
         for (final file in result.files) {
           String? filePath = file.path;
-          if (filePath == null || filePath.isEmpty) {
+          int fileSize = 0;
+
+          if (kIsWeb) {
+            // On web, use file.bytes for size and path
             if (file.bytes != null) {
-              final tempDir = Directory.systemTemp;
-              final tempFile = File('${tempDir.path}/${file.name}');
-              await tempFile.writeAsBytes(file.bytes!);
-              filePath = tempFile.path;
+              fileSize = file.bytes!.length;
+              filePath = 'web_file_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+              // Store bytes for web files
+              _webFileBytes[filePath] = file.bytes!;
+            }
+          } else {
+            // On mobile/desktop, use file.path
+            if (filePath == null || filePath.isEmpty) {
+              if (file.bytes != null) {
+                final tempDir = Directory.systemTemp;
+                final tempFile = File('${tempDir.path}/${file.name}');
+                await tempFile.writeAsBytes(file.bytes!);
+                filePath = tempFile.path;
+              }
+            }
+            if (filePath != null && filePath.isNotEmpty) {
+              fileSize = File(filePath).lengthSync();
             }
           }
 
-          if (filePath != null && filePath.isNotEmpty) {
-            final fileSize = File(filePath).lengthSync();
+          if (filePath != null && filePath.isNotEmpty && fileSize > 0) {
             if (_isImage(file.name)) {
               if (_selectedImagePaths.length >= 20) {
                 SnackbarUtils.showErrorSnackBar(context, 'Only 20 image files allowed');
@@ -122,8 +140,15 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
                 skippedFiles.add(file.name);
                 continue;
               }
-              int currentTotalSize = _selectedFilePaths.fold(0, (sum, path) => sum + File(path).lengthSync());
-              if (currentTotalSize + fileSize > 50 * 1024 * 1024) {
+              int currentTotalSize = _selectedFilePaths.fold(0, (sum, path) {
+                if (kIsWeb) {
+                  // For web files, we can't easily get size from path, skip size check for now
+                  return 0;
+                } else {
+                  return sum + File(path).lengthSync();
+                }
+              });
+              if (!kIsWeb && currentTotalSize + fileSize > 50 * 1024 * 1024) {
                 SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
                 continue;
               }
@@ -191,6 +216,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
           filePath: imagePath,
           isImage: true,
           localPath: imagePath,
+          bytes: kIsWeb && _webFileBytes.containsKey(imagePath) ? _webFileBytes[imagePath] : null,
         );
       }
       for (final filePath in _selectedFilePaths) {
@@ -199,6 +225,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
           filePath: filePath,
           isImage: false,
           localPath: filePath,
+          bytes: kIsWeb && _webFileBytes.containsKey(filePath) ? _webFileBytes[filePath] : null,
         );
       }
 

@@ -241,6 +241,87 @@ class GoogleDriveService {
     }
   }
 
+  /// Upload file from bytes (for web compatibility)
+  static Future<String?> uploadFileFromBytes(List<int> bytes, String fileName, {DriveFolder folder = DriveFolder.incoming}) async {
+    try {
+      // Load service account credentials
+      final serviceAccountJson = await rootBundle.loadString('assets/service_account_key.json');
+      final credentials = ServiceAccountCredentials.fromJson(serviceAccountJson);
+
+      // Get authenticated HTTP client
+      final client = await clientViaServiceAccount(
+        credentials,
+        [drive.DriveApi.driveFileScope]
+      );
+
+      // Create Drive API client
+      final driveApi = drive.DriveApi(client);
+
+      // Resolve target folder
+      final targetFolderId = folder == DriveFolder.outgoing
+          ? _outgoingFolderId
+          : folder == DriveFolder.flagCeremony
+              ? _flagCeremonyFolderId
+              : folder == DriveFolder.attendance
+                  ? _attendanceFolderId
+                  : folder == DriveFolder.movs
+                      ? _movsFolderId
+                      : folder == DriveFolder.certificates
+                          ? _certificatesFolderId
+                          : _incomingFolderId;
+
+      // Check if file already exists
+      final query = "name = '$fileName' and '$targetFolderId' in parents and trashed = false";
+      final existingFiles = await driveApi.files.list(
+        q: query,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        $fields: 'files(id,name)',
+      );
+
+      final media = drive.Media(Stream.fromIterable([bytes]), bytes.length);
+
+      if (existingFiles.files?.isNotEmpty == true) {
+        // Update existing file
+        final fileId = existingFiles.files!.first.id!;
+        final updated = await driveApi.files.update(
+          drive.File(name: fileName, parents: [targetFolderId]),
+          fileId,
+          uploadMedia: media,
+          supportsAllDrives: true,
+        );
+        // Make the file public
+        if (updated.id != null) {
+          await _makeFilePublic(driveApi, updated.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(updated.id!);
+        }
+        return null;
+      } else {
+        // Create new file
+        final driveFile = drive.File()
+          ..name = fileName
+          ..parents = [targetFolderId];
+        final created = await driveApi.files.create(
+          driveFile,
+          uploadMedia: media,
+          supportsAllDrives: true,
+        );
+        // Make the file public
+        if (created.id != null) {
+          await _makeFilePublic(driveApi, created.id!);
+          // Return the public URL using the file ID
+          return generatePublicUrl(created.id!);
+        }
+        return null;
+      }
+
+    } catch (e) {
+      print('Error uploading file from bytes: $e');
+      return null;
+    }
+  }
+
   /// Upload any file to Google Drive (generic method)
   static Future<String?> uploadFileToDrive(
     File file,

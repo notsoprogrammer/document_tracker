@@ -16,6 +16,7 @@ class UploadQueueManager extends ChangeNotifier {
     required String filePath,
     required bool isImage,
     required String localPath,
+    List<int>? bytes, // For web compatibility
   }) {
     // Check if file already exists in queue
     final existingIndex = _uploadQueue.indexWhere(
@@ -28,6 +29,7 @@ class UploadQueueManager extends ChangeNotifier {
         'filePath': filePath,
         'isImage': isImage,
         'localPath': localPath,
+        'bytes': bytes, // Store bytes for web files
         'status': 'pending',
         'retryCount': 0,
         'timestamp': DateTime.now().toIso8601String(),

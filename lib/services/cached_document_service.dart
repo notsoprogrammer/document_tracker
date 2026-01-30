@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
@@ -515,7 +516,6 @@ class CachedDocumentService {
           'uploading'
         );
 
-        final file = File(upload['localPath']);
         final isImage = upload['isImage'];
         final fileName = '${upload['documentCode']}_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -572,29 +572,47 @@ class CachedDocumentService {
 
         String? driveUrl;
         String uploadedFileName;
-        if (isImage) {
-          // For images, use the existing uploadImageToDrive method
-          driveUrl = await GoogleDriveService.uploadImageToDrive(
-            file,
-            fileName,
-            folder: folder,
-          );
-          debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
-          // For images, the uploaded filename is fileName + extension
-          final extension = upload['localPath'].split('.').last.toLowerCase();
-          uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-        } else {
-          // For documents, use uploadFileToDrive method which handles file extensions properly
-          final file = File(upload['localPath']);
+
+        // Check if this is a web file with bytes
+        final bytes = upload['bytes'] as List<int>?;
+        if (kIsWeb && bytes != null) {
+          // Web file with bytes - use uploadFileFromBytes
           final extension = upload['localPath'].split('.').last.toLowerCase();
           final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-          driveUrl = await GoogleDriveService.uploadFileToDrive(
-            file,
+          driveUrl = await GoogleDriveService.uploadFileFromBytes(
+            bytes,
             docFileName,
             folder: folder,
           );
-          debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+          debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
           uploadedFileName = docFileName;
+        } else {
+          // Regular file - use existing methods
+          final file = File(upload['localPath']);
+          if (isImage) {
+            // For images, use the existing uploadImageToDrive method
+            driveUrl = await GoogleDriveService.uploadImageToDrive(
+              file,
+              fileName,
+              folder: folder,
+            );
+            debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
+            // For images, the uploaded filename is fileName + extension
+            final extension = upload['localPath'].split('.').last.toLowerCase();
+            uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+          } else {
+            // For documents, use uploadFileToDrive method which handles file extensions properly
+            final file = File(upload['localPath']);
+            final extension = upload['localPath'].split('.').last.toLowerCase();
+            final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+            driveUrl = await GoogleDriveService.uploadFileToDrive(
+              file,
+              docFileName,
+              folder: folder,
+            );
+            debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+            uploadedFileName = docFileName;
+          }
         }
 
         if (driveUrl != null) {
