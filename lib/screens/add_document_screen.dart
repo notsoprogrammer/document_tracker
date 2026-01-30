@@ -914,41 +914,69 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingFile || _isSaving) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile ||_selectedDocumentPaths.isNotEmpty || _isSaving) ? null : () async {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
                                     allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
-                                    allowMultiple: false, // Only one document
-                                    withData: true, // Ensure bytes are available
+                                    allowMultiple: true,
+                                    withData: false,
                                   );
                                   if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    String? filePath = file.path;
-                                    if (filePath == null || filePath.isEmpty) {
-                                      if (file.bytes != null) {
-                                        // Create a temporary file for platforms that don't provide paths
-                                        final tempDir = Directory.systemTemp;
-                                        final tempFile = File('${tempDir.path}/${file.name}');
-                                        await tempFile.writeAsBytes(file.bytes!);
-                                        filePath = tempFile.path;
+                                    int imagesAdded = 0;
+                                    int documentsAdded = 0;
+                                    List<String> skippedFiles = [];
+                                    for (final file in result.files) {
+                                      String? filePath = file.path;
+                                      if (filePath == null || filePath.isEmpty) {
+                                        if (file.bytes != null) {
+                                          final tempDir = Directory.systemTemp;
+                                          final tempFile = File('${tempDir.path}/${file.name}');
+                                          await tempFile.writeAsBytes(file.bytes!);
+                                          filePath = tempFile.path;
+                                        }
+                                      }
+
+                                      if (filePath != null && filePath.isNotEmpty) {
+                                        final fileSize = File(filePath).lengthSync();
+                                        if (_isImage(file.name)) {
+                                          if (_selectedImagePaths.length >= 20) {
+                                            SnackbarUtils.showErrorSnackBar(context, 'Only 20 image files allowed');
+                                            continue;
+                                          }
+                                          if (fileSize > 50 * 1024 * 1024) {
+                                            skippedFiles.add(file.name);
+                                            continue;
+                                          }
+                                          _selectedImagePaths.add(filePath);
+                                          imagesAdded++;
+                                        } else if (_isDocument(file.name)) {
+                                          if (fileSize > 50 * 1024 * 1024) {
+                                            skippedFiles.add(file.name);
+                                            continue;
+                                          }
+                                          int currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) => sum + File(path).lengthSync());
+                                          if (currentTotalSize + fileSize > 50 * 1024 * 1024) {
+                                            SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
+                                            continue;
+                                          }
+                                          _selectedDocumentPaths.add(filePath);
+                                          documentsAdded++;
+                                        }
                                       }
                                     }
-
-                                    if (filePath != null && filePath.isNotEmpty) {
-                                      final fileSize = File(filePath).lengthSync();
-                                      if (fileSize > 50 * 1024 * 1024) { // 20MB
-                                        setState(() => _isPickingFile = false);
-                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
-                                      } else {
-                                        setState(() {
-                                          _selectedDocumentPaths.add(filePath!);
-                                          _isPickingFile = false;
-                                        });
-                                      }
-                                    } else {
-                                      setState(() => _isPickingFile = false);
-                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
+                                    setState(() => _isPickingFile = false);
+                                    if (skippedFiles.isNotEmpty) {
+                                      SnackbarUtils.showErrorSnackBar(context, 'Files skipped due to size >50MB: ${skippedFiles.join(', ')}');
+                                    }
+                                    if (imagesAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$imagesAdded image(s) added');
+                                    }
+                                    if (documentsAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$documentsAdded document(s) added');
+                                    }
+                                    if (imagesAdded == 0 && documentsAdded == 0 && skippedFiles.isEmpty) {
+                                      SnackbarUtils.showErrorSnackBar(context, 'No valid files added');
                                     }
                                   } else {
                                     setState(() => _isPickingFile = false);
@@ -956,7 +984,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
-                                label: const Text("Pick Document"),
+                                label: const Text("Pick Files"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
