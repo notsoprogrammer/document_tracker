@@ -222,7 +222,9 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       final allDocs = await documentService.fetchDocuments();
       final updatedDoc = allDocs.firstWhere((doc) => doc.code == widget.document.code);
       final newAttachmentCount = _selectedImagePaths.length + _selectedFilePaths.length;
-      googleDriveFileNames = updatedDoc.fileNames.sublist(updatedDoc.fileNames.length - newAttachmentCount);
+      // Safety check to prevent negative start index
+      final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
+      googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Failed to upload files: $e');
       return;
