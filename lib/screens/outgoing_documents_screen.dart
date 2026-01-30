@@ -1247,14 +1247,33 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     ),
                                   ],
                                   const SizedBox(height: 8),
-                                  if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
-                                    _buildDetailRow(
-                                      Icons.link,
-                                      "Drive Link",
-                                      doc.referenceLink!,
-                                    ),
-                                    const SizedBox(height: 8),
-                                  ],
+                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final uri = Uri.parse(doc.referenceLink!);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri);
+                                          }
+                                        },
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.link, color: Colors.blue),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                doc.referenceLink!,
+                                                style: const TextStyle(
+                                                  color: Colors.blue,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   _buildDetailRow(
                                     Icons.send,
                                     "Released by",
