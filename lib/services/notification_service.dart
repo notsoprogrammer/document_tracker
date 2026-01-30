@@ -68,13 +68,13 @@ class NotificationService {
   }
 
   Future<void> _requestNotificationPermission() async {
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       if (await Permission.notification.isDenied) {
         await Permission.notification.request();
       }
     }
 
-    // Request FCM permission
+    // On web, FirebaseMessaging handles permission internally
     await _firebaseMessaging.requestPermission(
       alert: true,
       badge: true,
@@ -136,6 +136,12 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
+    if (kIsWeb) {
+      // On web, rely on browser push notifications via FCM
+      debugPrint('Web notification: $title - $body');
+      return;
+    }
+
     const androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
@@ -153,7 +159,7 @@ class NotificationService {
     );
 
     await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000, // Unique ID
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,
       notificationDetails,
