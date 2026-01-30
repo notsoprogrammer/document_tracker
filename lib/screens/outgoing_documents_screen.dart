@@ -1246,9 +1246,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       doc.remarks,
                                     ),
                                   ],
-                                  const SizedBox(height: 8),
-                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
+                                  if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
                                       GestureDetector(
                                         onTap: () async {
                                           final uri = Uri.parse(doc.referenceLink!);
@@ -1279,7 +1279,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     "Released by",
                                     doc.person,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 8),
                                   ExpansionTile(
                                     leading: const Icon(Icons.history),
                                     // compute visible entries (creation + status changes)

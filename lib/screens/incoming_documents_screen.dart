@@ -1478,8 +1478,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   if (doc.imageUrls.isNotEmpty) ...[
                                     const SizedBox(height: 8),
                                   ],
-
-                                  const SizedBox(height: 8),
                                   if (doc.remarksList.isNotEmpty) ...[
                                     Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1518,9 +1516,14 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                       doc.remarks,
                                     ),
                                   ],
-                                  const SizedBox(height: 8),
-                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
+                                  _buildDetailRow(
+                                    Icons.receipt,
+                                    "Received by",
+                                    doc.person,
+                                  ),
+                                  if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
                                       GestureDetector(
                                         onTap: () async {
                                           final uri = Uri.parse(doc.referenceLink!);
@@ -1546,12 +1549,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                         ),
                                       ),
                                     ],
-                                  _buildDetailRow(
-                                    Icons.receipt,
-                                    "Received by",
-                                    doc.person,
-                                  ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 8),
                                   ExpansionTile(
                                     leading: const Icon(Icons.history),
                                     title: Text(

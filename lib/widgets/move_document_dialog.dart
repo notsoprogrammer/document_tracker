@@ -35,6 +35,16 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
   bool _isLoading = false;
   String? _username;
 
+  bool _isImage(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heif','heic'].contains(ext);
+  }
+
+  bool _isDocument(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'].contains(ext);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,13 +85,66 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'pdf', 'docx'],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
         allowMultiple: true,
+        withData: false,
       );
       if (result != null && result.files.isNotEmpty && mounted) {
-        setState(() {
-          _selectedFilePaths.addAll(result.files.map((file) => file.path!).where((path) => path.isNotEmpty));
-        });
+        int imagesAdded = 0;
+        int documentsAdded = 0;
+        List<String> skippedFiles = [];
+        for (final file in result.files) {
+          String? filePath = file.path;
+          if (filePath == null || filePath.isEmpty) {
+            if (file.bytes != null) {
+              final tempDir = Directory.systemTemp;
+              final tempFile = File('${tempDir.path}/${file.name}');
+              await tempFile.writeAsBytes(file.bytes!);
+              filePath = tempFile.path;
+            }
+          }
+
+          if (filePath != null && filePath.isNotEmpty) {
+            final fileSize = File(filePath).lengthSync();
+            if (_isImage(file.name)) {
+              if (_selectedImagePaths.length >= 20) {
+                SnackbarUtils.showErrorSnackBar(context, 'Only 20 image files allowed');
+                continue;
+              }
+              if (fileSize > 50 * 1024 * 1024) {
+                skippedFiles.add(file.name);
+                continue;
+              }
+              _selectedImagePaths.add(filePath);
+              imagesAdded++;
+            } else if (_isDocument(file.name)) {
+              if (fileSize > 50 * 1024 * 1024) {
+                skippedFiles.add(file.name);
+                continue;
+              }
+              int currentTotalSize = _selectedFilePaths.fold(0, (sum, path) => sum + File(path).lengthSync());
+              if (currentTotalSize + fileSize > 50 * 1024 * 1024) {
+                SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
+                continue;
+              }
+              _selectedFilePaths.add(filePath);
+              documentsAdded++;
+            }
+          }
+        }
+        setState(() {});
+        if (skippedFiles.isNotEmpty) {
+          SnackbarUtils.showErrorSnackBar(context, 'Files skipped due to size >50MB: ${skippedFiles.join(', ')}');
+        }
+        if (imagesAdded > 0) {
+          SnackbarUtils.showSuccessSnackBar(context, '$imagesAdded image(s) added');
+        }
+        if (documentsAdded > 0) {
+          SnackbarUtils.showSuccessSnackBar(context, '$documentsAdded document(s) added');
+        }
+        if (imagesAdded == 0 && documentsAdded == 0 && skippedFiles.isEmpty) {
+          SnackbarUtils.showErrorSnackBar(context, 'No valid files added');
+        }
       }
     } catch (e) {
       if (mounted) {
