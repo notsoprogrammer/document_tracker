@@ -23,10 +23,14 @@ jobs:
 
       - name: Create Supabase config
         run: |
-          echo "class SupabaseConfig {
+          cat << 'EOF' > lib/config/supabase_config.dart
+          class SupabaseConfig {
             static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
             static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
           }
+      
+          const String developerPassword = String.fromEnvironment('DEVELOPER_PASSWORD');
+          EOF
           
       - name: Create Auth config
         run: |
