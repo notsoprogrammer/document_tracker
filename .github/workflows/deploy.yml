@@ -3,12 +3,8 @@ name: Deploy Flutter Web to Firebase Hosting
 on:
   push:
     branches:
-      - main   # runs when you push to main branch
-env:
-  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-  DEVELOPER_PASSWORD: ${{ secrets.DEVELOPER_PASSWORD }}
-  
+      - main
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -26,10 +22,15 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter web
-        run: flutter build web --release
+        run: flutter build web --release \
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+          --dart-define=DEVELOPER_PASSWORD=${{ secrets.DEVELOPER_PASSWORD }}
 
       - name: Set up Firebase credentials
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase.json" >> $GITHUB_ENV
 
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --project docu-tracker-ac4ea
