@@ -1246,7 +1246,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       doc.remarks,
                                     ),
                                   ],
-                                  const SizedBox(height: 4),
                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       GestureDetector(
@@ -1274,6 +1273,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         ),
                                       ),
                                     ],
+                                    const SizedBox(height: 4),
                                   _buildDetailRow(
                                     Icons.send,
                                     "Released by",
