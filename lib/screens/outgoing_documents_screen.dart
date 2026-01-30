@@ -1231,7 +1231,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                 padding: const EdgeInsets.only(bottom: 4),
                                                 child: Text(
                                                   remark,
-                                                  style: const TextStyle(fontSize: 14),
+                                                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                                 ),
                                               )),
                                             ],

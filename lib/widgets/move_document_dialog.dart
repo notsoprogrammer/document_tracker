@@ -180,6 +180,8 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       _isLoading = true;
     });
 
+    List<String> googleDriveFileNames = [];
+
     try {
       // First, add newly selected files to upload queue
       final queueManager = UploadQueueManager();
@@ -215,6 +217,12 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         SnackbarUtils.showErrorSnackBar(context, 'Cannot move document while uploads are pending. Please wait for all uploads to complete.');
         return;
       }
+
+      // Fetch the updated document to get the Google Drive file names
+      final allDocs = await documentService.fetchDocuments();
+      final updatedDoc = allDocs.firstWhere((doc) => doc.code == widget.document.code);
+      final newAttachmentCount = _selectedImagePaths.length + _selectedFilePaths.length;
+      googleDriveFileNames = updatedDoc.fileNames.sublist(updatedDoc.fileNames.length - newAttachmentCount);
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Failed to upload files: $e');
       return;
@@ -228,12 +236,19 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
     try {
       // Create updated document with new remarks and images
+      String remarkText = '*Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}*';
+      if (googleDriveFileNames.isNotEmpty) {
+        final attachmentNames = googleDriveFileNames.join(', ');
+        remarkText += '\n*Attachment: $attachmentNames*';
+      }
       final updatedRemarksList = List<String>.from(widget.document.remarksList)
-        ..add('Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}');
+        ..add(remarkText);
 
       final updatedImageUrls = List<String>.from(widget.document.imageUrls);
       final updatedFileUrls = List<String>.from(widget.document.fileUrls);
-      final updatedFileNames = List<String>.from(widget.document.fileNames);
+      final updatedFileNames = List<String>.from(widget.document.fileNames)
+        ..addAll(_selectedImagePaths.map((p) => p.split('/').last.split('\\').last))
+        ..addAll(_selectedFilePaths.map((p) => p.split('/').last.split('\\').last));
       final updatedLocalImagePaths = List<String>.from(widget.document.localImagePaths)
         ..addAll(_selectedImagePaths);
       final updatedLocalFilePaths = List<String>.from(widget.document.localFilePaths)
@@ -252,21 +267,6 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         localImagePaths: updatedLocalImagePaths,
         localFilePaths: updatedLocalFilePaths,
         flowStage: newFlowStage,
-      );
-
-      // Add history entry for the move
-      String moveNotes = 'Remarks: ${_remarksController.text.trim()}';
-      if (_selectedImagePaths.isNotEmpty || _selectedFilePaths.isNotEmpty) {
-        final attachmentNames = [
-          ..._selectedImagePaths.map((p) => p.split('/').last.split('\\').last),
-          ..._selectedFilePaths.map((p) => p.split('/').last.split('\\').last),
-        ].join(', ');
-        moveNotes += ' | Attachments: $attachmentNames';
-      }
-      updatedDocument.addHistoryEntry(
-        widget.moveAction.replaceFirst('Move to', 'Moved to'),
-        _username!,
-        notes: moveNotes,
       );
 
       // Add history entry for added remark
