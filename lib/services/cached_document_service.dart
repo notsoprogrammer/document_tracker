@@ -20,8 +20,22 @@ class CachedDocumentService {
     return result != ConnectivityResult.none;
   }
 
+  /// Ensure database schema is up to date by accessing the database
+  Future<void> _ensureDatabaseSchema() async {
+    try {
+      // Access the database to trigger any pending upgrades
+      await _localDb.database;
+      debugPrint('Database schema check completed');
+    } catch (e) {
+      debugPrint('Error ensuring database schema: $e');
+    }
+  }
+
   Future<List<Document>> fetchDocuments() async {
     try {
+      // Ensure database schema is up to date
+      await _ensureDatabaseSchema();
+
       // Try to fetch from local cache first
       final localDocuments = await _localDb.fetchDocuments();
 

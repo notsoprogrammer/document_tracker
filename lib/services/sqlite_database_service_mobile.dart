@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 21,
+      version: 22,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -62,6 +62,8 @@ class SQLiteDatabaseService {
         calendar_deadline TEXT,
         calendar_added INTEGER DEFAULT 0,
         attachments TEXT,
+        description TEXT,
+        reference_link TEXT,
         receiving_date TEXT,
         flow_stage TEXT,
         remarks_list TEXT
@@ -345,6 +347,14 @@ class SQLiteDatabaseService {
       // Add remarks_list column to documents table
       try {
         await db.execute('ALTER TABLE documents ADD COLUMN remarks_list TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
+    }
+    if (oldVersion < 22) {
+      // Ensure description column is added (in case it was missed)
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN description TEXT');
       } catch (e) {
         // Column might already exist
       }
