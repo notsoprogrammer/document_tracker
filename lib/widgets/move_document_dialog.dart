@@ -236,10 +236,10 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
     try {
       // Create updated document with new remarks and images
-      String remarkText = '*Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}*';
+      String remarkText = 'Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}';
       if (googleDriveFileNames.isNotEmpty) {
         final attachmentNames = googleDriveFileNames.join(', ');
-        remarkText += '\n*Attachment: $attachmentNames*';
+        remarkText += '\nAttachment: $attachmentNames';
       }
       final updatedRemarksList = List<String>.from(widget.document.remarksList)
         ..add(remarkText);
@@ -293,6 +293,13 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
       for (var entry in updatedDocument.history.where((h) => !widget.document.history.contains(h))) {
         await documentService.addHistoryEntry(widget.document.code, entry);
       }
+            // Add history entry for the move
+      String moveNotes = 'Remarks: ${_remarksController.text.trim()}';
+      updatedDocument.addHistoryEntry(
+        widget.moveAction.replaceFirst('Move to', 'Moved to'),
+        _username!,
+        notes: moveNotes,
+      );
 
       // Sync the document before completing the move
       await widget.syncDocument(widget.document.code);
