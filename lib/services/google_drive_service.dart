@@ -4,6 +4,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/supabase_config.dart';
 
 /// Result class for image operations
 class ImageSaveResult {
@@ -32,6 +36,9 @@ class GoogleDriveService {
   static const String _attendanceFolderId = '124-6z-XwOaUtoQWUsqdnt8J2Urns4Cjk';
   static const String _movsFolderId = '1q92hYeqzrZhgoXhu0e8-3BuzFYMdVFPr';
   static const String _certificatesFolderId = '1pEBNcA3CjBeoABvbcAGxTa41Jaml76tn';
+
+  // Supabase function URL for secure uploads
+  static const String _supabaseFunctionUrl = SupabaseConfig.uploadToDriveFunctionUrl;
 
  static String getFolderId(String category) {
     // Determine folder based on the selected type (category)
@@ -243,6 +250,11 @@ class GoogleDriveService {
 
   /// Upload file from bytes (for web compatibility)
   static Future<String?> uploadFileFromBytes(List<int> bytes, String fileName, {DriveFolder folder = DriveFolder.incoming}) async {
+    // Use Supabase function for web builds to keep service account secure
+    if (kIsWeb) {
+      return _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
+    }
+
     try {
       // Load service account credentials
       final serviceAccountJson = await rootBundle.loadString('assets/service_account_key.json');
@@ -549,6 +561,84 @@ class GoogleDriveService {
     } catch (e) {
       print('Error calculating local images size: $e');
       return 0;
+    }
+  }
+
+  /// Upload file from bytes via Supabase function (for web builds)
+  static Future<String?> _uploadFileFromBytesViaSupabase(List<int> bytes, String fileName, {DriveFolder folder = DriveFolder.incoming}) async {
+    try {
+      // Resolve target folder
+      final targetFolderId = folder == DriveFolder.outgoing
+          ? _outgoingFolderId
+          : folder == DriveFolder.flagCeremony
+              ? _flagCeremonyFolderId
+              : folder == DriveFolder.attendance
+                  ? _attendanceFolderId
+                  : folder == DriveFolder.movs
+                      ? _movsFolderId
+                      : folder == DriveFolder.certificates
+                          ? _certificatesFolderId
+                          : _incomingFolderId;
+
+      // Convert bytes to base64
+      final base64Data = base64Encode(bytes);
+
+      // Prepare request payload
+      final payload = {
+        'fileName': fileName,
+        'fileData': base64Data,
+        'folderId': targetFolderId,
+        'mimeType': _getMimeType(fileName),
+      };
+
+      // Make request to Supabase function
+      final response = await http.post(
+        Uri.parse(_supabaseFunctionUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true) {
+          return result['publicUrl'];
+        } else {
+          print('Supabase function error: ${result['error']}');
+          return null;
+        }
+      } else {
+        print('Supabase function failed with status: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error uploading via Supabase: $e');
+      return null;
+    }
+  }
+
+  /// Get MIME type based on file extension
+  static String _getMimeType(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      default:
+        return 'application/octet-stream';
     }
   }
 
