@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
 import '../utils/snackbar_utils.dart';
@@ -8,6 +9,7 @@ import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
+import '../config/supabase_config.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -594,46 +596,45 @@ class _FlagCeremonyDocumentsScreenState
               PageView.builder(
                 itemCount: imageUrls.length,
                 itemBuilder: (context, index) {
-                  // Extract fileId from Google Drive URL and use proxy URL
+                  // Handle both fileId and Google Drive URL formats
                   String imageUrl = imageUrls[index];
-                  String proxyUrl = imageUrl;
+                  String proxyUrl;
                   if (imageUrl.contains('drive.google.com/uc?id=')) {
+                    // Legacy: extract fileId from Google Drive URL
                     final uri = Uri.parse(imageUrl);
                     final fileId = uri.queryParameters['id'];
-                    if (fileId != null) {
-                      proxyUrl = GoogleDriveService.generateProxyUrl(fileId);
-                    }
+                    proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+                  } else {
+                    // New: assume it's already a fileId
+                    proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                   }
+                  print('Flag Ceremony: Generated proxy URL: $proxyUrl');
 
                   return InteractiveViewer(
                     child: Center(
-                      child: Image.network(
-                        proxyUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: proxyUrl,
+                        httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                         fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text(
-                                  'wait la po...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
+                        placeholder: (context, url) => const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text(
+                                'wait la po...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Text('Failed to load image'),
-                          );
-                        },
+                              ),
+                            ],
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
+                          child: Text('Failed to load image'),
+                        ),
                       ),
                     ),
                   );

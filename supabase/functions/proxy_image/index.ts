@@ -1,9 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
 serve(async (req) => {
@@ -12,18 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    // Get fileId from query parameters
+    // Note: This function is designed to be publicly accessible for image proxying
+    // No authorization check required as images are served from public Google Drive links
     const url = new URL(req.url);
-    const fileId = url.searchParams.get('fileId');
+    const fileId = url.searchParams.get("fileId");
 
     if (!fileId) {
       return new Response(
         JSON.stringify({ error: "Missing fileId parameter" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    // Access secrets in your Edge Function
+    // ---- Google Service Account Env Vars ----
     const projectId = Deno.env.get("GOOGLE_PROJECT_ID");
     const clientEmail = Deno.env.get("GOOGLE_CLIENT_EMAIL");
     const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY")?.replace(/\\n/g, "\n");
@@ -47,10 +52,9 @@ serve(async (req) => {
       universe_domain: "googleapis.com"
     };
 
-    // Create JWT for Google OAuth2
+    // ---- Create JWT + Access Token ----
     const jwt = await createJWT(credentials);
 
-    // Exchange JWT for access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -62,15 +66,15 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenData.access_token) {
-      throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+      throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
     }
+
     const accessToken = tokenData.access_token;
 
-    // Fetch the file from Google Drive
+    // ---- Fetch File From Drive (STREAMED) ----
     const driveResponse = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
       {
-        method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -79,38 +83,89 @@ serve(async (req) => {
 
     if (!driveResponse.ok) {
       const text = await driveResponse.text();
-      throw new Error(`Failed to fetch file from Drive: ${text}`);
+      throw new Error(`Drive fetch failed: ${text}`);
     }
 
-    // Get the content type from the response
-    const contentType = driveResponse.headers.get('content-type') || 'application/octet-stream';
+    // ---- MIME TYPE HANDLING ----
+    const driveContentType =
+      driveResponse.headers.get("content-type") ??
+      "application/octet-stream";
 
-    // Return the file with CORS headers
-    const fileData = await driveResponse.arrayBuffer();
+    // Default
+    let contentType = driveContentType;
 
-    return new Response(fileData, {
+    // Extract filename (if present)
+    const disposition = driveResponse.headers.get("content-disposition") ?? "";
+    const fileNameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
+    const fileName = fileNameMatch?.[1]?.toLowerCase() ?? "";
+
+    // Extension → MIME map
+    const imageMimeMap: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      bmp: "image/bmp",
+      webp: "image/webp",
+      heif: "image/heif",
+      heic: "image/heic",
+    };
+
+    // Fix cases where Drive returns octet-stream
+    if (driveContentType === "application/octet-stream" && fileName) {
+      const ext = fileName.split(".").pop();
+
+      if (ext && imageMimeMap[ext]) {
+        contentType = imageMimeMap[ext];
+      } else if (ext === "pdf") {
+        contentType = "application/pdf";
+      } else if (ext === "docx") {
+        contentType =
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      } else {
+        contentType = "application/octet-stream"; // final fallback
+      }
+    }
+
+
+    // ---- Determine Content-Disposition ----
+    const isImage = contentType.startsWith('image/');
+    const contentDisposition = isImage ? 'inline' : 'attachment';
+
+    // ---- Stream response directly ----
+    return new Response(driveResponse.body, {
+      status: 200,
       headers: {
         ...corsHeaders,
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600", // Cache for 1 hour
+        "Content-Disposition": contentDisposition,
+        "Cache-Control": "public, max-age=3600",
       },
-      status: 200,
     });
-
   } catch (error) {
-    console.error("Error:", error);
+    console.error("proxy_image error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+      JSON.stringify({ success: false, error: errorMessage }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
 
-// --- Helpers ---
+/* ------------------------------------------------------------------ */
+/* --------------------------- HELPERS --------------------------------*/
+/* ------------------------------------------------------------------ */
 
-async function createJWT(credentials: any) {
+async function createJWT(credentials: {
+  client_email: string;
+  private_key: string;
+}) {
   const header = { alg: "RS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
+
   const payload = {
     iss: credentials.client_email,
     scope: "https://www.googleapis.com/auth/drive.readonly",
@@ -124,8 +179,7 @@ async function createJWT(credentials: any) {
   const payloadB64 = base64url(JSON.stringify(payload));
   const message = `${headerB64}.${payloadB64}`;
 
-  const privateKey = credentials.private_key.replace(/\\n/g, "\n");
-  const keyData = pemToDer(privateKey);
+  const keyData = pemToDer(credentials.private_key);
 
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
@@ -135,10 +189,13 @@ async function createJWT(credentials: any) {
     ["sign"],
   );
 
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(message));
-  const signatureB64 = base64urlBytes(new Uint8Array(signature));
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(message),
+  );
 
-  return `${message}.${signatureB64}`;
+  return `${message}.${base64urlBytes(new Uint8Array(signature))}`;
 }
 
 function pemToDer(pem: string) {
@@ -154,6 +211,6 @@ function base64url(str: string) {
 
 function base64urlBytes(bytes: Uint8Array) {
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

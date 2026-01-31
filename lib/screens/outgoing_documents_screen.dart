@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -14,6 +15,7 @@ import '../utils/date_time_utils.dart';
 import 'incoming_documents_screen.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
+import '../config/supabase_config.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -350,15 +352,17 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
 
-                  // Extract fileId from Google Drive URL and use proxy URL
+                  // Handle both fileId and Google Drive URL formats
                   String imageUrl = document.imageUrls[index];
-                  String proxyUrl = imageUrl;
+                  String proxyUrl;
                   if (imageUrl.contains('drive.google.com/uc?id=')) {
+                    // Legacy: extract fileId from Google Drive URL
                     final uri = Uri.parse(imageUrl);
                     final fileId = uri.queryParameters['id'];
-                    if (fileId != null) {
-                      proxyUrl = GoogleDriveService.generateProxyUrl(fileId);
-                    }
+                    proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+                  } else {
+                    // New: assume it's already a fileId
+                    proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                   }
 
                   return Column(
@@ -378,33 +382,29 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                       Expanded(
                         child: InteractiveViewer(
                           child: Center(
-                            child: Image.network(
-                              proxyUrl,
+                            child: CachedNetworkImage(
+                              imageUrl: proxyUrl,
+                              httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      CircularProgressIndicator(),
-                                      SizedBox(height: 16),
-                                      Text(
-                                        'wait la po...',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                        ),
+                              placeholder: (context, url) => const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'wait la po...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Text('Failed to load image'),
-                                );
-                              },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Center(
+                                child: Text('Failed to load image'),
+                              ),
                             ),
                           ),
                         ),

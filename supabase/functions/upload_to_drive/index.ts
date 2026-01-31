@@ -95,7 +95,6 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         fileId: driveResult.id,
-        publicUrl: `https://drive.google.com/uc?id=${driveResult.id}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     );

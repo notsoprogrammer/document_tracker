@@ -238,13 +238,13 @@ class GoogleDriveService {
 
     // Try to upload to Google Drive
     try {
-      driveUrl = await uploadImageToDrive(
+      driveId = await uploadImageToDrive(
         imageFile,
         uniqueId,
         folder: folder,
       );
-      driveSuccess = driveUrl != null;
-      driveId = driveUrl; // For backward compatibility
+      driveSuccess = driveId != null;
+      driveUrl = driveId; // For backward compatibility, driveUrl now holds fileId
     } catch (e) {
       print('Google Drive upload failed, but local save succeeded: $e');
       driveSuccess = false;
@@ -390,7 +390,7 @@ class GoogleDriveService {
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
         if (result['success'] == true) {
-          return result['publicUrl'];
+          return result['fileId'];
         } else {
           print('Supabase function error: ${result['error']}');
           return null;

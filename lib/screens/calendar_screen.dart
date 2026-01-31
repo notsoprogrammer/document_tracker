@@ -10,6 +10,8 @@ import '../services/cached_activity_service.dart';
 import '../services/connectivity_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_activity_screen.dart';
+import '../services/google_drive_service.dart';
+import '../config/supabase_config.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -587,8 +589,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: PageView.builder(
               itemCount: imageUrls.length,
               itemBuilder: (context, index) {
+                // Handle both fileId and Google Drive URL formats
+                String imageUrl = imageUrls[index];
+                String proxyUrl;
+                if (imageUrl.contains('drive.google.com/uc?id=')) {
+                  // Legacy: extract fileId from Google Drive URL
+                  final uri = Uri.parse(imageUrl);
+                  final fileId = uri.queryParameters['id'];
+                  proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+                } else {
+                  // New: assume it's already a fileId
+                  proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
+                }
+                print('Calendar (viewer): Generated proxy URL: $proxyUrl');
+
                 return CachedNetworkImage(
-                  imageUrl: imageUrls[index],
+                  imageUrl: proxyUrl,
                   fit: BoxFit.contain,
                   placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                   errorWidget: (context, url, error) => const Icon(Icons.error),
@@ -731,7 +747,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               GestureDetector(
                                 onTap: () => _showImageViewer(context, doc.imageUrls),
                                 child: CachedNetworkImage(
-                                  imageUrl: doc.imageUrls.first,
+                                  imageUrl: () {
+                                    // Handle both fileId and Google Drive URL formats for the first image
+                                    String imageUrl = doc.imageUrls.first;
+                                    String proxyUrl;
+                                    if (imageUrl.contains('drive.google.com/uc?id=')) {
+                                      // Legacy: extract fileId from Google Drive URL
+                                      final uri = Uri.parse(imageUrl);
+                                      final fileId = uri.queryParameters['id'];
+                                      proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+                                    } else {
+                                      // New: assume it's already a fileId
+                                      proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
+                                    }
+                                    print('Calendar (first image): Generated proxy URL: $proxyUrl');
+                                    return proxyUrl;
+                                  }(),
                                   height: 150,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
