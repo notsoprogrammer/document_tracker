@@ -661,8 +661,6 @@ class _AttendanceMovsScreenState
                     // New: assume it's already a fileId
                     proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                   }
-                  print('Attendance MOVs: Generated proxy URL: $proxyUrl');
-
                   return InteractiveViewer(
                     child: Center(
                       child: CachedNetworkImage(

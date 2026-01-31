@@ -601,8 +601,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // New: assume it's already a fileId
                   proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                 }
-                print('Calendar (viewer): Generated proxy URL: $proxyUrl');
-
                 return CachedNetworkImage(
                   imageUrl: proxyUrl,
                   fit: BoxFit.contain,
