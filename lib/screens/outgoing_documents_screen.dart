@@ -12,7 +12,6 @@ import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
-import 'incoming_documents_screen.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
@@ -1376,7 +1375,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             displayItems.add(item);
                                           }
 
-                                      return displayItems.map((item) {
+                                      return displayItems.reversed.map((item) {
                                         final entry = item['entry'] as HistoryEntry;
                                         final originalIndex = entries.indexOf(entry);
                                         String office = doc.fromOrTo;
@@ -1443,7 +1442,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         } else {
                                           if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
                                             mainLine = entry.action;
-                                          } 
+                                          }
                                           else if (entry.action.startsWith('Transferred to ')) {
                                           // NEW branch
                                           mainLine = entry.action; // or parse office/personnel if needed

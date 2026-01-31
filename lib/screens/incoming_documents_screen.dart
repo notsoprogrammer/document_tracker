@@ -12,7 +12,6 @@ import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
-import 'outgoing_documents_screen.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
@@ -1638,7 +1637,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                             displayItems.add(item);
                                           }
 
-                                      return displayItems.map((item) {
+                                      return displayItems.reversed.map((item) {
                                         final entry = item['entry'] as HistoryEntry;
                                         final originalIndex = entries.indexOf(entry);
                                         String office = doc.fromOrTo;
