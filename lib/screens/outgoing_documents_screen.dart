@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
 import 'incoming_documents_screen.dart';
 import '../widgets/move_document_dialog.dart';
+import '../services/google_drive_service.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -348,6 +349,18 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 itemCount: document.imageUrls.length,
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
+
+                  // Extract fileId from Google Drive URL and use proxy URL
+                  String imageUrl = document.imageUrls[index];
+                  String proxyUrl = imageUrl;
+                  if (imageUrl.contains('drive.google.com/uc?id=')) {
+                    final uri = Uri.parse(imageUrl);
+                    final fileId = uri.queryParameters['id'];
+                    if (fileId != null) {
+                      proxyUrl = GoogleDriveService.generateProxyUrl(fileId);
+                    }
+                  }
+
                   return Column(
                     children: [
                       Padding(
@@ -366,7 +379,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                         child: InteractiveViewer(
                           child: Center(
                             child: Image.network(
-                              document.imageUrls[index],
+                              proxyUrl,
                               fit: BoxFit.contain,
                               loadingBuilder: (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;

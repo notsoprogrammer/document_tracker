@@ -7,6 +7,7 @@ import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/google_drive_service.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -593,10 +594,21 @@ class _FlagCeremonyDocumentsScreenState
               PageView.builder(
                 itemCount: imageUrls.length,
                 itemBuilder: (context, index) {
+                  // Extract fileId from Google Drive URL and use proxy URL
+                  String imageUrl = imageUrls[index];
+                  String proxyUrl = imageUrl;
+                  if (imageUrl.contains('drive.google.com/uc?id=')) {
+                    final uri = Uri.parse(imageUrl);
+                    final fileId = uri.queryParameters['id'];
+                    if (fileId != null) {
+                      proxyUrl = GoogleDriveService.generateProxyUrl(fileId);
+                    }
+                  }
+
                   return InteractiveViewer(
                     child: Center(
                       child: Image.network(
-                        imageUrls[index],
+                        proxyUrl,
                         fit: BoxFit.contain,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;

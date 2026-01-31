@@ -155,11 +155,15 @@ class GoogleDriveService {
     }
   }
 
-  /// Generate a public URL for a file given its Google Drive file ID
+
   static String generatePublicUrl(String fileId) {
     return 'https://drive.google.com/uc?id=$fileId';
   }
 
+  /// Generate a proxy URL for a file given its Google Drive file ID (for CORS-free access)
+  static String generateProxyUrl(String fileId) {
+    return '${SupabaseConfig.proxyImageFunctionUrl}?fileId=$fileId';
+  }
   /// Upload file and return public URL (generic method for any file type)
   static Future<String?> uploadFile(String filePath, bool isIncoming, String baseFileName) async {
     try {
