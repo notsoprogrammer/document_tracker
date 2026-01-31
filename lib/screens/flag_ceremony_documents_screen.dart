@@ -608,8 +608,6 @@ class _FlagCeremonyDocumentsScreenState
                     // New: assume it's already a fileId
                     proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                   }
-                  print('Flag Ceremony: Generated proxy URL: $proxyUrl');
-
                   return InteractiveViewer(
                     child: Center(
                       child: CachedNetworkImage(

@@ -365,51 +365,57 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
                   }
 
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      Expanded(
-                        child: InteractiveViewer(
-                          child: Center(
-                            child: CachedNetworkImage(
-                              imageUrl: proxyUrl,
-                              httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'wait la po...',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                      ),
+                  return InteractiveViewer(
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: CachedNetworkImage(
+                            imageUrl: proxyUrl,
+                            httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'wait la po...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              errorWidget: (context, url, error) => const Center(
-                                child: Text('Failed to load image'),
+                            ),
+                            errorWidget: (context, url, error) => const Center(
+                              child: Text('Failed to load image'),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            color: Colors.black.withOpacity(0.5),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                fileName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               ),
