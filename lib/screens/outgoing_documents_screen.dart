@@ -577,8 +577,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                         focusNode: FocusNode(),
                         optionsBuilder:
                             (TextEditingValue textEditingValue) {
-                              if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
+                              if (textEditingValue.text.isEmpty) {
+                                return offices;
                               }
                               return offices.where((String option) {
                                 return option.toLowerCase().contains(
@@ -603,6 +603,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 child: TextField(
                                   controller: textEditingController,
                                   focusNode: focusNode,
+                                  autofocus: false,
                                   decoration: InputDecoration(
                                     labelText: "Office",
                                     prefixIcon: const Icon(Icons.business),
@@ -720,23 +721,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 if (notesController.text.isNotEmpty) {
                                   combinedNotes += " | ${notesController.text}";
                                 }
-                                // Always record the status change
+                                // Record the status change
                                 widget.updateDocumentStatus(
                                   index,
                                   selectedStatus!,
                                   updatedByController.text,
                                   notes: combinedNotes,
                                 );
-                                // Only record a transfer if the personnel actually changed
-                                if (forwardedToController.text !=
-                                    widget.documents[index].assignedTo) {
-                                  widget.transferDocument(
-                                    index,
-                                    forwardedToController.text,
-                                    updatedByController.text,
-                                    notes: combinedNotes,
-                                  );
-                                }
                                 Navigator.of(
                                   context,
                                 ).popUntil((route) => route.isFirst);
@@ -1431,7 +1422,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         }
 
                                         String mainLine;
-                                          if (originalIndex == 0) {
+                                        if (originalIndex == 0) {
                                           if (doc.incoming) {
                                             // For documents originally added in Incoming
                                             mainLine = "Document Received";
@@ -1443,11 +1434,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                           if (entry.action == 'Moved to Outgoing' || entry.action == 'Moved to Incoming') {
                                             mainLine = entry.action;
                                           }
-                                          else if (entry.action.startsWith('Transferred to ')) {
-                                          // NEW branch
-                                          mainLine = entry.action; // or parse office/personnel if needed
-
-                                          }else if (entry.action.startsWith('Status changed to ')) {
+                                          else if (entry.action.startsWith('Status changed to ')) {
                                             final status = entry.action.replaceFirst(
                                               'Status changed to ',
                                               '',

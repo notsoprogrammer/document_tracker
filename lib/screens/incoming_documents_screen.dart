@@ -1708,12 +1708,8 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           // NEW branch
                                           mainLine = entry.action; // or parse office/personnel if needed
 
-                                          }else if (entry.action.startsWith('Status changed to ')) {
-                                            final status = entry.action.replaceFirst(
-                                              'Status changed to ',
-                                              '',
-                                            );
-                                            mainLine = "$status: $office - $personnel";
+                                          }else if (entry.action.startsWith('Status changed to ') || entry.action.startsWith('For Compliance: ')) {
+                                            mainLine = entry.action;
                                           } else {
                                             mainLine = entry.action; // fallback
                                           }

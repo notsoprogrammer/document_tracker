@@ -222,9 +222,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       // Add history entry for status change
-      String statusAction = customHistoryAction ?? 'Status changed to $newStatus';
-      if (customHistoryAction == null && newStatus == 'For Compliance' && complianceAssignee != null && complianceAssignee!.isNotEmpty) {
-        statusAction = 'Status changed to $newStatus assigned to $complianceAssignee';
+      String statusAction;
+      if (newStatus == 'For Compliance' && complianceAssignee != null && complianceAssignee!.isNotEmpty) {
+        statusAction = 'For Compliance: Assigned to $complianceAssignee';
+      } else {
+        statusAction = 'Status changed to $newStatus';
       }
       final statusHistoryEntry = HistoryEntry(
         action: statusAction,
