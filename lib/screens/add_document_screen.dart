@@ -46,6 +46,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
   List<List<int>?> _selectedImageBytes = []; // For web camera images
+  final Map<String, List<int>> _webFileBytes = {}; // For web file picker files
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -938,25 +939,32 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     type: FileType.custom,
                                     allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
                                     allowMultiple: true,
-                                    withData: false,
+                                    withData: true, // Need bytes for web
                                   );
                                   if (result != null && result.files.isNotEmpty) {
                                     int imagesAdded = 0;
                                     int documentsAdded = 0;
                                     List<String> skippedFiles = [];
                                     for (final file in result.files) {
-                                      String? filePath = file.path;
-                                      if (filePath == null || filePath.isEmpty) {
+                                      String? filePath;
+                                      int fileSize = 0;
+
+                                      if (kIsWeb) {
+                                        // On web, use file.bytes directly
                                         if (file.bytes != null) {
-                                          final tempDir = Directory.systemTemp;
-                                          final tempFile = File('${tempDir.path}/${file.name}');
-                                          await tempFile.writeAsBytes(file.bytes!);
-                                          filePath = tempFile.path;
+                                          fileSize = file.bytes!.length;
+                                          filePath = 'web_file_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+                                          _webFileBytes[filePath] = file.bytes!;
+                                        }
+                                      } else {
+                                        // On mobile/desktop, use file.path
+                                        filePath = file.path;
+                                        if (filePath != null && filePath.isNotEmpty) {
+                                          fileSize = File(filePath).lengthSync();
                                         }
                                       }
 
-                                      if (filePath != null && filePath.isNotEmpty) {
-                                        final fileSize = File(filePath).lengthSync();
+                                      if (filePath != null && filePath.isNotEmpty && fileSize > 0) {
                                         if (_isImage(file.name)) {
                                           if (_selectedImagePaths.length >= 20) {
                                             SnackbarUtils.showErrorSnackBar(context, 'Only 20 image files allowed');
@@ -973,7 +981,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                             skippedFiles.add(file.name);
                                             continue;
                                           }
-                                          int currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) => sum + File(path).lengthSync());
+                                          int currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) {
+                                            if (kIsWeb && _webFileBytes.containsKey(path)) {
+                                              return sum + _webFileBytes[path]!.length;
+                                            } else if (!kIsWeb) {
+                                              return sum + File(path).lengthSync();
+                                            }
+                                            return sum;
+                                          });
                                           if (currentTotalSize + fileSize > 50 * 1024 * 1024) {
                                             SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
                                             continue;
@@ -1148,17 +1163,38 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
 
-                        // Queue web camera images with bytes for upload
-                        if (kIsWeb && _selectedImageBytes.isNotEmpty) {
+                        // Queue web files with bytes for upload
+                        if (kIsWeb) {
                           final queueManager = UploadQueueManager();
-                          for (int i = 0; i < _selectedImagePaths.length; i++) {
-                            final path = _selectedImagePaths[i];
-                            final bytes = _selectedImageBytes[i];
-                            if (bytes != null && path.startsWith('web_image_')) {
-                              queueManager.addWebCameraImageToQueue(
+                          for (final path in _selectedImagePaths) {
+                            if (path.startsWith('web_image_') && _selectedImageBytes.isNotEmpty) {
+                              final index = _selectedImagePaths.indexOf(path);
+                              final bytes = index < _selectedImageBytes.length ? _selectedImageBytes[index] : null;
+                              if (bytes != null) {
+                                queueManager.addWebCameraImageToQueue(
+                                  documentCode: code,
+                                  filePath: path,
+                                  bytes: bytes,
+                                );
+                              }
+                            } else if (path.startsWith('web_file_') && _webFileBytes.containsKey(path)) {
+                              queueManager.addToQueue(
                                 documentCode: code,
                                 filePath: path,
-                                bytes: bytes,
+                                isImage: _isImage(path),
+                                localPath: path,
+                                bytes: _webFileBytes[path],
+                              );
+                            }
+                          }
+                          for (final path in _selectedDocumentPaths) {
+                            if (path.startsWith('web_file_') && _webFileBytes.containsKey(path)) {
+                              queueManager.addToQueue(
+                                documentCode: code,
+                                filePath: path,
+                                isImage: false,
+                                localPath: path,
+                                bytes: _webFileBytes[path],
                               );
                             }
                           }

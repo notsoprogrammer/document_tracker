@@ -577,6 +577,14 @@ class CachedDocumentService {
         String? driveUrl;
         String uploadedFileName;
 
+        // Check if this is a web camera image (blob URL that we can't handle)
+        if (kIsWeb && upload['localPath'].startsWith('blob:')) {
+          // Skip blob URLs - these should have been replaced with bytes in the screens
+          debugPrint('Skipping blob URL upload: ${upload['localPath']}');
+          queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+          continue;
+        }
+
         // Check if this is a web file with bytes
         final bytes = upload['bytes'] as List<int>?;
         if (kIsWeb && bytes != null) {
@@ -590,8 +598,8 @@ class CachedDocumentService {
           );
           debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
           uploadedFileName = docFileName;
-        } else {
-          // Regular file - use existing methods
+        } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
+          // Regular file - use existing methods (only for non-web or non-web-prefixed files)
           final file = File(upload['localPath']);
           if (isImage) {
             // For images, use the existing uploadImageToDrive method
@@ -617,6 +625,11 @@ class CachedDocumentService {
             debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
             uploadedFileName = docFileName;
           }
+        } else {
+          // Web file without bytes - this shouldn't happen with our new implementation
+          debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
+          queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+          continue;
         }
 
         if (driveUrl != null) {

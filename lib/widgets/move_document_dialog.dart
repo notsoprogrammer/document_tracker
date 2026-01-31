@@ -108,11 +108,11 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         int documentsAdded = 0;
         List<String> skippedFiles = [];
         for (final file in result.files) {
-          String? filePath = file.path;
+          String? filePath;
           int fileSize = 0;
 
           if (kIsWeb) {
-            // On web, use file.bytes for size and path
+            // On web, use file.bytes directly - don't access file.path
             if (file.bytes != null) {
               fileSize = file.bytes!.length;
               filePath = 'web_file_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
@@ -121,14 +121,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
             }
           } else {
             // On mobile/desktop, use file.path
-            if (filePath == null || filePath.isEmpty) {
-              if (file.bytes != null) {
-                final tempDir = Directory.systemTemp;
-                final tempFile = File('${tempDir.path}/${file.name}');
-                await tempFile.writeAsBytes(file.bytes!);
-                filePath = tempFile.path;
-              }
-            }
+            filePath = file.path;
             if (filePath != null && filePath.isNotEmpty) {
               fileSize = File(filePath).lengthSync();
             }
