@@ -8,9 +8,7 @@ class SupabaseService {
   // Documents table operations
   Future<List<Document>> fetchDocuments() async {
     try {
-      print('Fetching documents from Supabase...');
       final response = await _client.from('documents').select('*, history_entries(*)');
-      print('Raw response: $response');
 
       final documents = response.map((doc) {
         final document = Document.fromJson(doc);
@@ -24,7 +22,6 @@ class SupabaseService {
         return document;
       }).toList();
 
-      print('Parsed ${documents.length} documents');
       return documents;
     } catch (e) {
       print('Error fetching documents: $e');
@@ -52,13 +49,9 @@ class SupabaseService {
 
   Future<Document> createDocument(Document document) async {
     final docData = document.toJson();
-    docData.remove('history'); // Remove history as it's stored separately
-
-    print('Creating document with data: $docData'); // Debug log
+    docData.remove('history');
 
     final response = await _client.from('documents').insert(docData).select().single();
-
-    print('Document created successfully: $response'); // Debug log
 
     // Create initial history entry in history_entries table (skip for flag ceremony)
     if (document.history.isNotEmpty && document.mode != 'Flag Ceremony') {
@@ -162,8 +155,6 @@ class SupabaseService {
           .select('*, documents(title, compliance_assignee, status, compliance_deadline)')
           .order('created_at', ascending: false);
 
-      print('Notification history response: $response');
-
       // Group by document_code and take the most recent notification per document
       final grouped = <String, Map<String, dynamic>>{};
       for (final item in response) {
@@ -174,7 +165,6 @@ class SupabaseService {
       }
 
       final result = grouped.values.toList();
-      print('Grouped notification history: $result');
       return result;
     } catch (e) {
       print('Error fetching notification history: $e');
@@ -194,8 +184,6 @@ class SupabaseService {
           .not('compliance_deadline', 'is', null)
           .lt('compliance_deadline', now.toString())
           .order('compliance_deadline', ascending: true);
-
-      print('Overdue compliance documents: $response');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       print('Error fetching overdue compliance documents: $e');
@@ -321,7 +309,6 @@ class SupabaseService {
       'token': token,
       'updated_at': DateTime.now().toIso8601String(),
     });
-    print('Device token saved: $token');
   }
 
   Future<List<String>> getAllDeviceTokens() async {
@@ -348,7 +335,6 @@ class SupabaseService {
     try {
       print('Fetching calendar documents from Supabase...');
       final response = await _client.from('documents').select('*, history_entries(*)').or('calendar_deadline.not.is.null,compliance_deadline.not.is.null');
-      print('Raw calendar response: $response');
 
       final documents = response.map((doc) {
         final document = Document.fromJson(doc);
@@ -375,7 +361,6 @@ class SupabaseService {
     try {
       print('Fetching activities from Supabase...');
       final response = await _client.from('activities').select('*');
-      print('Raw activities response: $response');
 
       final activities = response.map((act) => Activity.fromJson(act)).toList();
 
@@ -391,11 +376,7 @@ class SupabaseService {
     final actData = activity.toJson();
     actData.remove('id'); // Remove id as it's auto-generated
 
-    print('Creating activity with data: $actData');
-
     final response = await _client.from('activities').insert(actData).select().single();
-
-    print('Activity created successfully: $response');
 
     return Activity.fromJson(response);
   }
