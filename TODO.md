@@ -1,13 +1,31 @@
-# Refactor Flutter Project for Hive Web Support
+# TODO: Secure Google Drive Service Account Key
 
-## Tasks
-- [x] Add Hive dependencies to pubspec.yaml
-- [x] Rename sqlite_database_service.dart to sqlite_database_service_mobile.dart
-- [x] Create sqlite_database_service_web.dart with Hive implementation
-- [x] Create new sqlite_database_service.dart with conditional exports
-- [x] Update main.dart to initialize Hive for web builds
-- [x] Add clear comments explaining platform-specific logic in both implementations
-- [x] Run flutter pub get to install dependencies
-- [x] Test compilation for mobile target (build attempted, imports fixed)
-- [x] Test compilation for web target (build completed successfully)
-- [x] Run app on mobile and web to verify functionality (ready for testing)
+## Plan to Move Service Account Key to Backend
+
+### Information Gathered
+- Service account key is currently in 'assets/image/gdrive_service_account.json', but code references 'assets/service_account_key.json'.
+- Supabase function 'upload_to_drive' exists and uses key from environment variable 'GOOGLE_SERVICE_ACCOUNT_KEY'.
+- Flutter app loads key directly for mobile builds, but uses Supabase for web uploads.
+- To secure, make all operations use Supabase backend, remove key from Flutter project, update .gitignore.
+
+### Plan
+- Update GoogleDriveService to always use Supabase backend for all Google Drive operations.
+- Remove service account key file from Flutter project.
+- Update .gitignore to prevent committing the key file.
+- Ensure Supabase function handles all necessary operations (upload is done, may need list if required).
+
+### Dependent Files to Edit
+- lib/services/google_drive_service.dart: Modify methods to always call Supabase backend.
+- assets/image/gdrive_service_account.json: Remove file.
+- .gitignore: Add entry for the key file.
+
+### Followup Steps
+- Test Google Drive operations still work via Supabase.
+- Verify key is not in Git history.
+- Ensure Supabase environment has the key set.
+
+### Steps to Complete
+- [x] Update GoogleDriveService to use Supabase for all operations
+- [x] Remove the service account key file
+- [x] Update .gitignore
+- [ ] Test the changes
