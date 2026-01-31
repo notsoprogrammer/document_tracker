@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,6 +45,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // File handling
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
+  List<List<int>?> _selectedImageBytes = []; // For web camera images
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -894,14 +896,30 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   }
                                   setState(() => _isPickingImage = true);
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null && image.path.isNotEmpty) {
-                                    setState(() {
-                                      _selectedImagePaths.add(image.path);
-                                      _isPickingImage = false;
-                                    });
+                                  if (image != null) {
+                                    // For web, read bytes; for mobile, use path
+                                    if (kIsWeb) {
+                                      final bytes = await image.readAsBytes();
+                                      setState(() {
+                                        _selectedImagePaths.add('web_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                        _selectedImageBytes.add(bytes);
+                                        _isPickingImage = false;
+                                      });
+                                    } else {
+                                      if (image.path.isNotEmpty) {
+                                        setState(() {
+                                          _selectedImagePaths.add(image.path);
+                                          _selectedImageBytes.add(null); // No bytes for mobile
+                                          _isPickingImage = false;
+                                        });
+                                      } else {
+                                        setState(() => _isPickingImage = false);
+                                        SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                      }
+                                    }
                                   } else {
                                     setState(() => _isPickingImage = false);
-                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured');
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -1129,6 +1147,23 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
+
+                        // Queue web camera images with bytes for upload
+                        if (kIsWeb && _selectedImageBytes.isNotEmpty) {
+                          final queueManager = UploadQueueManager();
+                          for (int i = 0; i < _selectedImagePaths.length; i++) {
+                            final path = _selectedImagePaths[i];
+                            final bytes = _selectedImageBytes[i];
+                            if (bytes != null && path.startsWith('web_image_')) {
+                              queueManager.addWebCameraImageToQueue(
+                                documentCode: code,
+                                filePath: path,
+                                bytes: bytes,
+                              );
+                            }
+                          }
+                        }
+
                         // If no files to upload, pop immediately
                         if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
                           if (mounted) {

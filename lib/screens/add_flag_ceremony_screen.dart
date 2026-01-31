@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -28,6 +29,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   // File handling
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
+  List<List<int>?> _selectedImageBytes = []; // For web camera images
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -632,6 +634,23 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
+
+                        // Queue web camera images with bytes for upload
+                        if (kIsWeb && _selectedImageBytes.isNotEmpty) {
+                          final queueManager = UploadQueueManager();
+                          for (int i = 0; i < _selectedImagePaths.length; i++) {
+                            final path = _selectedImagePaths[i];
+                            final bytes = _selectedImageBytes[i];
+                            if (bytes != null && path.startsWith('web_image_')) {
+                              queueManager.addWebCameraImageToQueue(
+                                documentCode: code,
+                                filePath: path,
+                                bytes: bytes,
+                              );
+                            }
+                          }
+                        }
+
                         // If no files to upload, pop immediately
                         if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
                           if (mounted) {

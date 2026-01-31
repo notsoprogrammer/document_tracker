@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,6 +32,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   // File handling
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
+  List<List<int>?> _selectedImageBytes = []; // For web camera images
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -522,17 +524,30 @@ final List<String> supportFunctions = [
                                   }
                                   setState(() => _isPickingImage = true);
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null && image.path.isNotEmpty) {
-                                    setState(() {
-                                      _selectedImagePaths.add(image.path);
-                                      _isPickingImage = false;
-                                    });
-                                    // ScaffoldMessenger.of(context).showSnackBar(
-                                    //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
-                                    // );
+                                  if (image != null) {
+                                    // For web, read bytes; for mobile, use path
+                                    if (kIsWeb) {
+                                      final bytes = await image.readAsBytes();
+                                      setState(() {
+                                        _selectedImagePaths.add('web_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                        _selectedImageBytes.add(bytes);
+                                        _isPickingImage = false;
+                                      });
+                                    } else {
+                                      if (image.path.isNotEmpty) {
+                                        setState(() {
+                                          _selectedImagePaths.add(image.path);
+                                          _selectedImageBytes.add(null); // No bytes for mobile
+                                          _isPickingImage = false;
+                                        });
+                                      } else {
+                                        setState(() => _isPickingImage = false);
+                                        SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                      }
+                                    }
                                   } else {
                                     setState(() => _isPickingImage = false);
-                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured');
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),

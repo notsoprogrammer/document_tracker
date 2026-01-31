@@ -38,6 +38,32 @@ class UploadQueueManager extends ChangeNotifier {
     }
   }
 
+  /// Add a web camera image to the upload queue with bytes
+  void addWebCameraImageToQueue({
+    required String documentCode,
+    required String filePath,
+    required List<int> bytes,
+  }) {
+    // Check if file already exists in queue
+    final existingIndex = _uploadQueue.indexWhere(
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
+    );
+
+    if (existingIndex == -1) {
+      _uploadQueue.add({
+        'documentCode': documentCode,
+        'filePath': filePath,
+        'isImage': true,
+        'localPath': filePath,
+        'bytes': bytes, // Store bytes for web camera images
+        'status': 'pending',
+        'retryCount': 0,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+      debugPrint('Added web camera image to upload queue: $filePath for document $documentCode');
+    }
+  }
+
   /// Remove a file from the upload queue
   void removeFromQueue(String documentCode, String filePath) {
     _uploadQueue.removeWhere(

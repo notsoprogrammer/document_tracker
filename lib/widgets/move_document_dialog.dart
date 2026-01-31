@@ -73,9 +73,20 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.camera);
       if (image != null && mounted) {
-        setState(() {
-          _selectedImagePaths.add(image.path);
-        });
+        if (kIsWeb) {
+          // For web, read bytes and store them
+          final bytes = await image.readAsBytes();
+          final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          setState(() {
+            _selectedImagePaths.add(fileName);
+            _webFileBytes[fileName] = bytes;
+          });
+        } else {
+          // For mobile, use the path
+          setState(() {
+            _selectedImagePaths.add(image.path);
+          });
+        }
       }
     } catch (e) {
       if (mounted) {

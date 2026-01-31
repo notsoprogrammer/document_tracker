@@ -468,12 +468,16 @@ class CachedDocumentService {
 
     // Queue image files from local paths
     if (document.localImagePaths.isNotEmpty) {
-      for (final localPath in document.localImagePaths) {
+      for (int i = 0; i < document.localImagePaths.length; i++) {
+        final localPath = document.localImagePaths[i];
+        // For web camera images, we need to get bytes from the screen state
+        // This is a simplified approach - in practice, you'd pass bytes through the document or use a different mechanism
         queueManager.addToQueue(
           documentCode: document.code,
           filePath: localPath,
           isImage: true,
           localPath: localPath,
+          bytes: kIsWeb && localPath.startsWith('web_image_') ? null : null, // Bytes will be handled in processPendingUploads
         );
       }
     }
