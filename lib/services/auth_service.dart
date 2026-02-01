@@ -35,6 +35,18 @@ class AuthService {
   // Signup with username, password, and device token
   static Future<bool> signup(String username, String password, String deviceToken) async {
     try {
+      // First check if username already exists
+      final existingUser = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+      if (existingUser != null) {
+        print('Username already exists: $username');
+        return false; // Username is taken
+      }
+
       // Hash the password
       final hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
 
