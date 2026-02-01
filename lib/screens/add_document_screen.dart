@@ -456,7 +456,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Document Code + Receiving Date
+                        // Document Code + Set to Calendar
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(
@@ -470,33 +470,36 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             onPressed: _isSaving ? null : () async {
                               final date = await showDatePicker(
                                 context: context,
-                                initialDate: selectedReceivingDate ?? DateTime.now(),
-                                firstDate: DateTime(2025),
+                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: TimeOfDay.now(),
-                                );
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
+                              );
                                 if (time != null) {
                                   setState(() {
-                                    selectedReceivingDate = DateTime(
-                                      date.year, date.month,date.day,
-                                      time.hour, time.minute,
+                                    selectedCalendarDate = DateTime(
+                                      date.year,
+                                      date.month,
+                                      date.day,
+                                      time.hour,
+                                      time.minute,
                                     );
                                   });
                                 }
                               }
                             },
-                            
+
                             label: Text(
-                              selectedReceivingDate != null
-                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
-                                  : "Set Receiving Date",
+                              selectedCalendarDate != null
+                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
+                                  : "Set to Calendar",
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: selectedReceivingDate != null
+                              backgroundColor: selectedCalendarDate != null
                                   ? Colors.green
                                   : Theme.of(context).colorScheme.secondary,
                               foregroundColor: Theme.of(context).colorScheme.onSecondary,
@@ -623,7 +626,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5EFE6), // soft background
                             border: Border.all(
-                              color: const Color(0xFF6D94C5), // pastel blue border
+                              color: _showValidationErrors && selectedReceivingDate == null
+                                  ? Colors.red
+                                  : const Color(0xFF6D94C5), // pastel blue border or red if error
                               width: 1.2,
                             ),
                             borderRadius: BorderRadius.circular(8), // subtle, not too round
@@ -632,23 +637,20 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             onTap: _isSaving ? null : () async {
                               final date = await showDatePicker(
                                 context: context,
-                                initialDate: selectedCalendarDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
+                                initialDate: selectedReceivingDate ?? DateTime.now(),
+                                firstDate: DateTime(2025),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {
-                              final time = await showTimePicker(
-                                context: context,
-                                initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
-                              );
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
                                 if (time != null) {
                                   setState(() {
-                                    selectedCalendarDate = DateTime(
-                                      date.year,
-                                      date.month,
-                                      date.day,
-                                      time.hour,
-                                      time.minute,
+                                    selectedReceivingDate = DateTime(
+                                      date.year, date.month,date.day,
+                                      time.hour, time.minute,
                                     );
                                   });
                                 }
@@ -656,21 +658,35 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             },
                             child: Row(
                               children: [
-                                const Icon(Icons.event, color: Color(0xFF6D94C5)),
+                                Icon(
+                                  Icons.event,
+                                  color: _showValidationErrors && selectedReceivingDate == null
+                                      ? Colors.red
+                                      : const Color(0xFF6D94C5),
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  selectedCalendarDate != null
-                                      ? "Set to Calendar: ${selectedCalendarDate!.toLocal().toString().substring(0,16)}"
-                                      : "Set to Calendar",
+                                  selectedReceivingDate != null
+                                      ? "Set Receiving Date: ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
+                                      : "Set Receiving Date",
                                   style: TextStyle(
-                                    color: const Color(0xFF6D94C5),
+                                    color: _showValidationErrors && selectedReceivingDate == null
+                                        ? Colors.red
+                                        : const Color(0xFF6D94C5),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        )
+                        ),
+                        if (_showValidationErrors && selectedReceivingDate == null) ...[
+                          const SizedBox(height: 4),
+                          const Text(
+                            "Receiving date is required",
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                        ]
                       ],
                     ),
                   ),
@@ -695,7 +711,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           Autocomplete<String>(
                             optionsBuilder: (TextEditingValue textEditingValue) {
                               if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
+                                return offices; // Show all options on tap
                               }
                               return offices.where((String option) {
                                 return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
@@ -1119,7 +1135,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         (selectedType != 'Others' || customTypeController.text.trim().isNotEmpty) &&
                         selectedMode != null &&
                         personController.text.trim().isNotEmpty &&
-                        fromToController.text.trim().isNotEmpty){
+                        fromToController.text.trim().isNotEmpty &&
+                        selectedReceivingDate != null){
 
                       final String code = codeController.text ?? '';
                       final String title = titleController.text ?? '';
