@@ -75,12 +75,15 @@ class NotificationService {
       }
     }
 
-    // On web, FirebaseMessaging handles permission internally
-    await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    // Skip permission request on web to avoid blocking the app startup
+    // FirebaseMessaging will handle permission when attempting to get token
+    if (!kIsWeb) {
+      await _firebaseMessaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
   }
 
   Future<void> requestNotificationPermission() async {
@@ -91,16 +94,21 @@ class NotificationService {
    * FCM SETUP
    * ---------------------------------------------------------*/
   Future<void> _initializeFCM() async {
-    // Get FCM token and save to Supabase
-    final token = await _firebaseMessaging.getToken();
-    if (token != null) {
-      final username = await _getCurrentUsername();
-      if (username != null) {
-        await SupabaseService().saveDeviceToken(token, username);
-        debugPrint('FCM Token: $token for user: $username');
-      } else {
-        debugPrint('No username found, skipping device token save');
+    // Get FCM token and save to Supabase (non-blocking on web)
+    try {
+      final token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        final username = await _getCurrentUsername();
+        if (username != null) {
+          await SupabaseService().saveDeviceToken(token, username);
+          debugPrint('FCM Token: $token for user: $username');
+        } else {
+          debugPrint('No username found, skipping device token save');
+        }
       }
+    } catch (e) {
+      debugPrint('Failed to get FCM token: $e');
+      // Continue initialization even if token retrieval fails
     }
 
     // Listen for token refresh
