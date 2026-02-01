@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 
 class NotificationService {
@@ -234,6 +233,11 @@ class NotificationService {
     if (overdueNotifications != null) {
       await prefs.setBool('overdue_notifications', overdueNotifications);
     }
+
+    // If any notification preference is enabled, attempt to get and save FCM token
+    if ((immediateNotifications == true) || (nineAMNotifications == true) || (overdueNotifications == true)) {
+      await _getAndSaveToken();
+    }
   }
 
   Future<Map<String, bool>> getNotificationPreferences() async {
@@ -279,6 +283,19 @@ class NotificationService {
   Future<String?> _getCurrentUsername() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('username');
+  }
+
+  Future<void> _getAndSaveToken() async {
+    final token = await _firebaseMessaging.getToken();
+    if (token != null) {
+      final username = await _getCurrentUsername();
+      if (username != null) {
+        await SupabaseService().saveDeviceToken(token, username);
+        debugPrint('FCM Token: $token for user: $username');
+      } else {
+        debugPrint('No username found, skipping device token save');
+      }
+    }
   }
 }
 
