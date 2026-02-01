@@ -1,4 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bcrypt/bcrypt.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/auth_config.dart';
 
 class AuthService {
@@ -27,5 +29,74 @@ class AuthService {
   static Future<void> setUsername(String username) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_usernameKey, username);
+  }
+
+  // Signup with username, password, and device token
+  static Future<bool> signup(String username, String password, String deviceToken) async {
+    try {
+      // Hash the password
+      final hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+
+      // Insert user into Supabase
+      final response = await Supabase.instance.client.from('users').insert({
+        'username': username,
+        'password_hash': hashedPassword,
+      }).select().single();
+
+      final userId = response['id'];
+
+      // Save device token
+      await Supabase.instance.client.from('device_tokens').insert({
+        'user_id': userId,
+        'username': username,
+        'token': deviceToken,
+      });
+
+      // Set user as authorized and save username
+      await setAuthorized(true);
+      await setUsername(username);
+
+      return true;
+    } catch (e) {
+      print('Signup error: $e');
+      return false;
+    }
+  }
+
+  // Login with username, password, and device token
+  static Future<bool> login(String username, String password, String deviceToken) async {
+    try {
+      // Fetch user from Supabase
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('id, password_hash')
+          .eq('username', username)
+          .single();
+
+      final userId = response['id'];
+      final storedHash = response['password_hash'];
+
+      // Verify password
+      if (!BCrypt.checkpw(password, storedHash)) {
+        return false;
+      }
+
+      // Update or insert device token
+      await Supabase.instance.client.from('device_tokens').upsert({
+        'user_id': userId,
+        'username': username,
+        'token': deviceToken,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+
+      // Set user as authorized and save username
+      await setAuthorized(true);
+      await setUsername(username);
+
+      return true;
+    } catch (e) {
+      print('Login error: $e');
+      return false;
+    }
   }
 }

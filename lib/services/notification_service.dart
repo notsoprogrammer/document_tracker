@@ -94,14 +94,22 @@ class NotificationService {
     // Get FCM token and save to Supabase
     final token = await _firebaseMessaging.getToken();
     if (token != null) {
-      await SupabaseService().saveDeviceToken(token);
-      debugPrint('FCM Token: $token');
+      final username = await _getCurrentUsername();
+      if (username != null) {
+        await SupabaseService().saveDeviceToken(token, username);
+        debugPrint('FCM Token: $token for user: $username');
+      } else {
+        debugPrint('No username found, skipping device token save');
+      }
     }
 
     // Listen for token refresh
     _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-      await SupabaseService().saveDeviceToken(newToken);
-      debugPrint('FCM Token refreshed: $newToken');
+      final username = await _getCurrentUsername();
+      if (username != null) {
+        await SupabaseService().saveDeviceToken(newToken, username);
+        debugPrint('FCM Token refreshed: $newToken for user: $username');
+      }
     });
 
     // Handle foreground messages
@@ -263,6 +271,11 @@ class NotificationService {
     return {
       'notification': notificationGranted,
     };
+  }
+
+  Future<String?> _getCurrentUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('username');
   }
 }
 

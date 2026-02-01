@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 
@@ -10,49 +11,95 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _developerPasswordController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  bool _isPasswordStep = true;
+  final TextEditingController _passwordController = TextEditingController();
+  int _currentStep = 0; // 0: developer password, 1: username/password
+  bool _isLoginMode = true; // true for login, false for signup
   bool _isLoading = false;
 
-  Future<void> _handlePasswordSubmit() async {
-    final password = _passwordController.text.trim();
+  Future<void> _handleDeveloperPasswordSubmit() async {
+    final password = _developerPasswordController.text.trim();
     if (password.isEmpty) {
-      SnackbarUtils.showErrorSnackBar(context, 'Please enter a password');
+      SnackbarUtils.showErrorSnackBar(context, 'Please enter the developer password');
       return;
     }
 
     setState(() => _isLoading = true);
 
-    // Validate password
+    // Validate developer password
     final isValid = AuthService.validatePassword(password);
     setState(() => _isLoading = false);
     if (isValid) {
-      // Mark as authorized and move to username
-      await AuthService.setAuthorized(true);
+      // Move to username/password step
       setState(() {
-        _isPasswordStep = false;
+        _currentStep = 1;
       });
     } else {
-      SnackbarUtils.showErrorSnackBar(context, 'Incorrect password');
+      SnackbarUtils.showErrorSnackBar(context, 'Incorrect developer password');
     }
   }
 
-  Future<void> _handleUsernameSubmit() async {
+  Future<void> _handleUserAuthSubmit() async {
     final username = _usernameController.text.trim();
-    if (username.isEmpty) {
-      SnackbarUtils.showErrorSnackBar(context, 'Please enter a username');
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
+      SnackbarUtils.showErrorSnackBar(context, 'Please fill in all fields');
       return;
     }
 
     setState(() => _isLoading = true);
-    await AuthService.setUsername(username);
-    setState(() => _isLoading = false);
 
-    // Proceed to app
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
+    try {
+      // Get FCM token
+      final deviceToken = await FirebaseMessaging.instance.getToken();
+      if (deviceToken == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Failed to get device token');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      bool success;
+      if (_isLoginMode) {
+        success = await AuthService.login(username, password, deviceToken);
+        if (!success) {
+          SnackbarUtils.showErrorSnackBar(context, 'Invalid username or password');
+          setState(() => _isLoading = false);
+          return;
+        }
+      } else {
+        success = await AuthService.signup(username, password, deviceToken);
+        if (!success) {
+          SnackbarUtils.showErrorSnackBar(context, 'Signup failed. Username may already exist.');
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
+      // Success - navigate to home
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'An error occurred. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  void _toggleMode() {
+    setState(() {
+      _isLoginMode = !_isLoginMode;
+    });
+  }
+
+  void _goBack() {
+    setState(() {
+      _currentStep = 0;
+    });
   }
 
   @override
@@ -89,7 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      _isPasswordStep ? 'Enter Developer Password' : 'Set Username',
+                      _currentStep == 0
+                          ? 'Enter Developer Password'
+                          : (_isLoginMode ? 'Login' : 'Sign Up'),
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.primary,
@@ -97,7 +146,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
-                    if (_isPasswordStep) ...[
+                    if (_currentStep == 0) ...[
+                      // Developer Password Step
+                      TextField(
+                        controller: _developerPasswordController,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          labelText: 'Developer Password',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surface,
+                        ),
+                        onSubmitted: (_) => _handleDeveloperPasswordSubmit(),
+                      ),
+                    ] else ...[
+                      // Username/Password Step
+                      TextField(
+                        controller: _usernameController,
+                        decoration: InputDecoration(
+                          labelText: 'Username',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surface,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _passwordController,
                         obscureText: true,
@@ -109,27 +186,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           filled: true,
                           fillColor: Theme.of(context).colorScheme.surface,
                         ),
-                        onSubmitted: (_) => _handlePasswordSubmit(),
+                        onSubmitted: (_) => _handleUserAuthSubmit(),
                       ),
-                    ] else ...[
-                      TextField(
-                        controller: _usernameController,
-                        decoration: InputDecoration(
-                          labelText: 'Username',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: _goBack,
+                              child: const Text('Back'),
+                            ),
                           ),
-                          filled: true,
-                          fillColor: Theme.of(context).colorScheme.surface,
-                        ),
-                        onSubmitted: (_) => _handleUsernameSubmit(),
+                          TextButton(
+                            onPressed: _toggleMode,
+                            child: Text(_isLoginMode ? 'Need to sign up?' : 'Already have account?'),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : (_isPasswordStep ? _handlePasswordSubmit : _handleUsernameSubmit),
+                        onPressed: _isLoading
+                            ? null
+                            : (_currentStep == 0 ? _handleDeveloperPasswordSubmit : _handleUserAuthSubmit),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -138,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator()
-                            : Text(_isPasswordStep ? 'Continue' : 'Finish Setup'),
+                            : Text(_currentStep == 0 ? 'Continue' : (_isLoginMode ? 'Login' : 'Sign Up')),
                       ),
                     ),
                   ],
@@ -153,8 +234,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _developerPasswordController.dispose();
     _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 }
