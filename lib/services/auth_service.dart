@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -98,5 +99,84 @@ class AuthService {
       print('Login error: $e');
       return false;
     }
+  }
+
+  // Request password reset
+  static Future<String?> requestPasswordReset(String username) async {
+    try {
+      // Check if user exists
+      final userResponse = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('username', username)
+          .single();
+
+      final userId = userResponse['id'];
+
+      // Generate reset token
+      final resetToken = _generateResetToken();
+
+      // Set expiry (15 minutes from now)
+      final expiresAt = DateTime.now().add(const Duration(minutes: 15));
+
+      // Insert reset record
+      await Supabase.instance.client.from('password_resets').insert({
+        'user_id': userId,
+        'token': resetToken,
+        'expires_at': expiresAt.toIso8601String(),
+      });
+
+      return resetToken;
+    } catch (e) {
+      print('Password reset request error: $e');
+      return null;
+    }
+  }
+
+  // Reset password with token
+  static Future<bool> resetPassword(String token, String newPassword) async {
+    try {
+      // Find valid reset record
+      final resetResponse = await Supabase.instance.client
+          .from('password_resets')
+          .select('user_id, expires_at')
+          .eq('token', token)
+          .single();
+
+      final userId = resetResponse['user_id'];
+      final expiresAt = DateTime.parse(resetResponse['expires_at']);
+
+      // Check if token is expired
+      if (DateTime.now().isAfter(expiresAt)) {
+        return false;
+      }
+
+      // Hash new password
+      final hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+
+      // Update user password
+      await Supabase.instance.client
+          .from('users')
+          .update({'password_hash': hashedPassword})
+          .eq('id', userId);
+
+      // Delete reset record
+      await Supabase.instance.client
+          .from('password_resets')
+          .delete()
+          .eq('token', token);
+
+      return true;
+    } catch (e) {
+      print('Password reset error: $e');
+      return false;
+    }
+  }
+
+  // Helper function to generate reset token
+  static String _generateResetToken() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random.secure();
+    return List.generate(8, (index) => chars[random.nextInt(chars.length)]).join();
   }
 }

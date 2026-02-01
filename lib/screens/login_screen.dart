@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -100,6 +101,114 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _currentStep = 0;
     });
+  }
+
+  void _showForgotPasswordDialog() {
+    final usernameController = TextEditingController();
+    final tokenController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    int forgotStep = 0; // 0: enter username, 1: enter token + new password
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(forgotStep == 0 ? 'Forgot Password' : 'Reset Password'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (forgotStep == 0) ...[
+                      const Text(
+                        'Enter your username to receive a password reset token.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ] else ...[
+                      const Text(
+                        'Enter the reset token you received and your new password.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: tokenController,
+                        decoration: const InputDecoration(
+                          labelText: 'Reset Token',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: newPasswordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'New Password',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (forgotStep == 0) {
+                      // Request reset token
+                      final username = usernameController.text.trim();
+                      if (username.isEmpty) {
+                        SnackbarUtils.showErrorSnackBar(context, 'Please enter username');
+                        return;
+                      }
+
+                      final resetToken = await AuthService.requestPasswordReset(username);
+                      if (resetToken != null) {
+                        // Send notification with token
+                        await NotificationService().sendPasswordResetNotification(username, resetToken);
+                        setState(() => forgotStep = 1);
+                      } else {
+                        SnackbarUtils.showErrorSnackBar(context, 'User not found');
+                      }
+                    } else {
+                      // Reset password
+                      final token = tokenController.text.trim();
+                      final newPassword = newPasswordController.text.trim();
+
+                      if (token.isEmpty || newPassword.isEmpty) {
+                        SnackbarUtils.showErrorSnackBar(context, 'Please fill all fields');
+                        return;
+                      }
+
+                      final success = await AuthService.resetPassword(token, newPassword);
+                      if (success) {
+                        SnackbarUtils.showSuccessSnackBar(context, 'Password reset successfully');
+                        Navigator.of(context).pop();
+                      } else {
+                        SnackbarUtils.showErrorSnackBar(context, 'Invalid or expired token');
+                      }
+                    }
+                  },
+                  child: Text(forgotStep == 0 ? 'Send Token' : 'Reset Password'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -203,6 +312,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
+                      if (_isLoginMode) ...[
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton(
+                            onPressed: _showForgotPasswordDialog,
+                            child: const Text('Forgot Password?'),
+                          ),
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 24),
                     SizedBox(

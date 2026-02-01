@@ -273,6 +273,53 @@ class NotificationService {
     };
   }
 
+  // Send password reset token via push notification
+  Future<void> sendPasswordResetNotification(String username, String resetToken) async {
+    try {
+      // Get user's device token
+      final supabaseService = SupabaseService();
+      final deviceTokens = await supabaseService.getAllDeviceTokens();
+
+      // Find the user's device token (assuming username is stored in device_tokens)
+      final userToken = deviceTokens.firstWhere(
+        (token) => token == username, // This might need adjustment based on how tokens are stored
+        orElse: () => '',
+      );
+
+      if (userToken.isEmpty) {
+        print('No device token found for user: $username');
+        return;
+      }
+
+      // Send local notification with reset token
+      const androidDetails = AndroidNotificationDetails(
+        'password_reset_channel',
+        'Password Reset',
+        channelDescription: 'Password reset notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      const iosDetails = DarwinNotificationDetails();
+
+      const notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'Password Reset',
+        'Your reset token is: $resetToken\n\nUse this token to reset your password.',
+        notificationDetails,
+      );
+
+      print('Password reset notification sent to user: $username');
+    } catch (e) {
+      print('Error sending password reset notification: $e');
+    }
+  }
+
   Future<String?> _getCurrentUsername() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('username');
