@@ -79,6 +79,8 @@ class AuthService {
   // Login with username, password, and device token
   static Future<bool> login(String username, String password, String deviceToken) async {
     try {
+      print('Attempting login for user: $username');
+
       // Fetch user from Supabase
       final response = await Supabase.instance.client
           .from('users')
@@ -89,23 +91,30 @@ class AuthService {
       final userId = response['id'];
       final storedHash = response['password_hash'];
 
+      print('Fetched user ID: $userId, stored hash: $storedHash');
+
       // Verify password
       if (!BCrypt.checkpw(password, storedHash)) {
+        print('Password verification failed');
         return false;
       }
 
+      print('Password verified successfully');
+
       // Update or insert device token
-      await Supabase.instance.client.from('device_tokens').upsert({
-        'user_id': userId,
-        'username': username,
-        'token': deviceToken,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
+      await Supabase.instance.client
+          .from('device_tokens')
+          .upsert({
+            'user_id': userId,
+            'username': username,
+            'token': deviceToken,
+          }, onConflict: 'user_id');
 
       // Set user as authorized and save username
       await setAuthorized(true);
       await setUsername(username);
 
+      print('Login successful for user: $username');
       return true;
     } catch (e) {
       print('Login error: $e');
@@ -127,6 +136,7 @@ class AuthService {
 
       // Generate reset token
       final resetToken = _generateResetToken();
+      print('Generated reset token: $resetToken for user: $username');
 
       // Set expiry (15 minutes from now)
       final expiresAt = DateTime.now().add(const Duration(minutes: 15));
@@ -138,6 +148,7 @@ class AuthService {
         'expires_at': expiresAt.toIso8601String(),
       });
 
+      print('Inserted reset record for token: $resetToken');
       return resetToken;
     } catch (e) {
       print('Password reset request error: $e');
@@ -146,7 +157,7 @@ class AuthService {
   }
 
   // Reset password with token
-  static Future<bool> resetPassword(String token, String newPassword) async {
+  static Future<bool> resetPassword(String token, String newPassword, String deviceToken) async {
     try {
       // Find valid reset record
       final resetResponse = await Supabase.instance.client
@@ -172,11 +183,32 @@ class AuthService {
           .update({'password_hash': hashedPassword})
           .eq('id', userId);
 
+      // Get username for automatic login
+      final userResponse = await Supabase.instance.client
+          .from('users')
+          .select('username')
+          .eq('id', userId)
+          .single();
+
+      final username = userResponse['username'];
+
       // Delete reset record
       await Supabase.instance.client
           .from('password_resets')
           .delete()
           .eq('token', token);
+
+      // Automatically log the user in after password reset
+      await Supabase.instance.client.from('device_tokens').upsert({
+        'user_id': userId,
+        'username': username,
+        'token': deviceToken,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+
+      // Set user as authorized and save username
+      await setAuthorized(true);
+      await setUsername(username);
 
       return true;
     } catch (e) {
