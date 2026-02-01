@@ -61,6 +61,15 @@ CREATE TABLE IF NOT EXISTS device_tokens (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create password_resets table
+CREATE TABLE IF NOT EXISTS password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 -- Create notifications_history table
 CREATE TABLE IF NOT EXISTS notifications_history (
     id SERIAL PRIMARY KEY,
