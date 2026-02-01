@@ -11,7 +11,6 @@ import '../utils/date_time_utils.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
-import 'circulated_documents_screen.dart';
 import 'add_flag_ceremony_screen.dart';
 import 'flag_ceremony_documents_screen.dart';
 import 'attendance_movs_screen.dart';
@@ -36,7 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadDocuments();
-    _checkAndRequestNotificationPermission();
   }
 
   @override
@@ -370,6 +368,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _testNotification();
               } else if (value == 'check_permissions') {
                 _checkPermissions();
+              } else if (value == 'notification_settings') {
+                _showNotificationSettings();
               }
             },
             itemBuilder: (context) => [
@@ -399,6 +399,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.notifications_active),
                   title: Text('Notification History'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'notification_settings',
+                child: ListTile(
+                  leading: Icon(Icons.settings),
+                  title: Text('Notification Settings'),
                 ),
               ),
             ],
@@ -641,7 +648,7 @@ Positioned(
         alignment: Alignment.centerRight,
         child: FloatingActionButton(
           onPressed: () => setState(() => _showPills = !_showPills),
-          backgroundColor: const Color.fromARGB(255, 0, 217, 255),
+          backgroundColor: const Color(0xFF4988C4),
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           child: const Icon(Icons.add),
         ),
@@ -885,6 +892,79 @@ Positioned(
         SnackBar(content: Text('Failed to check permissions: $e')),
       );
     }
+  }
+
+  Future<void> _showNotificationSettings() async {
+    final notificationService = NotificationService();
+    final currentPrefs = await notificationService.getNotificationPreferences();
+
+    bool immediate = currentPrefs['immediateNotifications'] ?? false;
+    bool nineAM = currentPrefs['nineAMNotifications'] ?? true;
+    bool overdue = currentPrefs['overdueNotifications'] ?? true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Notification Settings'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                title: const Text('Immediate Notifications'),
+                subtitle: const Text('Show notifications as soon as they arrive'),
+                value: immediate,
+                onChanged: (value) {
+                  setState(() => immediate = value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('A day before Deadline Notifications'),
+                subtitle: const Text('Shows at 9 AM'),
+                value: nineAM,
+                onChanged: (value) {
+                  setState(() => nineAM = value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Overdue Notifications'),
+                subtitle: const Text('Show notifications for overdue items'),
+                value: overdue,
+                onChanged: (value) {
+                  setState(() => overdue = value);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await notificationService.setNotificationPreferences(
+                    immediateNotifications: immediate,
+                    nineAMNotifications: nineAM,
+                    overdueNotifications: overdue,
+                  );
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notification settings saved')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to save settings: $e')),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
 

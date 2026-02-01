@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/supabase_service.dart';
 
 class NotificationService {
@@ -121,10 +122,16 @@ class NotificationService {
 
     final notification = message.notification;
     if (notification != null) {
-      await _showLocalNotification(
-        title: notification.title ?? 'Notification',
-        body: notification.body ?? '',
-      );
+      // Check if notification should be shown based on user preferences
+      final shouldShow = await _shouldShowNotification(message);
+      if (shouldShow) {
+        await _showLocalNotification(
+          title: notification.title ?? 'Notification',
+          body: notification.body ?? '',
+        );
+      } else {
+        debugPrint('Notification suppressed due to user preferences');
+      }
     }
   }
 
@@ -198,6 +205,56 @@ class NotificationService {
       title: 'Test Notification',
       body: 'If you see this, FCM notifications work 🎉',
     );
+  }
+
+  /* -----------------------------------------------------------
+   * NOTIFICATION PREFERENCES
+   * ---------------------------------------------------------*/
+  Future<void> setNotificationPreferences({
+    bool? immediateNotifications,
+    bool? nineAMNotifications,
+    bool? overdueNotifications,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (immediateNotifications != null) {
+      await prefs.setBool('immediate_notifications', immediateNotifications);
+    }
+    if (nineAMNotifications != null) {
+      await prefs.setBool('nine_am_notifications', nineAMNotifications);
+    }
+    if (overdueNotifications != null) {
+      await prefs.setBool('overdue_notifications', overdueNotifications);
+    }
+  }
+
+  Future<Map<String, bool>> getNotificationPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'immediateNotifications': prefs.getBool('immediate_notifications') ?? false,
+      'nineAMNotifications': prefs.getBool('nine_am_notifications') ?? true,
+      'overdueNotifications': prefs.getBool('overdue_notifications') ?? true,
+    };
+  }
+
+  Future<bool> _shouldShowNotification(RemoteMessage message) async {
+    final prefs = await getNotificationPreferences();
+
+    // Check notification type from message data
+    final data = message.data;
+    final notificationType = data['type'] ?? 'immediate'; // Default to immediate if not specified
+
+    switch (notificationType) {
+      case 'immediate':
+        return prefs['immediateNotifications'] ?? true;
+      case '9am':
+      case 'nine_am':
+        return prefs['nineAMNotifications'] ?? true;
+      case 'overdue':
+        return prefs['overdueNotifications'] ?? true;
+      default:
+        // For unknown types, show if immediate notifications are enabled
+        return prefs['immediateNotifications'] ?? true;
+    }
   }
 
   Future<Map<String, bool>> checkPermissions() async {
