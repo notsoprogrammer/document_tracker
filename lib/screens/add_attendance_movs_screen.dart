@@ -529,11 +529,19 @@ final List<String> supportFunctions = [
                                     // For web, read bytes; for mobile, use path
                                     if (kIsWeb) {
                                       final bytes = await image.readAsBytes();
+                                      final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
                                       setState(() {
-                                        _selectedImagePaths.add('web_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                        _selectedImagePaths.add(fileName);
                                         _selectedImageBytes.add(bytes);
                                         _isPickingImage = false;
                                       });
+                                      // Queue for upload
+                                      final queueManager = UploadQueueManager();
+                                      queueManager.addWebCameraImageToQueue(
+                                        documentCode: codeController.text,
+                                        filePath: fileName,
+                                        bytes: bytes,
+                                      );
                                     } else {
                                       if (image.path.isNotEmpty) {
                                         setState(() {
@@ -541,6 +549,14 @@ final List<String> supportFunctions = [
                                           _selectedImageBytes.add(null); // No bytes for mobile
                                           _isPickingImage = false;
                                         });
+                                        // Queue for upload
+                                        final queueManager = UploadQueueManager();
+                                        queueManager.addToQueue(
+                                          documentCode: codeController.text,
+                                          filePath: image.path,
+                                          isImage: true,
+                                          localPath: image.path,
+                                        );
                                       } else {
                                         setState(() => _isPickingImage = false);
                                         SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
@@ -604,6 +620,15 @@ final List<String> supportFunctions = [
                                           }
                                           _selectedImagePaths.add(filePath);
                                           imagesAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: true,
+                                            localPath: filePath,
+                                            bytes: kIsWeb && _webFileBytes.containsKey(filePath) ? _webFileBytes[filePath] : null,
+                                          );
                                         } else if (_isDocument(file.name)) {
                                           if (fileSize > 50 * 1024 * 1024) {
                                             skippedFiles.add(file.name);
@@ -623,6 +648,15 @@ final List<String> supportFunctions = [
                                           }
                                           _selectedDocumentPaths.add(filePath);
                                           documentsAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: false,
+                                            localPath: filePath,
+                                            bytes: kIsWeb && _webFileBytes.containsKey(filePath) ? _webFileBytes[filePath] : null,
+                                          );
                                         }
                                       }
                                     }

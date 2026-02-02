@@ -445,17 +445,46 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                   }
                                   setState(() => _isPickingImage = true);
                                   final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null && image.path.isNotEmpty) {
-                                    setState(() {
-                                      _selectedImagePaths.add(image.path);
-                                      _isPickingImage = false;
-                                    });
-                                    // ScaffoldMessenger.of(context).showSnackBar(
-                                    //   SnackBar(content: Text('Image added: ${image.path.split('\\').last}')),
-                                    // );
+                                  if (image != null) {
+                                    // For web, read bytes; for mobile, use path
+                                    if (kIsWeb) {
+                                      final bytes = await image.readAsBytes();
+                                      final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                                      setState(() {
+                                        _selectedImagePaths.add(fileName);
+                                        _selectedImageBytes.add(bytes);
+                                        _isPickingImage = false;
+                                      });
+                                      // Queue for upload
+                                      final queueManager = UploadQueueManager();
+                                      queueManager.addWebCameraImageToQueue(
+                                        documentCode: codeController.text,
+                                        filePath: fileName,
+                                        bytes: bytes,
+                                      );
+                                    } else {
+                                      if (image.path.isNotEmpty) {
+                                        setState(() {
+                                          _selectedImagePaths.add(image.path);
+                                          _selectedImageBytes.add(null); // No bytes for mobile
+                                          _isPickingImage = false;
+                                        });
+                                        // Queue for upload
+                                        final queueManager = UploadQueueManager();
+                                        queueManager.addToQueue(
+                                          documentCode: codeController.text,
+                                          filePath: image.path,
+                                          isImage: true,
+                                          localPath: image.path,
+                                        );
+                                      } else {
+                                        setState(() => _isPickingImage = false);
+                                        SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                      }
+                                    }
                                   } else {
                                     setState(() => _isPickingImage = false);
-                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
+                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured');
                                   }
                                 },
                                 icon: const Icon(Icons.camera_alt),
@@ -468,55 +497,102 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingFile || _selectedDocumentPaths.isNotEmpty || _isSaving) ? null : () async {
+                                onPressed: (_isUploadingImages || _isPickingFile || _isSaving) ? null : () async {
                                   setState(() => _isPickingFile = true);
                                   FilePickerResult? result = await FilePicker.platform.pickFiles(
                                     type: FileType.custom,
-                                    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png','heic'],
-                                    allowMultiple: false,
-                                    withData: true,
+                                    allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'],
+                                    allowMultiple: true,
+                                    withData: true, // Need bytes for web
                                   );
                                   if (result != null && result.files.isNotEmpty) {
-                                    final file = result.files.first;
-                                    String? filePath = file.path;
-                                    if (filePath == null || filePath.isEmpty) {
-                                      if (file.bytes != null) {
-                                        final tempDir = Directory.systemTemp;
-                                        final tempFile = File('${tempDir.path}/${file.name}');
-                                        await tempFile.writeAsBytes(file.bytes!);
-                                        filePath = tempFile.path;
-                                      }
-                                    }
+                                    int imagesAdded = 0;
+                                    int documentsAdded = 0;
+                                    List<String> skippedFiles = [];
+                                    for (final file in result.files) {
+                                      String? filePath;
+                                      int fileSize = 0;
 
-                                    if (filePath != null && filePath.isNotEmpty) {
-                                      final fileSize = File(filePath).lengthSync();
-                                      if (fileSize > 50 * 1024 * 1024) {
-                                        setState(() => _isPickingFile = false);
-                                        SnackbarUtils.showErrorSnackBar(context, '${file.name} exceeds 50MB limit');
+                                      if (kIsWeb) {
+                                        // On web, use file.bytes directly
+                                        if (file.bytes != null) {
+                                          fileSize = file.bytes!.length;
+                                          filePath = 'web_file_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+                                          // Store bytes for web files
+                                          // Note: _webFileBytes is not defined in this screen, need to add it
+                                        }
                                       } else {
-                                        if (_isImage(file.name)) {
-                                          int currentImageCount = _selectedImagePaths.where(_isImage).length;
-                                          if (currentImageCount >= 10) {
-                                            setState(() => _isPickingFile = false);
-                                            SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
-                                            return;
-                                          }
-                                          setState(() {
-                                            _selectedImagePaths.add(filePath!);
-                                            _isPickingFile = false;
-                                          });
-                                          SnackbarUtils.showSuccessSnackBar(context, 'Image added: ${file.name}');
-                                        } else {
-                                          setState(() {
-                                            _selectedDocumentPaths.add(filePath!);
-                                            _isPickingFile = false;
-                                          });
-                                          SnackbarUtils.showSuccessSnackBar(context, 'File added: ${file.name}');
+                                        // On mobile/desktop, use file.path
+                                        filePath = file.path;
+                                        if (filePath != null && filePath.isNotEmpty) {
+                                          fileSize = File(filePath).lengthSync();
                                         }
                                       }
-                                    } else {
-                                      setState(() => _isPickingFile = false);
-                                      SnackbarUtils.showErrorSnackBar(context, 'Unable to access file');
+
+                                      if (filePath != null && filePath.isNotEmpty && fileSize > 0) {
+                                        if (_isImage(file.name)) {
+                                          if (_selectedImagePaths.length >= 20) {
+                                            SnackbarUtils.showErrorSnackBar(context, 'Only 20 image files allowed');
+                                            continue;
+                                          }
+                                          if (fileSize > 50 * 1024 * 1024) {
+                                            skippedFiles.add(file.name);
+                                            continue;
+                                          }
+                                          _selectedImagePaths.add(filePath);
+                                          imagesAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: true,
+                                            localPath: filePath,
+                                            bytes: kIsWeb ? null : null, // Web bytes handling not implemented in this screen
+                                          );
+                                        } else if (_isDocument(file.name)) {
+                                          if (fileSize > 50 * 1024 * 1024) {
+                                            skippedFiles.add(file.name);
+                                            continue;
+                                          }
+                                          int currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) {
+                                            if (kIsWeb) {
+                                              // For web files, we can't easily get size from path, skip size check for now
+                                              return 0;
+                                            } else {
+                                              return sum + File(path).lengthSync();
+                                            }
+                                          });
+                                          if (!kIsWeb && currentTotalSize + fileSize > 50 * 1024 * 1024) {
+                                            SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
+                                            continue;
+                                          }
+                                          _selectedDocumentPaths.add(filePath);
+                                          documentsAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: false,
+                                            localPath: filePath,
+                                            bytes: kIsWeb ? null : null, // Web bytes handling not implemented in this screen
+                                          );
+                                        }
+                                      }
+                                    }
+                                    setState(() => _isPickingFile = false);
+                                    if (skippedFiles.isNotEmpty) {
+                                      SnackbarUtils.showErrorSnackBar(context, 'Files skipped due to size >50MB: ${skippedFiles.join(', ')}');
+                                    }
+                                    if (imagesAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$imagesAdded image(s) added');
+                                    }
+                                    if (documentsAdded > 0) {
+                                      SnackbarUtils.showSuccessSnackBar(context, '$documentsAdded document(s) added');
+                                    }
+                                    if (imagesAdded == 0 && documentsAdded == 0 && skippedFiles.isEmpty) {
+                                      SnackbarUtils.showErrorSnackBar(context, 'No valid files added');
                                     }
                                   } else {
                                     setState(() => _isPickingFile = false);
@@ -524,7 +600,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                   }
                                 },
                                 icon: const Icon(Icons.attach_file),
-                                label: const Text("Pick File"),
+                                label: const Text("Pick Files"),
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 ),
@@ -633,31 +709,70 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
                       setState(() => _isSaving = true);
                       try {
+                        // Create document first
                         await CachedDocumentService().createDocument(doc);
 
-                        // Queue web camera images with bytes for upload
-                        if (kIsWeb && _selectedImageBytes.isNotEmpty) {
-                          final queueManager = UploadQueueManager();
-                          for (int i = 0; i < _selectedImagePaths.length; i++) {
-                            final path = _selectedImagePaths[i];
-                            final bytes = _selectedImageBytes[i];
-                            if (bytes != null && path.startsWith('web_image_')) {
-                              queueManager.addWebCameraImageToQueue(
-                                documentCode: code,
-                                filePath: path,
-                                bytes: bytes,
-                              );
-                            }
+                        // Process pending uploads (files were already queued when selected)
+                        final documentService = CachedDocumentService();
+                        await documentService.processPendingUploads();
+
+                        // Wait a bit for uploads to complete and check status
+                        await Future.delayed(const Duration(seconds: 2));
+
+                        // Check if there are still any pending uploads for this document
+                        final queueManager = UploadQueueManager();
+                        final pendingUploads = queueManager.getPendingUploads(code);
+                        final uploadingUploads = queueManager.getAllItems().where((item) =>
+                          item['documentCode'] == code && item['status'] == 'uploading'
+                        ).toList();
+
+                        if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
+                          SnackbarUtils.showErrorSnackBar(context, 'Cannot save document while uploads are pending. Please wait for all uploads to complete.');
+                          return;
+                        }
+
+                        // Fetch the updated document to get the Google Drive file names
+                        final allDocs = await documentService.fetchDocuments();
+                        final updatedDoc = allDocs.firstWhere((doc) => doc.code == code);
+                        final newAttachmentCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
+                        // Safety check to prevent negative start index
+                        final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
+                        final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
+
+                        // Update remarks with attachment names if any files were uploaded
+                        if (googleDriveFileNames.isNotEmpty) {
+                          final attachmentNames = googleDriveFileNames.join(', ');
+                          final updatedRemarks = remarks.isNotEmpty
+                            ? '$remarks\nAttachment: $attachmentNames'
+                            : 'Attachment: $attachmentNames';
+
+                          await documentService.updateDocument(code, {
+                            'remarks': updatedRemarks,
+                          });
+                        }
+
+                        // Add history entry for uploads if files were attached
+                        if (googleDriveFileNames.isNotEmpty) {
+                          final username = await AuthService.getUsername();
+                          if (username != null) {
+                            await documentService.addHistoryEntry(
+                              code,
+                              HistoryEntry(
+                                action: 'Files Uploaded',
+                                person: username,
+                                timestamp: DateTime.now(),
+                                notes: 'Uploaded ${googleDriveFileNames.length} file(s): ${googleDriveFileNames.join(', ')}',
+                              ),
+                            );
                           }
                         }
 
-                        // If no files to upload, pop immediately
-                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
-                          if (mounted) {
-                            Navigator.pop(context);
-                          }
+                        // Sync the document
+                        await documentService.syncSpecificDocument(code);
+
+                        if (mounted) {
+                          Navigator.pop(context);
                         }
-                        // Otherwise, wait for uploads to complete
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);

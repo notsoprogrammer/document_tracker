@@ -917,11 +917,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     // For web, read bytes; for mobile, use path
                                     if (kIsWeb) {
                                       final bytes = await image.readAsBytes();
+                                      final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
                                       setState(() {
-                                        _selectedImagePaths.add('web_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                        _selectedImagePaths.add(fileName);
                                         _selectedImageBytes.add(bytes);
                                         _isPickingImage = false;
                                       });
+                                      // Queue for upload
+                                      final queueManager = UploadQueueManager();
+                                      queueManager.addWebCameraImageToQueue(
+                                        documentCode: codeController.text,
+                                        filePath: fileName,
+                                        bytes: bytes,
+                                      );
                                     } else {
                                       if (image.path.isNotEmpty) {
                                         setState(() {
@@ -929,6 +937,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                           _selectedImageBytes.add(null); // No bytes for mobile
                                           _isPickingImage = false;
                                         });
+                                        // Queue for upload
+                                        final queueManager = UploadQueueManager();
+                                        queueManager.addToQueue(
+                                          documentCode: codeController.text,
+                                          filePath: image.path,
+                                          isImage: true,
+                                          localPath: image.path,
+                                        );
                                       } else {
                                         setState(() => _isPickingImage = false);
                                         SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
@@ -992,6 +1008,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                           }
                                           _selectedImagePaths.add(filePath);
                                           imagesAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: true,
+                                            localPath: filePath,
+                                            bytes: kIsWeb && _webFileBytes.containsKey(filePath) ? _webFileBytes[filePath] : null,
+                                          );
                                         } else if (_isDocument(file.name)) {
                                           if (fileSize > 50 * 1024 * 1024) {
                                             skippedFiles.add(file.name);
@@ -1011,6 +1036,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                           }
                                           _selectedDocumentPaths.add(filePath);
                                           documentsAdded++;
+                                          // Queue for upload
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.addToQueue(
+                                            documentCode: codeController.text,
+                                            filePath: filePath,
+                                            isImage: false,
+                                            localPath: filePath,
+                                            bytes: kIsWeb && _webFileBytes.containsKey(filePath) ? _webFileBytes[filePath] : null,
+                                          );
                                         }
                                       }
                                     }
@@ -1178,52 +1212,70 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                       setState(() => _isSaving = true);
                       try {
+                        // Create document first
                         await CachedDocumentService().createDocument(doc);
 
-                        // Queue web files with bytes for upload
-                        if (kIsWeb) {
-                          final queueManager = UploadQueueManager();
-                          for (final path in _selectedImagePaths) {
-                            if (path.startsWith('web_image_') && _selectedImageBytes.isNotEmpty) {
-                              final index = _selectedImagePaths.indexOf(path);
-                              final bytes = index < _selectedImageBytes.length ? _selectedImageBytes[index] : null;
-                              if (bytes != null) {
-                                queueManager.addWebCameraImageToQueue(
-                                  documentCode: code,
-                                  filePath: path,
-                                  bytes: bytes,
-                                );
-                              }
-                            } else if (path.startsWith('web_file_') && _webFileBytes.containsKey(path)) {
-                              queueManager.addToQueue(
-                                documentCode: code,
-                                filePath: path,
-                                isImage: _isImage(path),
-                                localPath: path,
-                                bytes: _webFileBytes[path],
-                              );
-                            }
-                          }
-                          for (final path in _selectedDocumentPaths) {
-                            if (path.startsWith('web_file_') && _webFileBytes.containsKey(path)) {
-                              queueManager.addToQueue(
-                                documentCode: code,
-                                filePath: path,
-                                isImage: false,
-                                localPath: path,
-                                bytes: _webFileBytes[path],
-                              );
-                            }
+                        // Process pending uploads (files were already queued when selected)
+                        final documentService = CachedDocumentService();
+                        await documentService.processPendingUploads();
+
+                        // Wait a bit for uploads to complete and check status
+                        await Future.delayed(const Duration(seconds: 2));
+
+                        // Check if there are still any pending uploads for this document
+                        final queueManager = UploadQueueManager();
+                        final pendingUploads = queueManager.getPendingUploads(code);
+                        final uploadingUploads = queueManager.getAllItems().where((item) =>
+                          item['documentCode'] == code && item['status'] == 'uploading'
+                        ).toList();
+
+                        if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
+                          SnackbarUtils.showErrorSnackBar(context, 'Cannot save document while uploads are pending. Please wait for all uploads to complete.');
+                          return;
+                        }
+
+                        // Fetch the updated document to get the Google Drive file names
+                        final allDocs = await documentService.fetchDocuments();
+                        final updatedDoc = allDocs.firstWhere((doc) => doc.code == code);
+                        final newAttachmentCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
+                        // Safety check to prevent negative start index
+                        final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
+                        final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
+
+                        // Update remarks with attachment names if any files were uploaded
+                        if (googleDriveFileNames.isNotEmpty) {
+                          final attachmentNames = googleDriveFileNames.join(', ');
+                          final updatedRemarks = remarks.isNotEmpty
+                            ? '$remarks\nAttachment: $attachmentNames'
+                            : 'Attachment: $attachmentNames';
+
+                          await documentService.updateDocument(code, {
+                            'remarks': updatedRemarks,
+                          });
+                        }
+
+                        // Add history entry for uploads if files were attached
+                        if (googleDriveFileNames.isNotEmpty) {
+                          final username = await AuthService.getUsername();
+                          if (username != null) {
+                            await documentService.addHistoryEntry(
+                              code,
+                              HistoryEntry(
+                                action: 'Files Uploaded',
+                                person: username,
+                                timestamp: DateTime.now(),
+                                notes: 'Uploaded ${googleDriveFileNames.length} file(s): ${googleDriveFileNames.join(', ')}',
+                              ),
+                            );
                           }
                         }
 
-                        // If no files to upload, pop immediately
-                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
-                          if (mounted) {
-                            Navigator.pop(context);
-                          }
+                        // Sync the document
+                        await documentService.syncSpecificDocument(code);
+
+                        if (mounted) {
+                          Navigator.pop(context);
                         }
-                        // Otherwise, wait for uploads to complete
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);
