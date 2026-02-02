@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/auth_service.dart';
-import '../services/notification_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,7 +54,13 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final deviceToken = await FirebaseMessaging.instance.getToken();
+      String? deviceToken;
+      try {
+        deviceToken = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        debugPrint('Failed to get FCM token: $e');
+        // Continue without device token if permission is blocked
+      }
 
       bool success;
       if (_isLoginMode) {
