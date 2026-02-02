@@ -33,7 +33,7 @@ class AuthService {
   }
 
   // Signup with username, password, and device token
-  static Future<bool> signup(String username, String password, String deviceToken) async {
+  static Future<bool> signup(String username, String password, String? deviceToken) async {
     try {
       // First check if username already exists
       final existingUser = await Supabase.instance.client
@@ -59,11 +59,13 @@ class AuthService {
       final userId = response['id'];
 
       // Save device token
-      await Supabase.instance.client.from('device_tokens').insert({
-        'user_id': userId,
-        'username': username,
-        'token': deviceToken,
-      });
+      if (deviceToken != null) {
+        await Supabase.instance.client.from('device_tokens').insert({
+          'user_id': userId,
+          'username': username,
+          'token': deviceToken,
+        });
+      }
 
       // Set user as authorized and save username
       await setAuthorized(true);
@@ -77,7 +79,7 @@ class AuthService {
   }
 
   // Login with username, password, and device token
-  static Future<bool> login(String username, String password, String deviceToken) async {
+  static Future<bool> login(String username, String password, String? deviceToken) async {
     try {
       print('Attempting login for user: $username');
 
@@ -157,7 +159,7 @@ class AuthService {
   }
 
   // Reset password with token
-  static Future<bool> resetPassword(String token, String newPassword, String deviceToken) async {
+  static Future<bool> resetPassword(String token, String newPassword, String? deviceToken) async {
     try {
       // Find valid reset record
       final resetResponse = await Supabase.instance.client
@@ -199,12 +201,14 @@ class AuthService {
           .eq('token', token);
 
       // Automatically log the user in after password reset
-      await Supabase.instance.client.from('device_tokens').upsert({
-        'user_id': userId,
-        'username': username,
-        'token': deviceToken,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
+      if (deviceToken != null) {
+        await Supabase.instance.client.from('device_tokens').upsert({
+          'user_id': userId,
+          'username': username,
+          'token': deviceToken,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'user_id');
+      }
 
       // Set user as authorized and save username
       await setAuthorized(true);

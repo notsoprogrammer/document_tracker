@@ -304,7 +304,9 @@ class SupabaseService {
   }
   
   // Device tokens operations
-  Future<void> saveDeviceToken(String token, String username) async {
+  Future<void> saveDeviceToken(String? token, String username) async {
+    if (token == null) return;
+
     // Get user_id from users table
     final userResponse = await _client.from('users').select('id').eq('username', username).single();
     final userId = userResponse['id'];

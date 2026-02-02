@@ -56,10 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final deviceToken = await FirebaseMessaging.instance.getToken();
-      if (deviceToken == null) {
-        SnackbarUtils.showErrorSnackBar(context, 'Failed to get device token');
-        return;
-      }
 
       bool success;
       if (_isLoginMode) {
