@@ -1,8 +1,13 @@
-# TODO: Update Authentication Methods for Optional Device Tokens
+# Add Navigation Arrows to Image Viewing Dialogs
 
-- [ ] Update lib/services/auth_service.dart: Change signup method to accept String? deviceToken and conditionally insert device token only if not null.
-- [ ] Update lib/services/auth_service.dart: Change login method to accept String? deviceToken and conditionally insert device token only if not null.
-- [ ] Update lib/services/auth_service.dart: Change resetPassword method to accept String? deviceToken and conditionally insert device token only if not null.
-- [ ] Update lib/screens/login_screen.dart: Remove null token checks in _handleUserAuthSubmit and pass null to auth methods.
-- [ ] Update lib/screens/login_screen.dart: Remove null token checks in forgot password dialog and pass null to auth methods.
-- [ ] Update lib/services/supabase_service.dart: Change saveDeviceToken to accept String? and skip if null.
+## Tasks
+- [x] Add navigation arrows to calendar_screen.dart _showImageViewer
+- [x] Add navigation arrows to attendance_movs_screen.dart _showImageDialog
+- [x] Add navigation arrows to incoming_documents_screen.dart _showImageDialog
+- [x] Add navigation arrows to outgoing_documents_screen.dart _showImageDialog
+
+## Implementation Details
+- Add PageController to control PageView navigation
+- Add left and right arrow buttons positioned on sides of dialog
+- Arrows only visible when there are 2 or more images
+- Handle previous/next page navigation on arrow press

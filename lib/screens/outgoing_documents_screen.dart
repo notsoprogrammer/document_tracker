@@ -336,6 +336,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   }
 
   void _showImageDialog(BuildContext context, Document document) {
+    final PageController pageController = PageController();
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -347,6 +348,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           child: Stack(
             children: [
               PageView.builder(
+                controller: pageController,
                 itemCount: document.imageUrls.length,
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
@@ -418,6 +420,38 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   );
                 },
               ),
+              if (document.imageUrls.length > 1) ...[
+                Positioned(
+                  left: 10,
+                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                    onPressed: () {
+                      if (pageController.page! > 0) {
+                        pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                    onPressed: () {
+                      if (pageController.page! < document.imageUrls.length - 1) {
+                        pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
               Positioned(
                 top: 40,
                 right: 20,

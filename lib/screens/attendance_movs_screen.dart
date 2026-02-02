@@ -635,6 +635,7 @@ class _AttendanceMovsScreenState
 
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
+    final PageController pageController = PageController();
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -647,6 +648,7 @@ class _AttendanceMovsScreenState
           child: Stack(
             children: [
               PageView.builder(
+                controller: pageController,
                 itemCount: imageUrls.length,
                 itemBuilder: (context, index) {
                   // Handle both fileId and Google Drive URL formats
@@ -691,6 +693,38 @@ class _AttendanceMovsScreenState
                   );
                 },
               ),
+              if (imageUrls.length > 1) ...[
+                Positioned(
+                  left: 10,
+                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                    onPressed: () {
+                      if (pageController.page! > 0) {
+                        pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                    onPressed: () {
+                      if (pageController.page! < imageUrls.length - 1) {
+                        pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
               Positioned(
                 top: 40,
                 right: 20,

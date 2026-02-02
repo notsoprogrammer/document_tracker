@@ -580,34 +580,80 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showImageViewer(BuildContext context, List<String> imageUrls) {
+    final PageController pageController = PageController();
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
           child: Container(
             height: MediaQuery.of(context).size.height * 0.8,
-            child: PageView.builder(
-              itemCount: imageUrls.length,
-              itemBuilder: (context, index) {
-                // Handle both fileId and Google Drive URL formats
-                String imageUrl = imageUrls[index];
-                String proxyUrl;
-                if (imageUrl.contains('drive.google.com/uc?id=')) {
-                  // Legacy: extract fileId from Google Drive URL
-                  final uri = Uri.parse(imageUrl);
-                  final fileId = uri.queryParameters['id'];
-                  proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
-                } else {
-                  // New: assume it's already a fileId
-                  proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                }
-                return CachedNetworkImage(
-                  imageUrl: proxyUrl,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                  errorWidget: (context, url, error) => const Icon(Icons.error),
-                );
-              },
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: pageController,
+                  itemCount: imageUrls.length,
+                  itemBuilder: (context, index) {
+                    // Handle both fileId and Google Drive URL formats
+                    String imageUrl = imageUrls[index];
+                    String proxyUrl;
+                    if (imageUrl.contains('drive.google.com/uc?id=')) {
+                      // Legacy: extract fileId from Google Drive URL
+                      final uri = Uri.parse(imageUrl);
+                      final fileId = uri.queryParameters['id'];
+                      proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+                    } else {
+                      // New: assume it's already a fileId
+                      proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
+                    }
+                    return CachedNetworkImage(
+                      imageUrl: proxyUrl,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    );
+                  },
+                ),
+                if (imageUrls.length > 1) ...[
+                  Positioned(
+                    left: 10,
+                    top: MediaQuery.of(context).size.height * 0.4 - 25,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                      onPressed: () {
+                        if (pageController.page! > 0) {
+                          pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    right: 10,
+                    top: MediaQuery.of(context).size.height * 0.4 - 25,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                      onPressed: () {
+                        if (pageController.page! < imageUrls.length - 1) {
+                          pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+                Positioned(
+                  top: 40,
+                  right: 20,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
             ),
           ),
         );
