@@ -955,9 +955,18 @@ Positioned(
                     const SnackBar(content: Text('Notification settings saved')),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save settings: $e')),
-                  );
+                  debugPrint('Failed to save settings: $e');
+                  // Check if the error is related to notification permission
+                  if (e.toString().contains('Notification') || e.toString().contains('permission')) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Settings saved, but notification permission is blocked')),
+                    );
+                    Navigator.of(context).pop();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to save settings: $e')),
+                    );
+                  }
                 }
               },
               child: const Text('Save'),
