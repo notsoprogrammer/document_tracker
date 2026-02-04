@@ -74,6 +74,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
 
   final List<String> documentTypes = [
+    'Action Slip',
     'Endorsement',
     'Executive Order',
     'Letter',

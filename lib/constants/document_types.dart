@@ -1,6 +1,7 @@
 // Centralized constants for document types and abbreviations
 const Map<String, String> typeMapping = {
   // Main types
+  'Action Slip': 'AS',
   'Endorsement': 'END',
   'Executive Order': 'EO',
   'Letter': 'LET',
