@@ -70,6 +70,56 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // Validation flags
   bool _showValidationErrors = false;
 
+// Put this at the top of your file or in a constants file
+final Map<String, String> typeMapping = {
+  // Main types
+  'Endorsement': 'END',
+  'Executive Order': 'EO',
+  'Letter': 'LET',
+  'Leave': 'LV',
+  'Memo': 'MEMO',
+  'Report': 'REP',
+  'Resolution/Ordinance': 'RES',
+  'Travel': 'TRV',
+  'Transmittal': 'TRN',
+  'Voucher/OBR': 'VOBR',
+  'Others': 'OTH',
+
+  // Other document types
+  'AIP': 'AIP',
+  'Annual Accomplishment Report': 'AAR',
+  'Annual Budget': 'AB',
+  'Barangay – AIP': 'BAIP',
+  'Barangay – GAD': 'BGAD',
+  'Cash Advance': 'CA',
+  'CDC – Attendance': 'CDCA',
+  'CDC – Minutes': 'CDCM',
+  'CDC – Resolution': 'CDCRES',
+  'Certificate/Attendance': 'CERT',
+  'Clean-up Drives': 'CUD',
+  'CLUP Zoning Reclassification': 'CLUPZ',
+  'CSOs': 'CSO',
+  'Dept. Heads Meeting': 'DHM',
+  'DTR': 'DTR',
+  'Earthquake Drills': 'EQD',
+  'Ecological Profile': 'ECO',
+  'L&D/IDP/DNA': 'LID',
+  'Liquidation/Reimbursement': 'LIQ',
+  'Locational Clearance': 'LOC',
+  'Man. Com': 'MC',
+  'Monthly Accomplishment Report': 'MAR',
+  'Monthly Staff Meeting': 'MSM',
+  'OPCR': 'OPCR',
+  'PFMAR/PFMIP': 'PFM',
+  'PR/PPMP': 'PRP',
+  'Quarterly Accomplishment Report': 'QAR',
+  'Research/Studies/Trainings': 'RST',
+  'Sectoral Plans': 'SP',
+  'Tree Planting': 'TP',
+  'Zoning Certification': 'ZCERT',
+  'Zoning Clearance': 'ZC',
+};
+
   final List<String> documentTypes = [
     'Endorsement',
     'Executive Order',
@@ -78,6 +128,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Memo',
     'Report',
     'Resolution',
+    'Request',
+    'Ordinance',
     'Travel',
     'Transmittal',
     'Voucher/OBR',
@@ -145,8 +197,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     'Chris',
     'Wena',
     'N/A',
-    'Arlyn',
-    'Dari',
   ];
   final List<String> statusOptions = [
     'Received','Delivered', 'Returned', 'Completed', 'Urgent', 'For Follow-up'
@@ -190,7 +240,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   @override
   void initState() {
     super.initState();
-    codeController.text = _generateCode(widget.incoming);
+    codeController.text = _generateCode(widget.incoming, null);
     _setupUploadListener();
     _loadUsername();
   }
@@ -261,9 +311,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     return result ?? false;
   }
 
-  String _generateCode(bool incoming) {
+  String _generateCode(bool incoming, String? docType) {
     final nowUtc = DateTime.now().toUtc();
-    final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
+    final phTime = nowUtc.add(const Duration(hours: 8));
 
     final year = phTime.year;
     final month = phTime.month.toString().padLeft(2, '0');
@@ -271,9 +321,21 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final hour = phTime.hour.toString().padLeft(2, '0');
     final minute = phTime.minute.toString().padLeft(2, '0');
     final second = phTime.second.toString().padLeft(2, '0');
+
     final prefix = incoming ? 'IDL' : 'ODL';
 
-    return '$prefix$year-$month-$day-$hour$minute$second';
+    String typeCode = '';
+    if (docType != null && docType.isNotEmpty) {
+      if (typeMapping.containsKey(docType)) {
+        typeCode = typeMapping[docType]!;
+      } else {
+        // Use 'OTH' for custom types not in the mapping
+        typeCode = 'OTH';
+      }
+      typeCode = '-$typeCode';
+    }
+
+    return '$prefix$typeCode-$year$month$day-$hour$minute$second';
   }
 
   void _viewSelectedFiles(BuildContext context) async {
@@ -551,7 +613,23 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                     .toList(),
                                 onChanged: _isSaving
                                     ? null
-                                    : (value) => setState(() => selectedType = value),
+                                    : (value) {
+                                        setState(() {
+                                          selectedType = value;
+                                          // Update code when type changes
+                                          String? docType = selectedType;
+                                          if (selectedType == 'Others') {
+                                            String custom = customTypeController.text.trim();
+                                            docType = custom.isNotEmpty ? custom : 'Others';
+                                          }
+                                          codeController.text = _generateCode(widget.incoming, docType);
+                                          if (selectedType == 'Others') {
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              
+                                            });
+                                          }
+                                        });
+                                      },
                               ),
                             ),
                           ],
@@ -570,6 +648,11 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             },
                             onSelected: (String selection) {
                               customTypeController.text = selection;
+                              if (selectedType == 'Others') {
+                                setState(() {
+                                  codeController.text = _generateCode(widget.incoming, selection.trim());
+                                });
+                              }
                             },
                             fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
                               fieldTextEditingController.text = customTypeController.text;
@@ -590,6 +673,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 ),
                                 onChanged: (value) {
                                   customTypeController.text = value;
+                                  // Update code when custom type changes
+                                  if (selectedType == 'Others') {
+                                    setState(() {
+                                      codeController.text = _generateCode(widget.incoming, value.trim());
+                                    });
+                                  }
                                 },
                               );
                             },
