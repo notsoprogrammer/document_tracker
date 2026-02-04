@@ -11,6 +11,7 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
+import '../constants/document_types.dart';
 class AddAttendanceMovScreen extends StatefulWidget {
   const AddAttendanceMovScreen({super.key});
 
@@ -56,83 +57,6 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   // Validation flags
   bool _showValidationErrors = false;
   bool _isSaving = false;
-
-final Map<String, String> typeMapping = {
-  'AIP': 'AIP',
-  'Annual Accomplishment Report': 'AAR',
-  'Annual Budget': 'AB',
-  'Barangay – AIP': 'BAIP',
-  'Barangay – GAD': 'BGAD',
-  'Cash Advance': 'CA',
-  'CDC – Attendance': 'CDCA',
-  'CDC – Minutes': 'CDCM',
-  'CDC – Resolution': 'CDCRES',
-  'Certificate/Attendance': 'CERT',
-  'Clean-up Drives': 'CUD',
-  'CLUP Zoning Reclassification': 'CLUPZ',
-  'CSOs': 'CSO',
-  'Dept. Heads Meeting': 'DHM',
-  'DTR': 'DTR',
-  'Earthquake Drills': 'EQD',
-  'Ecological Profile': 'ECO',
-  'L&D/IDP/DNA': 'LID',
-  'Liquidation/Reimbursement': 'LIQ',
-  'Locational Clearance': 'LOC',
-  'Man. Com': 'MC',
-  'Monthly Accomplishment Report': 'MAR',
-  'Monthly Staff Meeting': 'MSM',
-  'OPCR': 'OPCR',
-  'PFMAR/PFMIP': 'PFM',
-  'PR/PPMP': 'PRP',
-  'Quarterly Accomplishment Report': 'QAR',
-  'Research/Studies/Trainings': 'RST',
-  'Sectoral Plans': 'SP',
-  'Tree Planting': 'TP',
-  'Zoning Certification': 'ZCERT',
-  'Zoning Clearance': 'ZC',
-};
-
-final List<String> coreFunctions = [
-  'AIP',
-  'Barangay – AIP',
-  'Barangay – GAD',
-  'CDC – Attendance',
-  'CDC – Minutes',
-  'CDC – Resolution',
-  'CLUP Zoning Reclassification',
-  'CSOs',
-  'Ecological Profile',
-  'Locational Clearance',
-  'Research/Studies/Trainings',
-  'Sectoral Plans',
-  'Zoning Certification',
-  'Zoning Clearance',
-];
-
-final List<String> strategicFunctions = [
-  'Liquidation/ Reimbursement',
-  'PFMAR/PFMIP',
-  'PR/PPMP',
-];
-
-final List<String> supportFunctions = [
-  'Annual Accomplishment Report',
-  'Annual Budget',
-  'Cash Advance',
-  'Certificate/Attendance',
-  'Clean-up Drives',
-  'Dept. Heads Meeting',
-  'DTR',
-  'Earthquake Drills',
-  'L&D/IDP/DNA',
-  'Man. Com',
-  'Monthly Accomplishment Report',
-  'Monthly Staff Meeting',
-  'OPCR',
-  'Quarterly Accomplishment Report',
-  'Tree Planting',
-];
-
 
   List<String> get allOptions => [...coreFunctions, ...strategicFunctions, ...supportFunctions];
 

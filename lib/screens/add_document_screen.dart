@@ -10,6 +10,7 @@ import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
+import '../constants/document_types.dart';
 import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -70,55 +71,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // Validation flags
   bool _showValidationErrors = false;
 
-// Put this at the top of your file or in a constants file
-final Map<String, String> typeMapping = {
-  // Main types
-  'Endorsement': 'END',
-  'Executive Order': 'EO',
-  'Letter': 'LET',
-  'Leave': 'LV',
-  'Memo': 'MEMO',
-  'Report': 'REP',
-  'Resolution/Ordinance': 'RES',
-  'Travel': 'TRV',
-  'Transmittal': 'TRN',
-  'Voucher/OBR': 'VOBR',
-  'Others': 'OTH',
 
-  // Other document types
-  'AIP': 'AIP',
-  'Annual Accomplishment Report': 'AAR',
-  'Annual Budget': 'AB',
-  'Barangay – AIP': 'BAIP',
-  'Barangay – GAD': 'BGAD',
-  'Cash Advance': 'CA',
-  'CDC – Attendance': 'CDCA',
-  'CDC – Minutes': 'CDCM',
-  'CDC – Resolution': 'CDCRES',
-  'Certificate/Attendance': 'CERT',
-  'Clean-up Drives': 'CUD',
-  'CLUP Zoning Reclassification': 'CLUPZ',
-  'CSOs': 'CSO',
-  'Dept. Heads Meeting': 'DHM',
-  'DTR': 'DTR',
-  'Earthquake Drills': 'EQD',
-  'Ecological Profile': 'ECO',
-  'L&D/IDP/DNA': 'LID',
-  'Liquidation/Reimbursement': 'LIQ',
-  'Locational Clearance': 'LOC',
-  'Man. Com': 'MC',
-  'Monthly Accomplishment Report': 'MAR',
-  'Monthly Staff Meeting': 'MSM',
-  'OPCR': 'OPCR',
-  'PFMAR/PFMIP': 'PFM',
-  'PR/PPMP': 'PRP',
-  'Quarterly Accomplishment Report': 'QAR',
-  'Research/Studies/Trainings': 'RST',
-  'Sectoral Plans': 'SP',
-  'Tree Planting': 'TP',
-  'Zoning Certification': 'ZCERT',
-  'Zoning Clearance': 'ZC',
-};
 
   final List<String> documentTypes = [
     'Endorsement',

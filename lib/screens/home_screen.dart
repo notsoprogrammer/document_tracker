@@ -18,6 +18,7 @@ import 'add_attendance_movs_screen.dart';
 import 'delete_history_screen.dart';
 import 'notification_history_screen.dart';
 import 'calendar_screen.dart';
+import 'about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -351,6 +352,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) => const CalendarScreen(),
                   ),
                 );
+              } else if (value == 'about') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AboutScreen(),
+                  ),
+                );
               } else if (value == 'delete_history') {
                 Navigator.push(
                   context,
@@ -386,6 +394,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.calendar_today),
                   title: Text('Calendar'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'about',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('About'),
                 ),
               ),
               const PopupMenuItem(
