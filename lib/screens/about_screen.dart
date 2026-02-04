@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import '../constants/document_types.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +155,19 @@ class AboutScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
+                          TextField(
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Search abbreviations...',
+                              prefixIcon: const Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           Text(
                             "The following table shows the abbreviations used for different document types:",
                             style: Theme.of(context).textTheme.bodyMedium,
@@ -248,7 +268,10 @@ class AboutScreen extends StatelessWidget {
   }
 
   Widget _buildAbbreviationsTable(BuildContext context, bool isWide) {
-    final sortedEntries = typeMapping.entries.toList()
+    final sortedEntries = typeMapping.entries.where((entry) =>
+      entry.key.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+      entry.value.toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList()
       ..sort((a, b) => a.key.compareTo(b.key));
 
     if (isWide) {
