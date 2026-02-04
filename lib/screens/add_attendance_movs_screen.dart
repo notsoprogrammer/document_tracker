@@ -57,17 +57,52 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
+final Map<String, String> typeMapping = {
+  'AIP': 'AIP',
+  'Annual Accomplishment Report': 'AAR',
+  'Annual Budget': 'AB',
+  'Barangay – AIP': 'BAIP',
+  'Barangay – GAD': 'BGAD',
+  'Cash Advance': 'CA',
+  'CDC – Attendance': 'CDCA',
+  'CDC – Minutes': 'CDCM',
+  'CDC – Resolution': 'CDCRES',
+  'Certificate/Attendance': 'CERT',
+  'Clean-up Drives': 'CUD',
+  'CLUP Zoning Reclassification': 'CLUPZ',
+  'CSOs': 'CSO',
+  'Dept. Heads Meeting': 'DHM',
+  'DTR': 'DTR',
+  'Earthquake Drills': 'EQD',
+  'Ecological Profile': 'ECO',
+  'L&D/IDP/DNA': 'LID',
+  'Liquidation/Reimbursement': 'LIQ',
+  'Locational Clearance': 'LOC',
+  'Man. Com': 'MC',
+  'Monthly Accomplishment Report': 'MAR',
+  'Monthly Staff Meeting': 'MSM',
+  'OPCR': 'OPCR',
+  'PFMAR/PFMIP': 'PFM',
+  'PR/PPMP': 'PRP',
+  'Quarterly Accomplishment Report': 'QAR',
+  'Research/Studies/Trainings': 'RST',
+  'Sectoral Plans': 'SP',
+  'Tree Planting': 'TP',
+  'Zoning Certification': 'ZCERT',
+  'Zoning Clearance': 'ZC',
+};
+
 final List<String> coreFunctions = [
   'AIP',
   'Barangay – AIP',
-  'Barangay– GAD',
+  'Barangay – GAD',
   'CDC – Attendance',
   'CDC – Minutes',
   'CDC – Resolution',
   'CLUP Zoning Reclassification',
   'CSOs',
   'Ecological Profile',
-  'Locational Clearance'
+  'Locational Clearance',
   'Research/Studies/Trainings',
   'Sectoral Plans',
   'Zoning Certification',
@@ -214,7 +249,9 @@ final List<String> supportFunctions = [
       prefix = 'DOC';
     }
 
-    return '$prefix-$month-$day-$year-$hour$minute$second';
+    String typeCode = typeMapping[selectedType] ?? 'DOC';
+
+    return '$prefix-$typeCode-$month$day$year-$hour$minute$second';
   }
 
   void _viewSelectedFiles(BuildContext context) async {
