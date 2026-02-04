@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/document_types.dart';
 
 class AboutScreen extends StatefulWidget {
@@ -10,6 +12,13 @@ class AboutScreen extends StatefulWidget {
 
 class _AboutScreenState extends State<AboutScreen> {
   String _searchQuery = '';
+  String _appVersion = '1.2.1';
+
+  @override
+  void initState() {
+    super.initState();
+    _getVersion();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,10 +217,16 @@ class _AboutScreenState extends State<AboutScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "Version: 1.0.0",
+                            "Version: $_appVersion",
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                             ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.system_update),
+                            label: const Text("Update App"),
+                            onPressed: _updateApp,
                           ),
                         ],
                       ),
@@ -363,5 +378,40 @@ class _AboutScreenState extends State<AboutScreen> {
         )).toList(),
       );
     }
+  }
+
+  Future<void> _getVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = info.version;
+    });
+  }
+
+  void _updateApp() async {
+    const url = "https://drive.google.com/file/d/1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6/view?usp=drive_link";
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Update App"),
+          content: const Text("You will be redirected to Google Drive to download the latest version."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                if (await canLaunchUrl(Uri.parse(url))) {
+                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+              child: const Text("Proceed"),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
