@@ -71,14 +71,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   bool _showValidationErrors = false;
 
   final List<String> documentTypes = [
-    'Memo',
-    'Travel',
-    'Transmittal',
+    'Endorsement',
     'Executive Order',
     'Letter',
+    'Leave',
+    'Memo',
     'Report',
-    'Endorsement',
     'Resolution',
+    'Travel',
+    'Transmittal',
     'Voucher/OBR',
     'Others'
   ];
@@ -90,6 +91,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   ];
 
   final List<String> offices = [
+    'N/A',
     'CMO - City Mayor\'s Office',
     'CVMO - City Vice Mayor\'s Office',
     'SP - Sangguniang Panlungsod Office',

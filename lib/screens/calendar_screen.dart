@@ -304,6 +304,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 List<Widget> markers = [];
                 bool hasCalendar = false;
+                bool hasLeave = false;
                 bool hasPendingCompliance = false;
                 bool hasCompletedCompliance = false;
                 bool hasActivity = false;
@@ -312,7 +313,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   if (event is Document) {
                     if (event.calendarDeadline != null &&
                         isSameDay(event.calendarDeadline!, date)) {
-                      hasCalendar = true;
+                      if (event.type == 'Leave') {
+                        hasLeave = true;
+                      } else {
+                        hasCalendar = true;
+                      }
                     }
                     if (event.complianceDeadline != null &&
                         isSameDay(event.complianceDeadline!, date)) {
@@ -330,6 +335,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   }
                 }
 
+                if (hasLeave) {
+                  markers.add(Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color.fromARGB(255, 255, 126, 203),
+                      shape: BoxShape.circle,
+                    ),
+                  ));
+                }
                 if (hasCalendar) {
                   markers.add(Container(
                     width: 6,
