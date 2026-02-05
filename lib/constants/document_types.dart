@@ -9,6 +9,8 @@ const Map<String, String> typeMapping = {
   'Memo': 'MEMO',
   'Report': 'REP',
   'Resolution/Ordinance': 'RES',
+  'Request': 'REQ',
+  'Ordinance': 'ORD',
   'Travel': 'TRV',
   'Transmittal': 'TRN',
   'Voucher/OBR': 'VOBR',
