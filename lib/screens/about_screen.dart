@@ -388,13 +388,13 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   void _updateApp() async {
-    const url = "https://github.com/notsoprogrammer/document_tracker/releases";
+    const url = "https://drive.google.com/uc?export=download&id=1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6";
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Update App"),
-          content: const Text("You will be redirected to the GitHub releases page to download the latest version. Please install it manually after download."),
+          content: const Text("You will be redirected to download the latest APK version. Please install it manually after download."),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -405,9 +405,15 @@ class _AboutScreenState extends State<AboutScreen> {
                 Navigator.of(context).pop();
                 if (await canLaunchUrl(Uri.parse(url))) {
                   await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                } else {
+                  // Fallback to view link if direct download fails
+                  const fallbackUrl = "https://drive.google.com/file/d/1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6/view?usp=drive_link";
+                  if (await canLaunchUrl(Uri.parse(fallbackUrl))) {
+                    await launchUrl(Uri.parse(fallbackUrl), mode: LaunchMode.externalApplication);
+                  }
                 }
               },
-              child: const Text("Go to Releases"),
+              child: const Text("Download"),
             ),
           ],
         );
