@@ -172,6 +172,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return '$month/$day/$year $displayHour:$minute $amPm';
   }
 
+  String _cleanRemarks(String remarks) {
+    // Remove lines that start with "Attachment:" to exclude attachments from remarks display
+    final lines = remarks.split('\n');
+    final cleanedLines = lines.where((line) => !line.trim().startsWith('Attachment:')).toList();
+    return cleanedLines.join('\n').trim();
+  }
+
   Future<void> _selectMonthYear(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -777,7 +784,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDetailRow('From/To', doc.fromOrTo),
-                            _buildDetailRow('Remarks', doc.remarks),
+                            _buildDetailRow('Remarks', _cleanRemarks(doc.remarks)),
                             if (doc.complianceDeadline != null)
                               _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                           ],
