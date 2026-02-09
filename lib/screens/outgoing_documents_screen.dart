@@ -15,6 +15,7 @@ import '../utils/date_time_utils.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
+import 'edit_document_screen.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -517,11 +518,21 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   }
 
   void _viewFile(String filePath) async {
-    final uri = Uri.parse(filePath);
+    // Handle Google Drive file IDs
+    String urlToLaunch;
+    if (filePath.contains('drive.google.com') || filePath.startsWith('http')) {
+      // If it's already a full URL, use it directly
+      urlToLaunch = filePath;
+    } else {
+      // Assume it's a file ID and generate proxy URL
+      urlToLaunch = GoogleDriveService.generateProxyUrl(filePath);
+    }
+
+    final uri = Uri.parse(urlToLaunch);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      // Handle error
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
   }
 

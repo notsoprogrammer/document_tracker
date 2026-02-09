@@ -15,6 +15,7 @@ import '../utils/date_time_utils.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
+import 'edit_document_screen.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -961,11 +962,39 @@ Widget _buildUploadStatusIndicator(Document doc) {
   }
 
   void _viewFile(String filePath) async {
-    final uri = Uri.parse(filePath);
+    // Handle Google Drive file IDs and URLs
+    String urlToLaunch;
+    if (filePath.contains('drive.google.com') || filePath.startsWith('http')) {
+      // If it's already a full URL, check if it's a direct download URL
+      if (filePath.contains('drive.google.com/uc?id=')) {
+        // Extract file ID from download URL and generate proxy URL
+        final uri = Uri.parse(filePath);
+        final fileId = uri.queryParameters['id'];
+        if (fileId != null && fileId.isNotEmpty) {
+          urlToLaunch = GoogleDriveService.generateProxyUrl(fileId);
+        } else {
+          urlToLaunch = filePath;
+        }
+      } else {
+        // Other Google Drive URLs - use as is
+        urlToLaunch = filePath;
+      }
+    } else {
+      // Assume it's a file ID and generate proxy URL
+      // Validate that it looks like a Google Drive file ID (alphanumeric with hyphens)
+      if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(filePath)) {
+        urlToLaunch = GoogleDriveService.generateProxyUrl(filePath);
+      } else {
+        // Not a valid file ID, try to launch directly
+        urlToLaunch = filePath;
+      }
+    }
+
+    final uri = Uri.parse(urlToLaunch);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      // Handle error
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
   }
 
@@ -1892,6 +1921,28 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           }
                                         },
                                       ),
+                                      if (_username == doc.person)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.edit),
+                                          label: const Text("Edit"),
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => EditDocumentScreen(document: doc),
+                                              ),
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
                                       if (doc.imageUrls.isNotEmpty)
                                         ElevatedButton.icon(
                                           icon: const Icon(Icons.image),
