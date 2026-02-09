@@ -1275,7 +1275,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ).toList();
 
                         if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          SnackbarUtils.showWarningSnackBar(context, 'Cannot save document while uploads are pending. Please wait for all uploads to complete.');
+                          SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait a moment.');
                           return;
                         }
 
