@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
@@ -961,39 +962,63 @@ Widget _buildUploadStatusIndicator(Document doc) {
     );
   }
 
-  void _viewFile(String filePath) async {
-    // Handle Google Drive file IDs and URLs
-    String urlToLaunch;
-    if (filePath.contains('drive.google.com') || filePath.startsWith('http')) {
-      // If it's already a full URL, check if it's a direct download URL
-      if (filePath.contains('drive.google.com/uc?id=')) {
-        // Extract file ID from download URL and generate proxy URL
-        final uri = Uri.parse(filePath);
-        final fileId = uri.queryParameters['id'];
-        if (fileId != null && fileId.isNotEmpty) {
-          urlToLaunch = GoogleDriveService.generateProxyUrl(fileId);
-        } else {
-          urlToLaunch = filePath;
+  /// Extract file ID from various Google Drive URL formats
+  String? _extractFileId(String url) {
+    if (url.contains('drive.google.com')) {
+      final uri = Uri.parse(url);
+      if (url.contains('/file/d/')) {
+        // Format: https://drive.google.com/file/d/FILE_ID/view
+        final segments = uri.pathSegments;
+        final fileIndex = segments.indexOf('d');
+        if (fileIndex != -1 && fileIndex + 1 < segments.length) {
+          return segments[fileIndex + 1];
         }
-      } else {
-        // Other Google Drive URLs - use as is
-        urlToLaunch = filePath;
-      }
-    } else {
-      // Assume it's a file ID and generate proxy URL
-      // Validate that it looks like a Google Drive file ID (alphanumeric with hyphens)
-      if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(filePath)) {
-        urlToLaunch = GoogleDriveService.generateProxyUrl(filePath);
-      } else {
-        // Not a valid file ID, try to launch directly
-        urlToLaunch = filePath;
+      } else if (url.contains('uc?id=')) {
+        // Format: https://drive.google.com/uc?id=FILE_ID
+        return uri.queryParameters['id'];
       }
     }
+    // Assume it's already a file ID if it matches the pattern
+    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) {
+      return url;
+    }
+    return null;
+  }
 
-    final uri = Uri.parse(urlToLaunch);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+  /// Build download URL for web platform
+  String _buildDownloadUrl(String fileId) {
+    return 'https://drive.google.com/uc?id=$fileId&export=download';
+  }
+
+  /// Build preview URL for mobile/desktop platforms
+  String _buildPreviewUrl(String fileId) {
+    return 'https://drive.google.com/file/d/$fileId/view?usp=sharing';
+  }
+
+  void _viewFile(String filePath) async {
+    try {
+      final fileId = _extractFileId(filePath);
+      if (fileId == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
+        return;
+      }
+
+      String urlToLaunch;
+      if (kIsWeb) {
+        // Web: Use direct download link
+        urlToLaunch = _buildDownloadUrl(fileId);
+      } else {
+        // Mobile/Desktop: Use Drive preview link
+        urlToLaunch = _buildPreviewUrl(fileId);
+      }
+
+      final uri = Uri.parse(urlToLaunch);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+      }
+    } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
   }
