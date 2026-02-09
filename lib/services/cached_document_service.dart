@@ -273,6 +273,16 @@ class CachedDocumentService {
 
   Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
     try {
+      // Prevent duplicate "Files Uploaded" history entries
+      if (entry.action == 'Files Uploaded') {
+        final docs = await _localDb.fetchDocuments();
+        final doc = docs.firstWhere((d) => d.code == documentCode);
+        if (doc.history.isNotEmpty && doc.history.last.action == 'Files Uploaded') {
+          debugPrint('Skipping duplicate "Files Uploaded" history entry for document $documentCode');
+          return;
+        }
+      }
+
       // Add to local history
       await _localDb.addHistoryEntry(documentCode, entry, personnel: personnel);
 
@@ -642,7 +652,10 @@ class CachedDocumentService {
           final doc = docs.firstWhere((d) => d.code == documentCode);
 
           if (isImage) {
-            final updatedUrls = [...doc.imageUrls, driveUrl];
+            final updatedUrls = [...doc.imageUrls];
+            if (!updatedUrls.contains(driveUrl)) {
+              updatedUrls.add(driveUrl);
+            }
             final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
             final updatedFileNames = [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {
@@ -657,7 +670,10 @@ class CachedDocumentService {
               'file_names': updatedFileNames,
             });
           } else {
-            final updatedUrls = [...doc.fileUrls, driveUrl];
+            final updatedUrls = [...doc.fileUrls];
+            if (!updatedUrls.contains(driveUrl)) {
+              updatedUrls.add(driveUrl);
+            }
             final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
             final updatedFileNames = [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {

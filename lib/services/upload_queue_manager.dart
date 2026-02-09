@@ -18,9 +18,9 @@ class UploadQueueManager extends ChangeNotifier {
     required String localPath,
     List<int>? bytes, // For web compatibility
   }) {
-    // Check if file already exists in queue
+    // Check if file already exists in queue with status pending or completed
     final existingIndex = _uploadQueue.indexWhere(
-      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath && (item['status'] == 'pending' || item['status'] == 'completed')
     );
 
     if (existingIndex == -1) {
@@ -44,9 +44,9 @@ class UploadQueueManager extends ChangeNotifier {
     required String filePath,
     required List<int> bytes,
   }) {
-    // Check if file already exists in queue
+    // Check if file already exists in queue with status pending or completed
     final existingIndex = _uploadQueue.indexWhere(
-      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath && (item['status'] == 'pending' || item['status'] == 'completed')
     );
 
     if (existingIndex == -1) {
