@@ -1185,12 +1185,12 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                   syncDocument: widget.syncDocument,
                                                   onDocumentMoved: () async {
                                                     if (_username != null && _username!.isNotEmpty) {
-                                                      // Move the document to outgoing
+                                                      // Move the document to incoming
                                                       widget.documents[originalIndex].flowStage = 'incoming';
                                                        _updateFilteredDocuments();
                                                       final documentService = CachedDocumentService();
                                                       await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
-                                                      // Add history entry
+                                                      // Add history entry before sync
                                                       final historyEntry = HistoryEntry(
                                                         action: 'Moved to Incoming',
                                                         person: _username!,
@@ -1200,7 +1200,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                       // Update local document history for immediate UI update
                                                       widget.documents[originalIndex].history.add(historyEntry);
                                                       await CachedDocumentService().updateDocument(widget.documents[originalIndex].code, {'needs_sync': true});
-                                                      // Automatically sync all documents
+                                                      // Automatically sync all documents (after history is added)
                                                       await widget.syncAllDocuments();
                                                       // Force UI refresh to show updated history
                                                       setState(() {});

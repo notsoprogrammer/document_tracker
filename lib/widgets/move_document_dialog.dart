@@ -313,6 +313,14 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         widget.document.history.add(entry);
       }
 
+      // Add history entry for the move before syncing
+      String moveNotes = 'Remarks: ${_remarksController.text.trim()}';
+      updatedDocument.addHistoryEntry(
+        widget.moveAction.replaceFirst('Move to', 'Moved to'),
+        _username!,
+        notes: moveNotes,
+      );
+
       // Update document in database
       final documentService = CachedDocumentService();
       await documentService.updateDocument(widget.document.code, {
@@ -322,19 +330,12 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
         'local_file_paths': updatedLocalFilePaths,
       });
 
-      // Add history entries
+      // Add history entries (including the move entry)
       for (var entry in updatedDocument.history.where((h) => !widget.document.history.contains(h))) {
         await documentService.addHistoryEntry(widget.document.code, entry);
       }
-            // Add history entry for the move
-      String moveNotes = 'Remarks: ${_remarksController.text.trim()}';
-      updatedDocument.addHistoryEntry(
-        widget.moveAction.replaceFirst('Move to', 'Moved to'),
-        _username!,
-        notes: moveNotes,
-      );
 
-      // Sync the document before completing the move
+      // Sync the document after adding all history
       await widget.syncDocument(widget.document.code);
 
       if (mounted) {
