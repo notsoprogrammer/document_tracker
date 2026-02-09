@@ -87,7 +87,7 @@ class UploadQueueManager extends ChangeNotifier {
   }
 
   /// Update upload status
-  void updateStatus(String documentCode, String filePath, String status, {int? retryCount}) {
+  void updateStatus(String documentCode, String filePath, String status, {int? retryCount, Future<void> Function()? onCompleted}) async {
     final index = _uploadQueue.indexWhere(
       (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
     );
@@ -98,7 +98,13 @@ class UploadQueueManager extends ChangeNotifier {
         _uploadQueue[index]['retryCount'] = retryCount;
       }
       debugPrint('Updated upload status: $filePath -> $status');
-      notifyListeners();
+      // Only notify listeners when status is 'completed' to avoid multiple notifications per file
+      if (status == 'completed') {
+        if (onCompleted != null) {
+          await onCompleted();
+        }
+        notifyListeners();
+      }
     }
   }
 

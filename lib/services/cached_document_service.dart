@@ -521,6 +521,7 @@ class CachedDocumentService {
     // Combine pending and failed uploads
     final uploadsToProcess = [...pendingUploads, ...failedUploads];
     bool hasCompletedUploads = false;
+    final Set<String> documentsWithUploads = {};
 
     for (final upload in uploadsToProcess) {
       try {
@@ -657,7 +658,7 @@ class CachedDocumentService {
               updatedUrls.add(driveUrl);
             }
             final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
-            final updatedFileNames = [...doc.fileNames, uploadedFileName];
+            final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {
               'image_urls': updatedUrls,
               'local_image_paths': updatedLocalPaths,
@@ -675,7 +676,7 @@ class CachedDocumentService {
               updatedUrls.add(driveUrl);
             }
             final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
-            final updatedFileNames = [...doc.fileNames, uploadedFileName];
+            final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
             await _localDb.updateDocument(documentCode, {
               'file_urls': updatedUrls,
               'local_file_paths': updatedLocalPaths,
@@ -689,8 +690,35 @@ class CachedDocumentService {
             });
           }
 
-          queueManager.updateStatus(documentCode, upload['filePath'], 'completed');
+          // Define cleanup callback
+          Future<void> cleanup() async {
+            final isImage = upload['isImage'];
+            final docs = await _localDb.fetchDocuments();
+            final doc = docs.firstWhere((d) => d.code == documentCode);
+
+            if (isImage) {
+              final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
+              await _localDb.updateDocument(documentCode, {
+                'local_image_paths': updatedLocalPaths,
+              });
+              await _remoteDb.updateDocument(documentCode, {
+                'local_image_paths': updatedLocalPaths,
+              });
+            } else {
+              final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
+              await _localDb.updateDocument(documentCode, {
+                'local_file_paths': updatedLocalPaths,
+              });
+              await _remoteDb.updateDocument(documentCode, {
+                'local_file_paths': updatedLocalPaths,
+              });
+            }
+    
+          }
+
+          queueManager.updateStatus(documentCode, upload['filePath'], 'completed', onCompleted: cleanup);
           hasCompletedUploads = true;
+          documentsWithUploads.add(documentCode);
           debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
         } else {
           throw Exception('Upload returned null URL');
