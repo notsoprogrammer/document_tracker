@@ -138,13 +138,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     return '$month/$day/$year $displayHour:$minute $amPm';
   }
 
-  String _cleanRemarks(String remarks) {
-    // Remove lines that start with "Attachment:" to exclude attachments from remarks display
-    final lines = remarks.split('\n');
-    final cleanedLines = lines.where((line) => !line.trim().startsWith('Attachment:')).toList();
-    return cleanedLines.join('\n').trim();
-  }
-
 Widget _buildUploadStatusIndicator(Document doc) {
   final queueManager = UploadQueueManager();
   final allUploads = queueManager.getAllItems()
@@ -1569,7 +1562,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
-                                              ...doc.remarksList.where((remark) => !remark.trim().startsWith('Attachment:')).map((remark) => Padding(
+                                              ...doc.remarksList.map((remark) => Padding(
                                                 padding: const EdgeInsets.only(bottom: 4),
                                                 child: Text(
                                                   remark,
@@ -1585,7 +1578,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     _buildDetailRow(
                                       Icons.comment,
                                       "Remarks",
-                                      _cleanRemarks(doc.remarks),
+                                      doc.remarks,
                                     ),
                                   ],
                                   const SizedBox(height: 4),
