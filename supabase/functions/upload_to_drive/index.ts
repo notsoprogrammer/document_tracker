@@ -56,48 +56,84 @@ serve(async (req) => {
     const accessToken = tokenData.access_token;
 
     // Parse request body
-    const { fileName, fileData, folderId, mimeType } = await req.json();
+    const requestBody = await req.json();
+    const { action } = requestBody;
 
-    // Upload to Google Drive
-  const driveResponse = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "multipart/related; boundary=boundary123",
-      },
-      body: createMultipartBody(fileName, fileData, folderId, mimeType),
-    },
-  );
+    if (action === 'delete') {
+      // Handle file deletion
+      const { fileId } = requestBody;
 
-    if (!driveResponse.ok) {
-      const text = await driveResponse.text();
-      throw new Error(`Drive upload failed: ${text}`);
-    }
+      if (!fileId) {
+        throw new Error('fileId is required for delete action');
+      }
 
-    const driveResult = await driveResponse.json();
-
-    // Make file public
-    await fetch(
-      `https://www.googleapis.com/drive/v3/files/${driveResult.id}/permissions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
+      // Delete from Google Drive
+      const deleteResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-        body: JSON.stringify({ role: "reader", type: "anyone" }),
-      },
-    );
+      );
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        fileId: driveResult.id,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-    );
+      if (!deleteResponse.ok) {
+        const text = await deleteResponse.text();
+        throw new Error(`Drive delete failed: ${text}`);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    } else {
+      // Handle file upload (default action)
+      const { fileName, fileData, folderId, mimeType } = requestBody;
+
+      // Upload to Google Drive
+      const driveResponse = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "multipart/related; boundary=boundary123",
+          },
+          body: createMultipartBody(fileName, fileData, folderId, mimeType),
+        },
+      );
+
+      if (!driveResponse.ok) {
+        const text = await driveResponse.text();
+        throw new Error(`Drive upload failed: ${text}`);
+      }
+
+      const driveResult = await driveResponse.json();
+
+      // Make file public
+      await fetch(
+        `https://www.googleapis.com/drive/v3/files/${driveResult.id}/permissions`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "reader", type: "anyone" }),
+        },
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          fileId: driveResult.id,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
   } catch (error) {
     console.error("Error:", error);
     return new Response(
