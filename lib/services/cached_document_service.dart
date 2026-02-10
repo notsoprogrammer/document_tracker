@@ -716,7 +716,7 @@ class CachedDocumentService {
     
           }
 
-          queueManager.updateStatus(documentCode, upload['filePath'], 'completed', onCompleted: cleanup);
+          queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
           hasCompletedUploads = true;
           documentsWithUploads.add(documentCode);
           debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');

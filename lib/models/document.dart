@@ -470,7 +470,6 @@ class Document {
       'category': category,
       'calendar_deadline': calendarDeadline?.toIso8601String(),
       'calendar_added': calendarAdded,
-      'attachments': attachments,
       'file_name': fileName,
       'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,

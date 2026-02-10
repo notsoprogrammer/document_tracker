@@ -1235,7 +1235,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         localFilePaths: _selectedDocumentPaths,
                         calendarDeadline: selectedCalendarDate,
                         calendarAdded: selectedCalendarDate != null,
-                        attachments: [],
                         receivingDate: selectedReceivingDate,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         history: widget.incoming ? [

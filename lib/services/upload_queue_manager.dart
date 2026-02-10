@@ -18,7 +18,7 @@ class UploadQueueManager extends ChangeNotifier {
     required String localPath,
     List<int>? bytes, // For web compatibility
   }) {
-    // Check if file already exists in queue for this document
+    // Check if file already exists in queue for this document across all statuses
     final alreadyQueued = _uploadQueue.any((item) =>
       item['documentCode'] == documentCode &&
       item['filePath'] == filePath
@@ -47,12 +47,13 @@ class UploadQueueManager extends ChangeNotifier {
     required String filePath,
     required List<int> bytes,
   }) {
-    // Check if file already exists in queue with status pending or completed
-    final existingIndex = _uploadQueue.indexWhere(
-      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath && (item['status'] == 'pending' || item['status'] == 'completed')
+    // Check if file already exists in queue across all statuses
+    final alreadyQueued = _uploadQueue.any((item) =>
+      item['documentCode'] == documentCode &&
+      item['filePath'] == filePath
     );
 
-    if (existingIndex == -1) {
+    if (!alreadyQueued) {
       _uploadQueue.add({
         'documentCode': documentCode,
         'filePath': filePath,
@@ -64,6 +65,8 @@ class UploadQueueManager extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
       });
       debugPrint('Added web camera image to upload queue: $filePath for document $documentCode');
+    } else {
+      debugPrint('Skipped duplicate queue item: $filePath for document $documentCode');
     }
   }
 
@@ -106,8 +109,31 @@ class UploadQueueManager extends ChangeNotifier {
         if (onCompleted != null) {
           await onCompleted();
         }
+        // Remove the item from the queue after completion
+        _uploadQueue.removeAt(index);
         notifyListeners();
       }
+    }
+  }
+
+  /// Mark upload as completed and remove from queue
+  void markCompletedAndRemove(String documentCode, String filePath, {Future<void> Function()? onCompleted}) async {
+    final index = _uploadQueue.indexWhere(
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
+    );
+
+    if (index != -1) {
+      // Run the cleanup callback
+      if (onCompleted != null) {
+        await onCompleted();
+      }
+      // Update status to completed
+      _uploadQueue[index]['status'] = 'completed';
+      debugPrint('Marked upload as completed and removing from queue: $filePath for document $documentCode');
+      // Remove the item from the queue
+      _uploadQueue.removeAt(index);
+      // Notify listeners
+      notifyListeners();
     }
   }
 
