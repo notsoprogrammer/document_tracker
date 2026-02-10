@@ -1912,7 +1912,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     alignment: WrapAlignment.center,
                                     children: [
                                       ElevatedButton.icon(
-                                        icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color.fromARGB(
@@ -1948,7 +1947,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                       ),
                                       if (_username == doc.person)
                                         ElevatedButton.icon(
-                                          icon: const Icon(Icons.edit),
                                           label: const Text("Edit"),
                                           onPressed: () {
                                             Navigator.push(

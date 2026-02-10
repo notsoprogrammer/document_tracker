@@ -11,9 +11,7 @@ import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
-import '../constants/document_types.dart';
 import '../config/supabase_config.dart';
-import 'package:intl/intl.dart';
 
 class EditDocumentScreen extends StatefulWidget {
   final Document document;
@@ -81,6 +79,11 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     remarksController.text = widget.document.remarks;
     referenceLinkController.text = widget.document.referenceLink ?? '';
     personController.text = widget.document.person;
+
+    // Initialize current attachments
+    _currentImageUrls = List.from(widget.document.imageUrls);
+    _currentFileUrls = List.from(widget.document.fileUrls);
+    _currentFileNames = List.from(widget.document.fileNames);
   }
 
   void _setupUploadListener() {
@@ -88,7 +91,15 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     queueManager.addListener(_onUploadStatusChanged);
   }
 
+  @override
+  void dispose() {
+    final queueManager = UploadQueueManager();
+    queueManager.removeListener(_onUploadStatusChanged);
+    super.dispose();
+  }
+
   void _onUploadStatusChanged() {
+    if (!mounted) return;
     final queueManager = UploadQueueManager();
     final pendingUploads = queueManager.getPendingUploads(widget.document.code);
     final uploadingUploads = queueManager.getAllItems().where((item) =>
@@ -426,17 +437,17 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         const SizedBox(height: 16),
 
                         // Existing Attachments
-                        if (widget.document.imageUrls.isNotEmpty || widget.document.fileUrls.isNotEmpty) ...[
+                        if (_currentImageUrls.isNotEmpty || _currentFileUrls.isNotEmpty) ...[
                           Text(
                             "Existing Attachments:",
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          ...widget.document.imageUrls.asMap().entries.map((entry) {
+                          ..._currentImageUrls.asMap().entries.map((entry) {
                             final index = entry.key;
                             final url = entry.value;
-                            final fileName = index < widget.document.fileNames.length
-                                ? widget.document.fileNames[index]
+                            final fileName = index < _currentFileNames.length
+                                ? _currentFileNames[index]
                                 : 'Image ${index + 1}';
                             return ListTile(
                               leading: Icon(Icons.image),
@@ -444,18 +455,50 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                               onTap: () => _viewExistingImage(context, widget.document, index),
                               trailing: IconButton(
                                 icon: Icon(Icons.remove),
-                                onPressed: () {
-                                  // TODO: Implement remove attachment
-                                  SnackbarUtils.showInfoSnackBar(context, 'Remove attachment not implemented yet');
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Remove Attachment'),
+                                      content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    setState(() {
+                                      _currentImageUrls.removeAt(index);
+                                      if (index < _currentFileNames.length) {
+                                        _currentFileNames.removeAt(index);
+                                      }
+                                    });
+
+                                    // Delete from Google Drive and update databases
+                                    final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
+                                    if (success) {
+                                      SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
+                                    } else {
+                                      SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
+                                    }
+                                  }
                                 },
                               ),
                             );
                           }),
-                          ...widget.document.fileUrls.asMap().entries.map((entry) {
+                          ..._currentFileUrls.asMap().entries.map((entry) {
                             final index = entry.key;
                             final url = entry.value;
-                            final fileName = (widget.document.fileNames.length > widget.document.imageUrls.length + index)
-                                ? widget.document.fileNames[widget.document.imageUrls.length + index]
+                            final fileName = (_currentFileNames.length > _currentImageUrls.length + index)
+                                ? _currentFileNames[_currentImageUrls.length + index]
                                 : 'Document ${index + 1}';
                             return ListTile(
                               leading: Icon(Icons.attach_file),
@@ -463,9 +506,42 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                               onTap: () => _viewExistingFile(context, url),
                               trailing: IconButton(
                                 icon: Icon(Icons.remove),
-                                onPressed: () {
-                                  // TODO: Implement remove attachment
-                                  SnackbarUtils.showInfoSnackBar(context, 'Remove attachment not implemented yet');
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Remove Attachment'),
+                                      content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    setState(() {
+                                      _currentFileUrls.removeAt(index);
+                                      final nameIndex = _currentImageUrls.length + index;
+                                      if (nameIndex < _currentFileNames.length) {
+                                        _currentFileNames.removeAt(nameIndex);
+                                      }
+                                    });
+
+                                    // Delete from Google Drive and update databases
+                                    final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
+                                    if (success) {
+                                      SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
+                                    } else {
+                                      SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
+                                    }
+                                  }
                                 },
                               ),
                             );
@@ -744,6 +820,9 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         'description': descriptionController.text.trim().isNotEmpty ? descriptionController.text.trim() : null,
                         'remarks': remarksController.text.trim(),
                         'reference_link': referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
+                        'image_urls': _currentImageUrls,
+                        'file_urls': _currentFileUrls,
+                        'file_names': _currentFileNames,
                         'local_image_paths': _selectedImagePaths,
                         'local_file_paths': _selectedDocumentPaths,
                       };

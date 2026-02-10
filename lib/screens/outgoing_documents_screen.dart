@@ -1605,7 +1605,6 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     alignment: WrapAlignment.center,
                                     children: [
                                       ElevatedButton.icon(
-                                        icon: const Icon(Icons.delete),
                                         label: const Text("Delete"),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color.fromARGB(

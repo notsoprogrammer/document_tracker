@@ -510,16 +510,12 @@ class CachedDocumentService {
     if (!(await isOnline)) return;
 
     final queueManager = UploadQueueManager();
-    final failedUploads = queueManager.getFailedUploads();
 
-    // Also get pending uploads that haven't been attempted yet
+    // Get all items and filter only status == 'pending' || status == 'failed'
     final allItems = queueManager.getAllItems();
-    final pendingUploads = allItems.where((item) =>
-      item['status'] == 'pending'
+    final uploadsToProcess = allItems.where((item) =>
+      item['status'] == 'pending' || item['status'] == 'failed'
     ).toList();
-
-    // Combine pending and failed uploads
-    final uploadsToProcess = [...pendingUploads, ...failedUploads];
     bool hasCompletedUploads = false;
     final Set<String> documentsWithUploads = {};
 
@@ -750,20 +746,72 @@ class CachedDocumentService {
     }
   }
 
-  // Future<void> syncSpecificDocument(String documentCode) async {
-  //   if (!(await isOnline)) return;
+  /// Delete an attachment from Google Drive and update document records
+  Future<bool> deleteAttachmentFromDrive(String driveUrl) async {
+    try {
+      // Delete from Google Drive
+      final deleteSuccess = await GoogleDriveService.deleteFile(driveUrl);
+      if (!deleteSuccess) {
+        print('Failed to delete file from Google Drive: $driveUrl');
+        return false;
+      }
 
-  //   try {
-  //     final localDoc = (await _localDb.fetchDocuments()).firstWhere((doc) => doc.code == documentCode);
-  //     if (localDoc.needsSync) {
-  //       // Sync to remote
-  //       await _remoteDb.createDocument(localDoc);
-  //       // Mark as synced
-  //       await _localDb.updateDocument(documentCode, {'needs_sync': false});
-  //     }
-  //   } catch (e) {
-  //     print('Error syncing specific document: $e');
-  //     rethrow;
-  //   }
-  // }
+      // Find the document that contains this driveUrl
+      final docs = await _localDb.fetchDocuments();
+      Document? doc;
+      bool isImage = false;
+      int urlIndex = -1;
+
+      for (final document in docs) {
+        if (document.imageUrls.contains(driveUrl)) {
+          doc = document;
+          isImage = true;
+          urlIndex = document.imageUrls.indexOf(driveUrl);
+          break;
+        } else if (document.fileUrls.contains(driveUrl)) {
+          doc = document;
+          isImage = false;
+          urlIndex = document.fileUrls.indexOf(driveUrl);
+          break;
+        }
+      }
+
+      if (doc == null) {
+        print('Document containing driveUrl $driveUrl not found');
+        return false;
+      }
+
+      // Remove URL from appropriate list
+      List<String> updatedUrls;
+      if (isImage) {
+        updatedUrls = doc.imageUrls.where((url) => url != driveUrl).toList();
+        await _localDb.updateDocument(doc.code, {'image_urls': updatedUrls});
+        if (await isOnline) {
+          await _remoteDb.updateDocument(doc.code, {'image_urls': updatedUrls});
+        }
+      } else {
+        updatedUrls = doc.fileUrls.where((url) => url != driveUrl).toList();
+        await _localDb.updateDocument(doc.code, {'file_urls': updatedUrls});
+        if (await isOnline) {
+          await _remoteDb.updateDocument(doc.code, {'file_urls': updatedUrls});
+        }
+      }
+
+      // Remove corresponding file name if it exists
+      if (urlIndex != -1 && urlIndex < doc.fileNames.length) {
+        final updatedFileNames = List<String>.from(doc.fileNames)..removeAt(urlIndex);
+        await _localDb.updateDocument(doc.code, {'file_names': updatedFileNames});
+        if (await isOnline) {
+          await _remoteDb.updateDocument(doc.code, {'file_names': updatedFileNames});
+        }
+      }
+
+      print('Successfully removed attachment from document ${doc.code}');
+      return true;
+    } catch (e) {
+      print('Error deleting attachment: $e');
+      return false;
+    }
+  }
+
 }

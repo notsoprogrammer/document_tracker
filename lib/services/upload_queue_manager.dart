@@ -99,18 +99,21 @@ class UploadQueueManager extends ChangeNotifier {
     );
 
     if (index != -1) {
+      final oldStatus = _uploadQueue[index]['status'];
       _uploadQueue[index]['status'] = status;
       if (retryCount != null) {
         _uploadQueue[index]['retryCount'] = retryCount;
       }
       debugPrint('Updated upload status: $filePath -> $status');
-      // Only notify listeners when status is 'completed' to avoid multiple notifications per file
       if (status == 'completed') {
         if (onCompleted != null) {
           await onCompleted();
         }
         // Remove the item from the queue after completion
         _uploadQueue.removeAt(index);
+      }
+      // Notify listeners only if the status actually changed
+      if (oldStatus != status) {
         notifyListeners();
       }
     }

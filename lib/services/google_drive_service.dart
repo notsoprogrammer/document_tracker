@@ -4,7 +4,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/supabase_config.dart';
@@ -425,6 +424,45 @@ class GoogleDriveService {
         return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       default:
         return 'application/octet-stream';
+    }
+  }
+
+  /// Delete a file from Google Drive using Supabase function
+  static Future<bool> deleteFile(String fileId) async {
+    try {
+      // Prepare request payload for deletion
+      final payload = {
+        'action': 'delete',
+        'fileId': fileId,
+      };
+
+      // Make request to Supabase function
+      final response = await http.post(
+        Uri.parse(_supabaseFunctionUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true) {
+          print('Successfully deleted file from Google Drive: $fileId');
+          return true;
+        } else {
+          print('Supabase function error deleting file: ${result['error']}');
+          return false;
+        }
+      } else {
+        print('Supabase function failed with status: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error deleting file from Google Drive: $e');
+      return false;
     }
   }
 
