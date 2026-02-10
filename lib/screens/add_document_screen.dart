@@ -214,6 +214,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   }
 
   void _onUploadStatusChanged() {
+    if (!mounted) return;
+
     final queueManager = UploadQueueManager();
     final pendingUploads = queueManager.getPendingUploads(codeController.text);
     final uploadingUploads = queueManager.getAllItems().where((item) =>

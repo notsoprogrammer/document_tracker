@@ -511,238 +511,248 @@ class CachedDocumentService {
 
     final queueManager = UploadQueueManager();
 
-    // Get all items and filter only status == 'pending' || status == 'failed'
-    final allItems = queueManager.getAllItems();
-    final uploadsToProcess = allItems.where((item) =>
-      item['status'] == 'pending' || item['status'] == 'failed'
-    ).toList();
-    bool hasCompletedUploads = false;
-    final Set<String> documentsWithUploads = {};
+    // Prevent concurrent processing
+    if (!queueManager.startProcessing()) {
+      debugPrint('Upload processing already in progress, skipping');
+      return;
+    }
 
-    for (final upload in uploadsToProcess) {
-      try {
-        queueManager.updateStatus(
-          upload['documentCode'],
-          upload['filePath'],
-          'uploading'
-        );
+    try {
+      // Get all items and filter only status == 'pending' || status == 'failed'
+      final allItems = queueManager.getAllItems();
+      final uploadsToProcess = allItems.where((item) =>
+        item['status'] == 'pending' || item['status'] == 'failed'
+      ).toList();
+      bool hasCompletedUploads = false;
+      final Set<String> documentsWithUploads = {};
 
-        final isImage = upload['isImage'];
-        final fileName = '${upload['documentCode']}_${DateTime.now().millisecondsSinceEpoch}';
-
-        // Get the document to determine the correct folder
-        final docs = await _localDb.fetchDocuments();
-        final doc = docs.firstWhere((d) => d.code == upload['documentCode']);
-        DriveFolder folder;
-        if (doc.mode == 'Flag Ceremony') {
-          folder = DriveFolder.flagCeremony;
-        } else if ([
-          'Sectoral Plans',
-          'Ecological Profile',
-          'Research/Studies/Trainings',
-          'CLUP Zoning Reclassification',
-          'CSOs',
-          'CDC – Resolution',
-          'CDC – Minutes',
-          'CDC – Attendance',
-          'AIP',
-          'Barangay – AIP',
-          'Barangay– GAD',
-          'Zoning/Loc. Clearance',
-          'Zoning/Loc. Certification',
-        ].contains(doc.category)) {
-          folder = DriveFolder.attendance; // Core Function -> attendance
-        } else if ([
-          'PR/PPMP',
-          'Liquidation/ Reimbursement',
-          'PFMAT',
-        ].contains(doc.category)) {
-          folder = DriveFolder.movs; // Strategic Function -> movs
-        } else if ([
-          'DTR',
-          'Monthly Accomplishment Report',
-          'Quarterly Accomplishment Report',
-          'OPCR',
-          'Certificate/Attendance',
-          'Dept. Heads Meeting',
-          'Clean-up Drives',
-          'Tree Planting',
-          'Earthquake Drills',
-          'Monthly Staff Meeting',
-          'Man. Com',
-          'Cash Advance',
-          'L&D/IDP/DNA',
-          'Budget',
-        ].contains(doc.category)) {
-          folder = DriveFolder.certificates; // Support Function -> certificates
-        } else if (doc.incoming) {
-          folder = DriveFolder.incoming;
-        } else {
-          folder = DriveFolder.outgoing;
-        }
-
-        String? driveUrl;
-        String uploadedFileName;
-
-        // Check if this is a web camera image (blob URL that we can't handle)
-        if (kIsWeb && upload['localPath'].startsWith('blob:')) {
-          // Skip blob URLs - these should have been replaced with bytes in the screens
-          debugPrint('Skipping blob URL upload: ${upload['localPath']}');
-          queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
-          continue;
-        }
-
-        // Check if this is a web file with bytes
-        final bytes = upload['bytes'] as List<int>?;
-        if (kIsWeb && bytes != null) {
-          // Web file with bytes - use uploadFileFromBytes
-          final extension = upload['localPath'].split('.').last.toLowerCase();
-          final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-          driveUrl = await GoogleDriveService.uploadFileFromBytes(
-            bytes,
-            docFileName,
-            folder: folder,
+      for (final upload in uploadsToProcess) {
+        try {
+          queueManager.updateStatus(
+            upload['documentCode'],
+            upload['filePath'],
+            'uploading'
           );
-          debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
-          uploadedFileName = docFileName;
-        } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
-          // Regular file - use existing methods (only for non-web or non-web-prefixed files)
-          final file = File(upload['localPath']);
-          if (isImage) {
-            // For images, use the existing uploadImageToDrive method
-            driveUrl = await GoogleDriveService.uploadImageToDrive(
-              file,
-              fileName,
-              folder: folder,
-            );
-            debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
-            // For images, the uploaded filename is fileName + extension
-            final extension = upload['localPath'].split('.').last.toLowerCase();
-            uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+
+          final isImage = upload['isImage'];
+          final fileName = '${upload['documentCode']}_${DateTime.now().millisecondsSinceEpoch}';
+
+          // Get the document to determine the correct folder
+          final docs = await _localDb.fetchDocuments();
+          final doc = docs.firstWhere((d) => d.code == upload['documentCode']);
+          DriveFolder folder;
+          if (doc.mode == 'Flag Ceremony') {
+            folder = DriveFolder.flagCeremony;
+          } else if ([
+            'Sectoral Plans',
+            'Ecological Profile',
+            'Research/Studies/Trainings',
+            'CLUP Zoning Reclassification',
+            'CSOs',
+            'CDC – Resolution',
+            'CDC – Minutes',
+            'CDC – Attendance',
+            'AIP',
+            'Barangay – AIP',
+            'Barangay– GAD',
+            'Zoning/Loc. Clearance',
+            'Zoning/Loc. Certification',
+          ].contains(doc.category)) {
+            folder = DriveFolder.attendance; // Core Function -> attendance
+          } else if ([
+            'PR/PPMP',
+            'Liquidation/ Reimbursement',
+            'PFMAT',
+          ].contains(doc.category)) {
+            folder = DriveFolder.movs; // Strategic Function -> movs
+          } else if ([
+            'DTR',
+            'Monthly Accomplishment Report',
+            'Quarterly Accomplishment Report',
+            'OPCR',
+            'Certificate/Attendance',
+            'Dept. Heads Meeting',
+            'Clean-up Drives',
+            'Tree Planting',
+            'Earthquake Drills',
+            'Monthly Staff Meeting',
+            'Man. Com',
+            'Cash Advance',
+            'L&D/IDP/DNA',
+            'Budget',
+          ].contains(doc.category)) {
+            folder = DriveFolder.certificates; // Support Function -> certificates
+          } else if (doc.incoming) {
+            folder = DriveFolder.incoming;
           } else {
-            // For documents, use uploadFileToDrive method which handles file extensions properly
-            final file = File(upload['localPath']);
+            folder = DriveFolder.outgoing;
+          }
+
+          String? driveUrl;
+          String uploadedFileName;
+
+          // Check if this is a web camera image (blob URL that we can't handle)
+          if (kIsWeb && upload['localPath'].startsWith('blob:')) {
+            // Skip blob URLs - these should have been replaced with bytes in the screens
+            debugPrint('Skipping blob URL upload: ${upload['localPath']}');
+            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+            continue;
+          }
+
+          // Check if this is a web file with bytes
+          final bytes = upload['bytes'] as List<int>?;
+          if (kIsWeb && bytes != null) {
+            // Web file with bytes - use uploadFileFromBytes
             final extension = upload['localPath'].split('.').last.toLowerCase();
             final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-            driveUrl = await GoogleDriveService.uploadFileToDrive(
-              file,
+            driveUrl = await GoogleDriveService.uploadFileFromBytes(
+              bytes,
               docFileName,
               folder: folder,
             );
-            debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+            debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
             uploadedFileName = docFileName;
-          }
-        } else {
-          // Web file without bytes - this shouldn't happen with our new implementation
-          debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
-          queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
-          continue;
-        }
-
-        if (driveUrl != null) {
-          // Update document with the uploaded URL
-          final documentCode = upload['documentCode'];
-          final isImage = upload['isImage'];
-
-          // Get current document to update URLs
-          final docs = await _localDb.fetchDocuments();
-          final doc = docs.firstWhere((d) => d.code == documentCode);
-
-          if (isImage) {
-            final updatedUrls = [...doc.imageUrls];
-            if (!updatedUrls.contains(driveUrl)) {
-              updatedUrls.add(driveUrl);
+          } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
+            // Regular file - use existing methods (only for non-web or non-web-prefixed files)
+            final file = File(upload['localPath']);
+            if (isImage) {
+              // For images, use the existing uploadImageToDrive method
+              driveUrl = await GoogleDriveService.uploadImageToDrive(
+                file,
+                fileName,
+                folder: folder,
+              );
+              debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
+              // For images, the uploaded filename is fileName + extension
+              final extension = upload['localPath'].split('.').last.toLowerCase();
+              uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+            } else {
+              // For documents, use uploadFileToDrive method which handles file extensions properly
+              final file = File(upload['localPath']);
+              final extension = upload['localPath'].split('.').last.toLowerCase();
+              final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+              driveUrl = await GoogleDriveService.uploadFileToDrive(
+                file,
+                docFileName,
+                folder: folder,
+              );
+              debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+              uploadedFileName = docFileName;
             }
-            final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
-            final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
-            await _localDb.updateDocument(documentCode, {
-              'image_urls': updatedUrls,
-              'local_image_paths': updatedLocalPaths,
-              'file_names': updatedFileNames,
-            });
-            // Also update remote database
-            await _remoteDb.updateDocument(documentCode, {
-              'image_urls': updatedUrls,
-              'local_image_paths': updatedLocalPaths,
-              'file_names': updatedFileNames,
-            });
           } else {
-            final updatedUrls = [...doc.fileUrls];
-            if (!updatedUrls.contains(driveUrl)) {
-              updatedUrls.add(driveUrl);
-            }
-            final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
-            final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
-            await _localDb.updateDocument(documentCode, {
-              'file_urls': updatedUrls,
-              'local_file_paths': updatedLocalPaths,
-              'file_names': updatedFileNames,
-            });
-            // Also update remote database
-            await _remoteDb.updateDocument(documentCode, {
-              'file_urls': updatedUrls,
-              'local_file_paths': updatedLocalPaths,
-              'file_names': updatedFileNames,
-            });
+            // Web file without bytes - this shouldn't happen with our new implementation
+            debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
+            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+            continue;
           }
 
-          // Define cleanup callback
-          Future<void> cleanup() async {
+          if (driveUrl != null) {
+            // Update document with the uploaded URL
+            final documentCode = upload['documentCode'];
             final isImage = upload['isImage'];
+
+            // Get current document to update URLs
             final docs = await _localDb.fetchDocuments();
             final doc = docs.firstWhere((d) => d.code == documentCode);
 
             if (isImage) {
+              final updatedUrls = [...doc.imageUrls];
+              if (!updatedUrls.contains(driveUrl)) {
+                updatedUrls.add(driveUrl);
+              }
               final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
+              final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
               await _localDb.updateDocument(documentCode, {
+                'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
+                'file_names': updatedFileNames,
               });
+              // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
+                'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
+                'file_names': updatedFileNames,
               });
             } else {
+              final updatedUrls = [...doc.fileUrls];
+              if (!updatedUrls.contains(driveUrl)) {
+                updatedUrls.add(driveUrl);
+              }
               final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
+              final updatedFileNames = doc.fileNames.contains(uploadedFileName) ? doc.fileNames : [...doc.fileNames, uploadedFileName];
               await _localDb.updateDocument(documentCode, {
+                'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
+                'file_names': updatedFileNames,
               });
+              // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
+                'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
+                'file_names': updatedFileNames,
               });
             }
-    
-          }
 
-          queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
-          hasCompletedUploads = true;
-          documentsWithUploads.add(documentCode);
-          debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
-        } else {
-          throw Exception('Upload returned null URL');
-        }
-      } catch (e) {
-        debugPrint('Failed to upload ${upload['filePath']}: $e');
-        final newRetryCount = upload['retryCount'] + 1;
-        if (newRetryCount >= 3) {
-          queueManager.updateStatus(
-            upload['documentCode'],
-            upload['filePath'],
-            'failed',
-            retryCount: newRetryCount
-          );
-        } else {
-          queueManager.updateStatus(
-            upload['documentCode'],
-            upload['filePath'],
-            'failed',
-            retryCount: newRetryCount
-          );
+            // Define cleanup callback
+            Future<void> cleanup() async {
+              final isImage = upload['isImage'];
+              final docs = await _localDb.fetchDocuments();
+              final doc = docs.firstWhere((d) => d.code == documentCode);
+
+              if (isImage) {
+                final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();
+                await _localDb.updateDocument(documentCode, {
+                  'local_image_paths': updatedLocalPaths,
+                });
+                await _remoteDb.updateDocument(documentCode, {
+                  'local_image_paths': updatedLocalPaths,
+                });
+              } else {
+                final updatedLocalPaths = doc.localFilePaths.where((path) => path != upload['localPath']).toList();
+                await _localDb.updateDocument(documentCode, {
+                  'local_file_paths': updatedLocalPaths,
+                });
+                await _remoteDb.updateDocument(documentCode, {
+                  'local_file_paths': updatedLocalPaths,
+                });
+              }
+
+            }
+
+            queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
+            hasCompletedUploads = true;
+            documentsWithUploads.add(documentCode);
+            debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
+          } else {
+            throw Exception('Upload returned null URL');
+          }
+        } catch (e) {
+          debugPrint('Failed to upload ${upload['filePath']}: $e');
+          final newRetryCount = upload['retryCount'] + 1;
+          if (newRetryCount >= 3) {
+            queueManager.updateStatus(
+              upload['documentCode'],
+              upload['filePath'],
+              'failed',
+              retryCount: newRetryCount
+            );
+          } else {
+            queueManager.updateStatus(
+              upload['documentCode'],
+              upload['filePath'],
+              'failed',
+              retryCount: newRetryCount
+            );
+          }
         }
       }
-    }
 
-    // Call the callback if uploads were completed
-    if (hasCompletedUploads && onUploadComplete != null) {
-      onUploadComplete();
+      // Call the callback if uploads were completed
+      if (hasCompletedUploads && onUploadComplete != null) {
+        onUploadComplete();
+      }
+    } finally {
+      queueManager.endProcessing();
     }
   }
 

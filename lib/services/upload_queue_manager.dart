@@ -10,6 +10,18 @@ class UploadQueueManager extends ChangeNotifier {
   final List<Map<String, dynamic>> _uploadQueue = [];
   bool _isProcessing = false;
 
+  /// Start processing if not already processing
+  bool startProcessing() {
+    if (_isProcessing) return false;
+    _isProcessing = true;
+    return true;
+  }
+
+  /// End processing
+  void endProcessing() {
+    _isProcessing = false;
+  }
+
   /// Add a file to the upload queue
   void addToQueue({
     required String documentCode,
