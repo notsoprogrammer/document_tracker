@@ -437,115 +437,166 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         const SizedBox(height: 16),
 
                         // Existing Attachments
-                        if (_currentImageUrls.isNotEmpty || _currentFileUrls.isNotEmpty) ...[
+                        if (_currentImageUrls.isNotEmpty) ...[
                           Text(
-                            "Existing Attachments:",
+                            "Existing Images:",
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          ..._currentImageUrls.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final url = entry.value;
-                            final fileName = index < _currentFileNames.length
-                                ? _currentFileNames[index]
-                                : 'Image ${index + 1}';
-                            return ListTile(
-                              leading: Icon(Icons.image),
-                              title: Text(fileName),
-                              onTap: () => _viewExistingImage(context, widget.document, index),
-                              trailing: IconButton(
-                                icon: Icon(Icons.remove),
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Remove Attachment'),
-                                      content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          child: const Text('Remove'),
-                                        ),
-                                      ],
+                          Container(
+                            height: 300,
+                            child: StatefulBuilder(
+                              builder: (context, setStateDialog) {
+                                final PageController pageController = PageController();
+                                return Stack(
+                                  children: [
+                                    PageView.builder(
+                                      controller: pageController,
+                                      itemCount: _currentImageUrls.length,
+                                      itemBuilder: (context, index) {
+                                        String fileName = index < _currentFileNames.length ? _currentFileNames[index] : 'Image ${index + 1}';
+                                        String imageUrl = _currentImageUrls[index];
+                                        String proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl.contains('drive.google.com/uc?id=') ? Uri.parse(imageUrl).queryParameters['id'] ?? imageUrl : imageUrl);
+                                        return Column(
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Text(fileName, style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                            Expanded(
+                                              child: InteractiveViewer(
+                                                child: CachedNetworkImage(
+                                                  imageUrl: proxyUrl,
+                                                  httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                                                  fit: BoxFit.contain,
+                                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                                  errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     ),
-                                  );
-
-                                  if (confirm == true) {
-                                    setState(() {
-                                      _currentImageUrls.removeAt(index);
-                                      if (index < _currentFileNames.length) {
-                                        _currentFileNames.removeAt(index);
-                                      }
-                                    });
-
-                                    // Delete from Google Drive and update databases
-                                    final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
-                                    if (success) {
-                                      SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
-                                    } else {
-                                      SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
-                                    }
-                                  }
-                                },
-                              ),
-                            );
-                          }),
-                          ..._currentFileUrls.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final url = entry.value;
-                            final fileName = (_currentFileNames.length > _currentImageUrls.length + index)
-                                ? _currentFileNames[_currentImageUrls.length + index]
-                                : 'Document ${index + 1}';
-                            return ListTile(
-                              leading: Icon(Icons.attach_file),
-                              title: Text(fileName),
-                              onTap: () => _viewExistingFile(context, url),
-                              trailing: IconButton(
-                                icon: Icon(Icons.remove),
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Remove Attachment'),
-                                      content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          child: const Text('Remove'),
-                                        ),
-                                      ],
+                                    Positioned(
+                                      top: 10,
+                                      left: 10,
+                                      child: IconButton(
+                                        icon: Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () async {
+                                          final currentIndex = pageController.page?.round() ?? 0;
+                                          final fileName = currentIndex < _currentFileNames.length ? _currentFileNames[currentIndex] : 'Image ${currentIndex + 1}';
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text('Remove Attachment'),
+                                              content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            final url = _currentImageUrls[currentIndex];
+                                            setState(() {
+                                              _currentImageUrls.removeAt(currentIndex);
+                                              if (currentIndex < _currentFileNames.length) _currentFileNames.removeAt(currentIndex);
+                                            });
+                                            setStateDialog(() {}); // to update the PageView
+                                            final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
+                                            if (success) {
+                                              SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
+                                            } else {
+                                              SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
+                                            }
+                                          }
+                                        },
+                                      ),
                                     ),
-                                  );
-
-                                  if (confirm == true) {
-                                    setState(() {
-                                      _currentFileUrls.removeAt(index);
-                                      final nameIndex = _currentImageUrls.length + index;
-                                      if (nameIndex < _currentFileNames.length) {
-                                        _currentFileNames.removeAt(nameIndex);
+                                    if (_currentImageUrls.length > 1) ...[
+                                      Positioned(
+                                        left: 10,
+                                        bottom: 10,
+                                        child: IconButton(
+                                          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+                                          onPressed: () {
+                                            if (pageController.page! > 0) {
+                                              pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 10,
+                                        bottom: 10,
+                                        child: IconButton(
+                                          icon: Icon(Icons.arrow_forward_ios, color: Colors.white),
+                                          onPressed: () {
+                                            if (pageController.page! < _currentImageUrls.length - 1) {
+                                              pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (_currentFileUrls.isNotEmpty) ...[
+                          Text(
+                            "Existing Documents:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 200,
+                            child: ListView.builder(
+                              itemCount: _currentFileUrls.length,
+                              itemBuilder: (context, index) {
+                                final url = _currentFileUrls[index];
+                                final fileName = (_currentFileNames.length > _currentImageUrls.length + index) ? _currentFileNames[_currentImageUrls.length + index] : 'Document ${index + 1}';
+                                return ListTile(
+                                  leading: Icon(Icons.attach_file),
+                                  title: Text(fileName),
+                                  onTap: () => _viewExistingFile(context, url),
+                                  trailing: IconButton(
+                                    icon: Icon(Icons.remove),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Remove Attachment'),
+                                          content: Text('Are you sure you want to remove "$fileName"? This will delete it from Google Drive as well.'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        setState(() {
+                                          _currentFileUrls.removeAt(index);
+                                          final nameIndex = _currentImageUrls.length + index;
+                                          if (nameIndex < _currentFileNames.length) _currentFileNames.removeAt(nameIndex);
+                                        });
+                                        final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
+                                        if (success) {
+                                          SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
+                                        } else {
+                                          SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
+                                        }
                                       }
-                                    });
-
-                                    // Delete from Google Drive and update databases
-                                    final success = await CachedDocumentService().deleteAttachmentFromDrive(url);
-                                    if (success) {
-                                      SnackbarUtils.showSuccessSnackBar(context, 'Attachment removed successfully');
-                                    } else {
-                                      SnackbarUtils.showErrorSnackBar(context, 'Failed to remove attachment from Google Drive');
-                                    }
-                                  }
-                                },
-                              ),
-                            );
-                          }),
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                           const SizedBox(height: 16),
                         ],
 
