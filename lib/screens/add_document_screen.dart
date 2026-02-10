@@ -1278,17 +1278,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
                         final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
 
-                        // Update remarks with attachment names if any files were uploaded
-                        if (googleDriveFileNames.isNotEmpty) {
-                          final attachmentNames = googleDriveFileNames.join(', ');
-                          final updatedRemarks = remarks.isNotEmpty
-                            ? '$remarks\nAttachment: $attachmentNames'
-                            : 'Attachment: $attachmentNames';
-
-                          await documentService.updateDocument(code, {
-                            'remarks': updatedRemarks,
-                          });
-                        }
 
                         // Do not add "Files Uploaded" history entry
 
