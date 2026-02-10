@@ -10,6 +10,7 @@ import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
+import 'edit_document_screen.dart';
 
 class AttendanceMovsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -524,6 +525,30 @@ class _AttendanceMovsScreenState
                                       runSpacing: 8,
                                       alignment: WrapAlignment.center,
                                       children: [
+                                        ElevatedButton.icon(
+                                          label: const Text("Edit"),
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => EditDocumentScreen(document: document),
+                                              ),
+                                            ).then((_) {
+                                              if (widget.onRefresh != null) {
+                                                widget.onRefresh!();
+                                              }
+                                            });
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
                                         ElevatedButton.icon(
                                           icon: const Icon(Icons.delete),
                                           label: const Text("Delete"),

@@ -1605,6 +1605,30 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     alignment: WrapAlignment.center,
                                     children: [
                                       ElevatedButton.icon(
+                                        label: const Text("Edit"),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => EditDocumentScreen(document: doc),
+                                            ),
+                                          ).then((_) {
+                                            if (widget.onRefresh != null) {
+                                              widget.onRefresh!();
+                                            }
+                                          });
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                      ElevatedButton.icon(
                                         label: const Text("Delete"),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color.fromARGB(
