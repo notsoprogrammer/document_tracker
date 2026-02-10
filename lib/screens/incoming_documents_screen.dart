@@ -805,7 +805,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
 
-                  String normalizedFileId = GoogleDriveService.normalizeDriveFileId(document.imageUrls[index]);
+                  String normalizedFileId = GoogleDriveService.normalizeFileId(document.imageUrls[index]);
                   String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
 
                   return Column(
@@ -827,6 +827,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                           child: Center(
                             child: CachedNetworkImage(
                               imageUrl: proxyUrl,
+                              httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                               fit: BoxFit.contain,
                               placeholder: (context, url) => const Center(
                                 child: Column(

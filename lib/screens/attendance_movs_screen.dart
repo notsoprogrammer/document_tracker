@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -678,53 +676,11 @@ class _AttendanceMovsScreenState
                 controller: pageController,
                 itemCount: imageUrls.length,
                 itemBuilder: (context, index) {
-                  final imageUrl = imageUrls[index];
-                  Widget imageWidget;
-
-                  if (kIsWeb) {
-                    // Always use proxy URL for web
-                    final normalizedFileId = GoogleDriveService.normalizeDriveFileId(imageUrl);
-                    final proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
-                    imageWidget = CachedNetworkImage(
-                      imageUrl: proxyUrl,
-                      httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text(
-                              'wait la po...',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => const Center(
-                        child: Text('Failed to load image'),
-                      ),
-                    );
-                  } else {
-                    // Mobile/desktop: use Image.file for local paths, proxy for remote
-                    if (imageUrl.startsWith('/') || imageUrl.startsWith('file://')) {
-                      // Local path
-                      imageWidget = Image.file(
-                        File(imageUrl),
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Center(
-                          child: Text('Failed to load image'),
-                        ),
-                      );
-                    } else {
-                      // Remote ID/URL
-                      final normalizedFileId = GoogleDriveService.normalizeDriveFileId(imageUrl);
-                      final proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
-                      imageWidget = CachedNetworkImage(
+                  String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrls[index]);
+                  String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
+                  return InteractiveViewer(
+                    child: Center(
+                      child: CachedNetworkImage(
                         imageUrl: proxyUrl,
                         httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                         fit: BoxFit.contain,
@@ -747,12 +703,8 @@ class _AttendanceMovsScreenState
                         errorWidget: (context, url, error) => const Center(
                           child: Text('Failed to load image'),
                         ),
-                      );
-                    }
-                  }
-
-                  return InteractiveViewer(
-                    child: Center(child: imageWidget),
+                      ),
+                    ),
                   );
                 },
               ),

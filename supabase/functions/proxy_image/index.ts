@@ -72,11 +72,12 @@ serve(async (req) => {
     const accessToken = tokenData.access_token;
 
     // ---- Fetch File From Drive (STREAMED) ----
-    // Since files are made public, we can fetch without authorization
     const driveResponse = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
       {
-        // No authorization needed for public files
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       },
     );
 

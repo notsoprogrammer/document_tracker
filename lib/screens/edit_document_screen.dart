@@ -500,8 +500,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                       itemBuilder: (context, index) {
                                         String fileName = index < _currentFileNames.length ? _currentFileNames[index] : 'Image ${index + 1}';
                                         String imageUrl = _currentImageUrls[index];
-                                        String normalizedFileId = GoogleDriveService.normalizeDriveFileId(imageUrl);
-                                        String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
+                                        String proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl.contains('drive.google.com/uc?id=') ? Uri.parse(imageUrl).queryParameters['id'] ?? imageUrl : imageUrl);
                                         return Column(
                                           children: [
                                             Padding(
