@@ -18,12 +18,13 @@ class UploadQueueManager extends ChangeNotifier {
     required String localPath,
     List<int>? bytes, // For web compatibility
   }) {
-    // Check if file already exists in queue with status pending or completed
-    final existingIndex = _uploadQueue.indexWhere(
-      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath && (item['status'] == 'pending' || item['status'] == 'completed')
+    // Check if file already exists in queue for this document
+    final alreadyQueued = _uploadQueue.any((item) =>
+      item['documentCode'] == documentCode &&
+      item['filePath'] == filePath
     );
 
-    if (existingIndex == -1) {
+    if (!alreadyQueued) {
       _uploadQueue.add({
         'documentCode': documentCode,
         'filePath': filePath,
@@ -35,6 +36,8 @@ class UploadQueueManager extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
       });
       debugPrint('Added file to upload queue: $filePath for document $documentCode');
+    } else {
+      debugPrint('Skipped duplicate queue item: $filePath for document $documentCode');
     }
   }
 

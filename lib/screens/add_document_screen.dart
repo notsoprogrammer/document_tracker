@@ -65,7 +65,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   bool _isDocument(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'].contains(ext);
+    return ['pdf', 'docx'].contains(ext);
   }
 
   // Validation flags
@@ -293,21 +293,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   }
 
   void _viewSelectedFiles(BuildContext context) async {
-    final imageFiles = _selectedImagePaths.where((path) {
-      final parts = path.split('.');
-      if (parts.length <= 1) return false;
-      final extension = parts.last.toLowerCase();
-      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic','heif'].contains(extension);
-    }).toList();
-
-    final otherFiles = _selectedImagePaths.where((path) {
-      final parts = path.split('.');
-      if (parts.length <= 1) return true;
-      final extension = parts.last.toLowerCase();
-      return !['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','heic','heif'].contains(extension);
-    }).toList();
-
-    if (imageFiles.isNotEmpty) {
+    if (_selectedImagePaths.isNotEmpty) {
       showDialog(
         context: context,
         builder: (_) => Dialog(
@@ -328,15 +314,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () {
-                            if (imageFiles.isNotEmpty) {
+                            if (_selectedImagePaths.isNotEmpty) {
                               final currentIndex = _pageController.page?.round() ?? 0;
                               setState(() {
-                                _selectedImagePaths.remove(imageFiles[currentIndex]);
+                                _selectedImagePaths.removeAt(currentIndex);
                               });
                               setStateDialog(() {
-                                imageFiles.removeAt(currentIndex);
+                                // Trigger rebuild
                               });
-                              if (imageFiles.isEmpty) {
+                              if (_selectedImagePaths.isEmpty) {
                                 Navigator.pop(context);
                               }
                             }
@@ -351,14 +337,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     Expanded(
                       child: PageView.builder(
                         controller: _pageController,
-                        itemCount: imageFiles.length,
+                        itemCount: _selectedImagePaths.length,
                         itemBuilder: (context, index) {
                           return Stack(
                             alignment: Alignment.center,
                             children: [
                               InteractiveViewer(
                                 child: Image.file(
-                                  File(imageFiles[index]),
+                                  File(_selectedImagePaths[index]),
                                   fit: BoxFit.contain,
                                   errorBuilder: (context, error, stackTrace) {
                                     return const Center(child: Text('Failed to load image'));
@@ -380,7 +366,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                   ),
                                 ),
                               // Right arrow
-                              if (index < imageFiles.length - 1)
+                              if (index < _selectedImagePaths.length - 1)
                                 Positioned(
                                   right: 10,
                                   child: IconButton(
@@ -407,7 +393,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       );
     }
 
-    for (final filePath in otherFiles) {
+    for (final filePath in _selectedDocumentPaths) {
       final normalizedPath = filePath.replaceAll('\\', '/');
       final uri = Uri.file(normalizedPath);
       if (await launchUrl(uri)) {
@@ -417,7 +403,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       }
     }
 
-    if (imageFiles.isEmpty && otherFiles.isEmpty) {
+    if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
       SnackbarUtils.showInfoSnackBar(context, 'No files selected to view');
     }
   }
@@ -964,8 +950,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                       final bytes = await image.readAsBytes();
                                       final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
                                       setState(() {
-                                        _selectedImagePaths.add(fileName);
-                                        _selectedImageBytes.add(bytes);
+                                        if (!_selectedImagePaths.contains(fileName)) {
+                                          _selectedImagePaths.add(fileName);
+                                          _selectedImageBytes.add(bytes);
+                                        }
                                         _isPickingImage = false;
                                       });
                                       // Queue for upload
@@ -1051,8 +1039,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                             skippedFiles.add(file.name);
                                             continue;
                                           }
-                                          _selectedImagePaths.add(filePath);
-                                          imagesAdded++;
+                                          if (!_selectedImagePaths.contains(filePath)) {
+                                            _selectedImagePaths.add(filePath);
+                                            imagesAdded++;
+                                          }
                                           // Queue for upload
                                           final queueManager = UploadQueueManager();
                                           queueManager.addToQueue(
@@ -1079,8 +1069,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                             SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
                                             continue;
                                           }
-                                          _selectedDocumentPaths.add(filePath);
-                                          documentsAdded++;
+                                          if (!_selectedDocumentPaths.contains(filePath)) {
+                                            _selectedDocumentPaths.add(filePath);
+                                            documentsAdded++;
+                                          }
                                           // Queue for upload
                                           final queueManager = UploadQueueManager();
                                           queueManager.addToQueue(
@@ -1299,21 +1291,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           });
                         }
 
-                        // Add history entry for uploads if files were attached
-                        if (googleDriveFileNames.isNotEmpty) {
-                          final username = await AuthService.getUsername();
-                          if (username != null) {
-                            await documentService.addHistoryEntry(
-                              code,
-                              HistoryEntry(
-                                action: 'Files Uploaded',
-                                person: username,
-                                timestamp: DateTime.now(),
-                                notes: 'Uploaded ${googleDriveFileNames.length} file(s): ${googleDriveFileNames.join(', ')}',
-                              ),
-                            );
-                          }
-                        }
+                        // Do not add "Files Uploaded" history entry
 
                         // Sync the document
                         await documentService.syncSpecificDocument(code);

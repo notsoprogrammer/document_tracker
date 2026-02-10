@@ -46,7 +46,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
 
   bool _isDocument(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['pdf', 'jpg', 'jpeg', 'png'].contains(ext);
+    return ['pdf', 'docx'].contains(ext);
   }
 
   // Validation flags

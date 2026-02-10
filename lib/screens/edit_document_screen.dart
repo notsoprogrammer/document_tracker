@@ -848,7 +848,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
 
   bool _isDocument(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'].contains(ext);
+    return ['pdf', 'docx'].contains(ext);
   }
 
   void _viewExistingImage(BuildContext context, Document document, int index) {

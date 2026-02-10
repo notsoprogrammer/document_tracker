@@ -45,7 +45,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
   bool _isDocument(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp','docx', 'pdf'].contains(ext);
+    return ['pdf', 'docx'].contains(ext);
   }
 
   @override
