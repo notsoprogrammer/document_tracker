@@ -355,18 +355,8 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
 
-                  // Handle both fileId and Google Drive URL formats
-                  String imageUrl = document.imageUrls[index];
-                  String proxyUrl;
-                  if (imageUrl.contains('drive.google.com/uc?id=')) {
-                    // Legacy: extract fileId from Google Drive URL
-                    final uri = Uri.parse(imageUrl);
-                    final fileId = uri.queryParameters['id'];
-                    proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
-                  } else {
-                    // New: assume it's already a fileId
-                    proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                  }
+                  String normalizedFileId = GoogleDriveService.normalizeFileId(document.imageUrls[index]);
+                  String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
 
                   return InteractiveViewer(
                     child: Stack(

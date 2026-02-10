@@ -6,7 +6,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
 import '../services/supabase_service.dart';
-import '../services/cached_activity_service.dart';
 import '../services/connectivity_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_activity_screen.dart';
@@ -611,29 +610,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
             height: MediaQuery.of(context).size.height * 0.8,
             child: Stack(
               children: [
-                PageView.builder(
-                  controller: pageController,
-                  itemCount: imageUrls.length,
-                  itemBuilder: (context, index) {
-                    // Handle both fileId and Google Drive URL formats
-                    String imageUrl = imageUrls[index];
-                    String proxyUrl;
-                    if (imageUrl.contains('drive.google.com/uc?id=')) {
-                      // Legacy: extract fileId from Google Drive URL
-                      final uri = Uri.parse(imageUrl);
-                      final fileId = uri.queryParameters['id'];
-                      proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
-                    } else {
-                      // New: assume it's already a fileId
-                      proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                    }
-                    return CachedNetworkImage(
-                      imageUrl: proxyUrl,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                    );
-                  },
+              PageView.builder(
+                controller: pageController,
+                itemCount: imageUrls.length,
+                itemBuilder: (context, index) {
+                  String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrls[index]);
+                  String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
+                  return CachedNetworkImage(
+                    imageUrl: proxyUrl,
+                    httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                  );
+                },
                 ),
                 if (imageUrls.length > 1) ...[
                   Positioned(
@@ -813,26 +803,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               GestureDetector(
                                 onTap: () => _showImageViewer(context, doc.imageUrls),
                                 child: CachedNetworkImage(
-                                  imageUrl: () {
-                                    // Handle both fileId and Google Drive URL formats for the first image
-                                    String imageUrl = doc.imageUrls.first;
-                                    String proxyUrl;
-                                    if (imageUrl.contains('drive.google.com/uc?id=')) {
-                                      // Legacy: extract fileId from Google Drive URL
-                                      final uri = Uri.parse(imageUrl);
-                                      final fileId = uri.queryParameters['id'];
-                                      proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
-                                    } else {
-                                      // New: assume it's already a fileId
-                                      proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                                    }
-                                    return proxyUrl;
-                                  }(),
+                                  imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
+                                  httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                                   height: 150,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                                  errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
                                 ),
                               ),
                               if (doc.imageUrls.length > 1)
