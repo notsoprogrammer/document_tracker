@@ -1901,52 +1901,24 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     runSpacing: 8,
                                     alignment: WrapAlignment.center,
                                     children: [
-                                      ElevatedButton.icon(
-                                        label: const Text("Delete"),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(
-                                            255,
-                                            218,
-                                            87,
-                                            78,
-                                          ),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          final deleted = await confirmAndDeleteRecord(
-                                            context,
-                                            doc,
-                                            CachedDocumentService(),
-                                          );
-                                          if (deleted && mounted) {
-                                            setState(() {
-                                              _filteredDocuments.removeAt(index);
-                                            });
-                                            if (widget.onRefresh != null) {
-                                              widget.onRefresh!();
-                                            }
-                                          }
-                                        },
-                                      ),
                                       if (_username == doc.person)
                                         ElevatedButton.icon(
-                                          label: const Text("Edit"),
+                                          icon: const Icon(Icons.edit),
+                                          label: const SizedBox.shrink(),
                                           onPressed: () {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
                                                 builder: (context) => EditDocumentScreen(document: doc),
                                               ),
-                                            );
+                                            ).then((_) {
+                                              if (widget.onRefresh != null) {
+                                                widget.onRefresh!();
+                                              }
+                                            });
                                           },
                                           style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color.fromARGB(255, 78, 127, 218),
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
                                               vertical: 4,
@@ -1955,6 +1927,42 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
+                                        ),
+                                      if (_username == doc.person)
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.delete),
+                                          label: const SizedBox.shrink(),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color.fromARGB(
+                                              255,
+                                              218,
+                                              87,
+                                              78,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          onPressed: () async {
+                                            final deleted = await confirmAndDeleteRecord(
+                                              context,
+                                              doc,
+                                              CachedDocumentService(),
+                                            );
+                                            if (deleted && mounted) {
+                                              setState(() {
+                                                _filteredDocuments.removeAt(index);
+                                              });
+                                              if (widget.onRefresh != null) {
+                                                widget.onRefresh!();
+                                              }
+                                            }
+                                          },
                                         ),
                                       if (doc.imageUrls.isNotEmpty)
                                         ElevatedButton.icon(
