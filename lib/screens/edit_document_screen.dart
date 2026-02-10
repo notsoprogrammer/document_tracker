@@ -12,6 +12,7 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../config/supabase_config.dart';
+import 'package:intl/intl.dart';
 
 class EditDocumentScreen extends StatefulWidget {
   final Document document;
@@ -56,6 +57,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
   bool _showValidationErrors = false;
   String? _currentUsername;
   bool _isCreator = false;
+  DateTime? selectedCalendarDate;
 
   @override
   void initState() {
@@ -79,6 +81,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     remarksController.text = widget.document.remarks;
     referenceLinkController.text = widget.document.referenceLink ?? '';
     personController.text = widget.document.person;
+    selectedCalendarDate = widget.document.calendarDeadline;
 
     // Initialize current attachments
     _currentImageUrls = List.from(widget.document.imageUrls);
@@ -356,12 +359,53 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Document Code (read-only)
-                        Text(
-                          widget.document.code,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                        // Document Code + Set to Calendar
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            widget.document.code,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          trailing: ElevatedButton.icon(
+                            onPressed: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    selectedCalendarDate = DateTime(
+                                      date.year,
+                                      date.month,
+                                      date.day,
+                                      time.hour,
+                                      time.minute,
+                                    );
+                                  });
+                                }
+                              }
+                            },
+                            label: Text(
+                              selectedCalendarDate != null
+                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
+                                  : "Set to Calendar",
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: selectedCalendarDate != null
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.primary,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            ),
                           ),
                         ),
 
@@ -876,6 +920,8 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         'file_names': _currentFileNames,
                         'local_image_paths': _selectedImagePaths,
                         'local_file_paths': _selectedDocumentPaths,
+                        'calendar_deadline': selectedCalendarDate?.toIso8601String(),
+                        'calendar_added': selectedCalendarDate != null,
                       };
 
                       setState(() => _isSaving = true);
@@ -1065,7 +1111,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                   left: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF0992C2), size: 30),
                     onPressed: () {
                       if (pageController.page! > 0) {
                         pageController.previousPage(
@@ -1080,7 +1126,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                   right: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF0992C2), size: 30),
                     onPressed: () {
                       if (pageController.page! < document.imageUrls.length - 1) {
                         pageController.nextPage(
