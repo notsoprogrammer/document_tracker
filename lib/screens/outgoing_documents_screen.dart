@@ -355,7 +355,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 itemBuilder: (context, index) {
                   String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
 
-                  String normalizedFileId = GoogleDriveService.normalizeFileId(document.imageUrls[index]);
+                  String normalizedFileId = GoogleDriveService.normalizeDriveFileId(document.imageUrls[index]);
                   String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
 
                   return InteractiveViewer(

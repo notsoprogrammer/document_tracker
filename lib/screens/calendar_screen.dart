@@ -614,7 +614,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 controller: pageController,
                 itemCount: imageUrls.length,
                 itemBuilder: (context, index) {
-                  String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrls[index]);
+                  String normalizedFileId = GoogleDriveService.normalizeDriveFileId(imageUrls[index]);
                   String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
                   return CachedNetworkImage(
                     imageUrl: proxyUrl,
@@ -803,7 +803,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               GestureDetector(
                                 onTap: () => _showImageViewer(context, doc.imageUrls),
                                 child: CachedNetworkImage(
-                                  imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
+                                  imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeDriveFileId(doc.imageUrls.first)),
                                   httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
                                   height: 150,
                                   width: double.infinity,

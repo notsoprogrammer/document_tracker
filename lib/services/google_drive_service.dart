@@ -160,38 +160,23 @@ class GoogleDriveService {
   }
 
   /// Normalize attachment value to extract fileId if it's a legacy Google Drive URL
+  static String normalizeDriveFileId(String raw) {
+    if (raw.contains('drive.google.com/uc?id=')) {
+      final uri = Uri.parse(raw);
+      final fileId = uri.queryParameters['id'];
+      return fileId ?? raw;
+    }
+    // Assume it's already a fileId if it looks like one
+    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(raw)) {
+      return raw;
+    }
+    return raw;
+  }
+
+  /// Legacy method for backward compatibility
+  @deprecated
   static String normalizeFileId(String attachmentValue) {
-    if (attachmentValue.contains('drive.google.com')) {
-      final uri = Uri.parse(attachmentValue);
-      if (attachmentValue.contains('/file/d/')) {
-        // Format: https://drive.google.com/file/d/FILE_ID/view
-        final segments = uri.pathSegments;
-        final fileIndex = segments.indexOf('d');
-        if (fileIndex != -1 && fileIndex + 1 < segments.length) {
-          return segments[fileIndex + 1];
-        }
-      } else if (attachmentValue.contains('uc?id=')) {
-        // Format: https://drive.google.com/uc?id=FILE_ID
-        final fileId = uri.queryParameters['id'];
-        return fileId ?? attachmentValue;
-      } else if (attachmentValue.contains('open?id=')) {
-        // Format: https://drive.google.com/open?id=FILE_ID
-        final fileId = uri.queryParameters['id'];
-        return fileId ?? attachmentValue;
-      } else if (attachmentValue.contains('folders/')) {
-        // Format: https://drive.google.com/folders/FOLDER_ID
-        final segments = uri.pathSegments;
-        final folderIndex = segments.indexOf('folders');
-        if (folderIndex != -1 && folderIndex + 1 < segments.length) {
-          return segments[folderIndex + 1];
-        }
-      }
-    }
-    // Assume it's already a file ID if it matches the pattern
-    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(attachmentValue)) {
-      return attachmentValue;
-    }
-    return attachmentValue;
+    return normalizeDriveFileId(attachmentValue);
   }
 
   /// Generate a proxy URL for a file given its Google Drive file ID (for CORS-free access)
