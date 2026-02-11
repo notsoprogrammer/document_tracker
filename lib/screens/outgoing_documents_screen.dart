@@ -1611,11 +1611,10 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             });
                                           },
                                           style: ElevatedButton.styleFrom(
+                                             alignment: Alignment.center,
                                             backgroundColor: const Color.fromARGB(255, 78, 127, 218),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            minimumSize: const Size(48, 40), // shrink width, fixed height
+                                            padding: EdgeInsets.only(left:10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
@@ -1633,10 +1632,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                               78,
                                             ),
                                             foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            minimumSize: const Size(48, 40), // shrink width, fixed height
+                                            padding: EdgeInsets.only(left:10),
+                                            alignment: Alignment.center,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),

@@ -8,6 +8,7 @@ import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/auth_service.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import 'edit_document_screen.dart';
@@ -46,6 +47,7 @@ class _AttendanceMovsScreenState
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
+  String? _username;
 
   DateTime _parseDate(String dateStr) {
     try {
@@ -220,6 +222,7 @@ class _AttendanceMovsScreenState
       ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
+    _loadUsername();
     // Simulate loading for better UX
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -525,65 +528,67 @@ class _AttendanceMovsScreenState
                                       runSpacing: 8,
                                       alignment: WrapAlignment.center,
                                       children: [
-                                        ElevatedButton.icon(
-                                          label: const Text("Edit"),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => EditDocumentScreen(document: document),
-                                              ),
-                                            ).then((_) {
-                                              if (widget.onRefresh != null) {
-                                                widget.onRefresh!();
-                                              }
-                                            });
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                        ),
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.delete),
-                                          label: const Text("Delete"),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color.fromARGB(
-                                              255,
-                                              218,
-                                              87,
-                                              78,
-                                            ),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            final deleted = await confirmAndDeleteRecord(
-                                              context,
-                                              document,
-                                              CachedDocumentService(),
-                                            );
-                                            if (deleted && mounted) {
-                                              setState(() {
-                                                _filteredDocuments.removeAt(index);
+                                        if (_username == document.person)
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.edit),
+                                            label: const SizedBox.shrink(),
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => EditDocumentScreen(document: document),
+                                                ),
+                                              ).then((_) {
+                                                if (widget.onRefresh != null) {
+                                                  widget.onRefresh!();
+                                                }
                                               });
-                                              if (widget.onRefresh != null) {
-                                                widget.onRefresh!();
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color.fromARGB(255, 78, 127, 218),
+                                              minimumSize: const Size(48, 40), // shrink width, fixed height
+                                              padding: EdgeInsets.only(left:10),
+                                              alignment: Alignment.center,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                          ),
+                                        if (_username == document.person)
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.delete),
+                                            label: const SizedBox.shrink(),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color.fromARGB(
+                                                255,
+                                                218,
+                                                87,
+                                                78,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(48, 40), // shrink width, fixed height
+                                              padding: EdgeInsets.only(left:10),
+                                              alignment: Alignment.center,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              final deleted = await confirmAndDeleteRecord(
+                                                context,
+                                                document,
+                                                CachedDocumentService(),
+                                              );
+                                              if (deleted && mounted) {
+                                                setState(() {
+                                                  _filteredDocuments.removeAt(index);
+                                                });
+                                                if (widget.onRefresh != null) {
+                                                  widget.onRefresh!();
+                                                }
                                               }
-                                            }
-                                          },
-                                        ),
+                                            },
+                                          ),
                                         if (document.imageUrls.isNotEmpty ||
                                             document.localImagePaths.isNotEmpty)
                                           ElevatedButton.icon(
@@ -965,6 +970,15 @@ class _AttendanceMovsScreenState
       await launchUrl(uri);
     } else {
       // Handle error
+    }
+  }
+
+  Future<void> _loadUsername() async {
+    final username = await AuthService.getUsername();
+    if (username != null && username.isNotEmpty) {
+      setState(() {
+        _username = username;
+      });
     }
   }
 }
