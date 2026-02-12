@@ -17,6 +17,7 @@ import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import 'edit_document_screen.dart';
+import 'add_document_screen.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1222,6 +1223,21 @@ Widget _buildUploadStatusIndicator(Document doc) {
   Widget build(BuildContext context) {
     return ConnectivityBanner(
       child: Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddDocumentScreen(incoming: true),
+            ),
+          );
+          if (widget.onRefresh != null) {
+            widget.onRefresh!();
+          }
+        },
+        backgroundColor: const Color(0xFFFFB74D),
+        child: const Icon(Icons.add),
+      ),
       appBar: AppBar(
         title: const Text("Incoming Documents"),
         backgroundColor: const Color(0xFFFFB74D), // Pastel orange
