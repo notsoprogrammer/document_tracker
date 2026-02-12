@@ -621,12 +621,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 itemBuilder: (context, index) {
                   String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrls[index]);
                   String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
-                  return CachedNetworkImage(
-                    imageUrl: proxyUrl,
-                    httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                    errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                  return InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: CachedNetworkImage(
+                      imageUrl: proxyUrl,
+                      httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                    ),
                   );
                 },
                 ),
@@ -1112,7 +1116,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           controller: remarksController,
           maxLines: 5,
           decoration: const InputDecoration(
-            hintText: 'Enter remarks',
+            hintText: 'Enter meeting location, remarks, status',
+              hintStyle: TextStyle(
+              fontStyle: FontStyle.italic, // italic hint text
+              color: Colors.grey,          // optional: muted color
+            ),
             border: OutlineInputBorder(),
           ),
         ),
