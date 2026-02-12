@@ -609,19 +609,6 @@ body: Container(
           ),
         ),
       ),
-      Align(
-        alignment: Alignment.bottomLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            "by: Margaux🌻",
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              // fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
-      ),
 Positioned(
   bottom: 16.0,
   right: 16.0,

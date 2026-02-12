@@ -222,6 +222,13 @@ class _AboutScreenState extends State<AboutScreen> {
                               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "by: Margaux🌻",
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.system_update),
