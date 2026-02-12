@@ -8,7 +8,7 @@ const Map<String, String> typeMapping = {
   'Leave': 'LV',
   'Memo': 'MEMO',
   'Report': 'REP',
-  'Resolution/Ordinance': 'RES',
+  'Resolution': 'RES',
   'Request': 'REQ',
   'Ordinance': 'ORD',
   'Travel': 'TRV',
@@ -141,4 +141,5 @@ const List<String> supportFunctions = [
   'OPCR',
   'Quarterly Accomplishment Report',
   'Tree Planting',
+  'Others',
 ];

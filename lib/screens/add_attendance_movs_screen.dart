@@ -408,10 +408,11 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           controller: descriptionController,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
-                            labelText: "Description",
+                            labelText: "Description${selectedType == 'Others' ? ' *' : ''}",
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors && selectedType == 'Others' && descriptionController.text.trim().isEmpty ? "Description is required for Others" : null,
                           ),
                           maxLines: 3,
                         ),
@@ -734,7 +735,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                       _showValidationErrors = true;
                     });
 
-                    if (selectedType != null && allOptions.contains(selectedType) && selectedDate != null && personController.text.trim().isNotEmpty) {
+                    if (selectedType != null && allOptions.contains(selectedType) && selectedDate != null && personController.text.trim().isNotEmpty && (selectedType != 'Others' || descriptionController.text.trim().isNotEmpty)) {
                       final String code = codeController.text;
                       final String description = descriptionController.text.trim();
                       final String referenceLink = referenceLinkController.text.trim();
