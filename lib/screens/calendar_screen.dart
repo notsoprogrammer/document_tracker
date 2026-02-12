@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:intl/intl.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
 import '../services/supabase_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/cached_document_service.dart';
+import '../services/auth_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_activity_screen.dart';
 import '../services/google_drive_service.dart';
@@ -774,7 +777,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDetailRow('From/To', doc.fromOrTo),
-                            _buildDetailRow('Remarks', _cleanRemarks(doc.remarks)),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 120,
+                                  child: Text(
+                                    'Remarks:',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _cleanRemarks(doc.remarks),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 16),
+                                        onPressed: () => _editRemarks(context, doc),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (doc.calendarDeadline != null)
+                              _buildDetailRow('Calendar Set Date & Time', DateFormat('MM/dd/yy hh:mm a').format(doc.calendarDeadline!)),
                             if (doc.complianceDeadline != null)
                               _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                           ],
@@ -1064,6 +1103,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
       },
     );
+  }
+
+  void _editRemarks(BuildContext context, Document doc) async {
+    final TextEditingController remarksController = TextEditingController(text: doc.remarks);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Remarks'),
+        content: TextField(
+          controller: remarksController,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'Enter remarks',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, remarksController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result != doc.remarks) {
+      try {
+        await CachedDocumentService().updateDocument(doc.code, {'remarks': result});
+        // Add history entry
+        final username = await AuthService.getUsername();
+        if (username != null) {
+          await CachedDocumentService().addHistoryEntry(
+            doc.code,
+            HistoryEntry(
+              action: 'Remarks updated',
+              person: username,
+              timestamp: DateTime.now(),
+            ),
+          );
+        }
+        // Reload documents
+        _loadCalendarDocuments();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Remarks updated successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update remarks: $e')),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildDetailRow(String label, String value) {
