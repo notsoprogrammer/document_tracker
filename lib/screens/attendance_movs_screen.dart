@@ -1,3 +1,4 @@
+import 'package:com.cpdco.docutracker/screens/add_attendance_movs_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -287,7 +288,7 @@ class _AttendanceMovsScreenState
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const AddDocumentScreen(incoming: false),
+              builder: (context) => const AddAttendanceMovScreen(),
             ),
           );
           if (widget.onRefresh != null) {
