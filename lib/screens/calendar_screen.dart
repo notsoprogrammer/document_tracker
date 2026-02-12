@@ -247,9 +247,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       ),
     ),
-      body: Column(
-        children: [
-          StreamBuilder<bool>(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 800;
+          final banner = StreamBuilder<bool>(
             stream: connectivityService.onOnlineStatusChanged,
             builder: (context, snapshot) {
               final isOnline = snapshot.data ?? connectivityService.currentOnlineStatus;
@@ -264,137 +265,137 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               );
             },
-          ),
-          TableCalendar<dynamic>(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            rangeStartDay: _rangeStart,
-            rangeEndDay: _rangeEnd,
-            calendarFormat: _calendarFormat,
-            rangeSelectionMode: _rangeSelectionMode,
-            eventLoader: _getEventsForDay,
-            startingDayOfWeek: StartingDayOfWeek.sunday,
-            calendarStyle: CalendarStyle(
-              outsideDaysVisible: false,
-              markersMaxCount: 3,
-              markerDecoration: BoxDecoration(
-                color: Colors.green.shade200, // pastel marker
-                shape: BoxShape.circle,
+          );
+          final calendar = SizedBox(
+            height: 400,
+            child: TableCalendar<dynamic>(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              rangeStartDay: _rangeStart,
+              rangeEndDay: _rangeEnd,
+              calendarFormat: _calendarFormat,
+              rangeSelectionMode: _rangeSelectionMode,
+              eventLoader: _getEventsForDay,
+              startingDayOfWeek: StartingDayOfWeek.sunday,
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                markersMaxCount: 3,
+                markerDecoration: BoxDecoration(
+                  color: Colors.green.shade200, // pastel marker
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: const Color(0xFFC8E6C9),
+                  shape: BoxShape.circle,
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: Colors.green.shade400, // slightly stronger pastel for selected
+                  shape: BoxShape.circle,
+                ),
               ),
-              todayDecoration: BoxDecoration(
-                color: const Color(0xFFC8E6C9),
-                shape: BoxShape.circle,
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(
+                  color: Colors.green.shade700, // darker pastel for header text
+                  fontWeight: FontWeight.bold,
+                ),
+                leftChevronIcon: Icon(Icons.chevron_left, color: Colors.green.shade400),
+                rightChevronIcon: Icon(Icons.chevron_right, color: Colors.green.shade400),
               ),
-              selectedDecoration: BoxDecoration(
-                color: Colors.green.shade400, // slightly stronger pastel for selected
-                shape: BoxShape.circle,
-              ),
-            ),
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextStyle: TextStyle(
-                color: Colors.green.shade700, // darker pastel for header text
-                fontWeight: FontWeight.bold,
-              ),
-              leftChevronIcon: Icon(Icons.chevron_left, color: Colors.green.shade400),
-              rightChevronIcon: Icon(Icons.chevron_right, color: Colors.green.shade400),
-            ),
+              onDaySelected: _onDaySelected,
+              onFormatChanged: _onFormatChanged,
+              onPageChanged: _onPageChanged,
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, date, events) {
+                  if (events.isEmpty) return const SizedBox();
 
-            
-            onDaySelected: _onDaySelected,
-            onFormatChanged: _onFormatChanged,
-            onPageChanged: _onPageChanged,
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, date, events) {
-                if (events.isEmpty) return const SizedBox();
+                  List<Widget> markers = [];
+                  bool hasCalendar = false;
+                  bool hasLeave = false;
+                  bool hasPendingCompliance = false;
+                  bool hasCompletedCompliance = false;
+                  bool hasActivity = false;
 
-                List<Widget> markers = [];
-                bool hasCalendar = false;
-                bool hasLeave = false;
-                bool hasPendingCompliance = false;
-                bool hasCompletedCompliance = false;
-                bool hasActivity = false;
-
-                for (var event in events) {
-                  if (event is Document) {
-                    if (event.calendarDeadline != null &&
-                        isSameDay(event.calendarDeadline!, date)) {
-                      if (event.type == 'Leave') {
-                        hasLeave = true;
-                      } else {
-                        hasCalendar = true;
+                  for (var event in events) {
+                    if (event is Document) {
+                      if (event.calendarDeadline != null &&
+                          isSameDay(event.calendarDeadline!, date)) {
+                        if (event.type == 'Leave') {
+                          hasLeave = true;
+                        } else {
+                          hasCalendar = true;
+                        }
                       }
-                    }
-                    if (event.complianceDeadline != null &&
-                        isSameDay(event.complianceDeadline!, date)) {
-                      if (event.status == 'Completed') {
-                        hasCompletedCompliance = true;
-                      } else {
-                        hasPendingCompliance = true;
+                      if (event.complianceDeadline != null &&
+                          isSameDay(event.complianceDeadline!, date)) {
+                        if (event.status == 'Completed') {
+                          hasCompletedCompliance = true;
+                        } else {
+                          hasPendingCompliance = true;
+                        }
                       }
-                    }
-                  } else if (event is Activity) {
-                    // Activities are always calendar events
-                    if (event.startTime != null && isSameDay(event.startTime!, date)) {
-                      hasActivity = true;
+                    } else if (event is Activity) {
+                      // Activities are always calendar events
+                      if (event.startTime != null && isSameDay(event.startTime!, date)) {
+                        hasActivity = true;
+                      }
                     }
                   }
-                }
 
-                if (hasLeave) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Color.fromARGB(255, 255, 126, 203),
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasCalendar) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasPendingCompliance) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasActivity) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                // No indicator for completed compliance, but metadata remains in modal
+                  if (hasLeave) {
+                    markers.add(Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color.fromARGB(255, 255, 126, 203),
+                        shape: BoxShape.circle,
+                      ),
+                    ));
+                  }
+                  if (hasCalendar) {
+                    markers.add(Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ));
+                  }
+                  if (hasPendingCompliance) {
+                    markers.add(Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ));
+                  }
+                  if (hasActivity) {
+                    markers.add(Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ));
+                  }
+                  // No indicator for completed compliance, but metadata remains in modal
 
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: markers,
-                );
-              },
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: markers,
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 8.0),
-          Expanded(
+          );
+          final eventList = Expanded(
             child: ValueListenableBuilder<List<dynamic>>(
               valueListenable: _selectedEvents,
               builder: (context, value, _) {
@@ -417,12 +418,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           vertical: 4.0,
                         ),
                         child: Card(
-                          elevation: 2,
+                          elevation: 4,
                           child: InkWell(
                             onTap: () => _showDocumentDetails(context, item),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 border: Border(
                                   left: BorderSide(
@@ -519,12 +520,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           vertical: 4.0,
                         ),
                         child: Card(
-                          elevation: 2,
+                          elevation: 4,
                           child: InkWell(
                             onTap: () => _showActivityDetails(context, item),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 border: Border(
                                   left: BorderSide(
@@ -586,8 +587,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 );
               },
             ),
-          ),
-        ],
+          );
+          if (isWide) {
+            return Column(
+              children: [
+                banner,
+                Expanded(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 400,
+                        child: calendar,
+                      ),
+                      eventList,
+                    ],
+                  ),
+                ),
+              ],
+            );
+          } else {
+            return Column(
+              children: [
+                banner,
+                calendar,
+                const SizedBox(height: 8.0),
+                eventList,
+              ],
+            );
+          }
+        },
       ),
     );
   }
