@@ -598,6 +598,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (context) {
         return Dialog(
+          backgroundColor: Colors.white,
           insetPadding: EdgeInsets.zero,
           child: Container(
             width: double.infinity,
@@ -628,7 +629,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     left: 10,
                     top: MediaQuery.of(context).size.height * 0.5 - 25,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                      icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
                       onPressed: () {
                         if (pageController.page! > 0) {
                           pageController.previousPage(
@@ -643,7 +644,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     right: 10,
                     top: MediaQuery.of(context).size.height * 0.5 - 25,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
                       onPressed: () {
                         if (pageController.page! < imageUrls.length - 1) {
                           pageController.nextPage(
@@ -659,7 +660,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   top: 40,
                   right: 20,
                   child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.close, color: Colors.black, size: 30),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),

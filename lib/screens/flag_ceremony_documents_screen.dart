@@ -604,7 +604,7 @@ class _FlagCeremonyDocumentsScreenState
       barrierDismissible: true,
       barrierColor: Colors.black.withOpacity(0.5),
       builder: (_) => Dialog(
-        backgroundColor: Colors.black.withOpacity(0.8),
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(14),
         child: SizedBox.expand(
           child: Stack(
@@ -639,7 +639,7 @@ class _FlagCeremonyDocumentsScreenState
                               Text(
                                 'wait la po...',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontSize: 16,
                                 ),
                               ),
@@ -658,7 +658,7 @@ class _FlagCeremonyDocumentsScreenState
                 top: 40,
                 right: 20,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  icon: const Icon(Icons.close, color: Colors.black, size: 30),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),

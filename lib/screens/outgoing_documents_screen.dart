@@ -345,7 +345,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       barrierDismissible: true,
       barrierColor: Colors.black.withOpacity(0.5),
       builder: (_) => Dialog(
-        backgroundColor: Colors.black.withOpacity(0.8),
+        backgroundColor: Colors.white.withOpacity(0.8),
         insetPadding: const EdgeInsets.all(14),
         child: SizedBox.expand(
           child: Stack(
@@ -376,7 +376,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   Text(
                                     'wait la po...',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: Color.fromARGB(255, 56, 56, 56),
                                       fontSize: 16,
                                     ),
                                   ),
@@ -418,7 +418,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   left: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
                     onPressed: () {
                       if (pageController.page! > 0) {
                         pageController.previousPage(
@@ -433,7 +433,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                   right: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
                     onPressed: () {
                       if (pageController.page! < document.imageUrls.length - 1) {
                         pageController.nextPage(
@@ -449,7 +449,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 top: 40,
                 right: 20,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  icon: const Icon(Icons.close, color: Colors.black, size: 30),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),

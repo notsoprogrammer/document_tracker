@@ -795,7 +795,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
       barrierDismissible: true,
       barrierColor: Colors.black.withOpacity(0.5),
       builder: (_) => Dialog(
-        backgroundColor: Colors.black.withOpacity(0.8),
+        backgroundColor: Colors.white.withOpacity(0.8),
         insetPadding: const EdgeInsets.all(16),
         child: SizedBox.expand(
           child: Stack(
@@ -816,7 +816,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                         child: Text(
                           fileName,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -839,7 +839,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                     Text(
                                       'Please wait...',
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Color.fromARGB(255, 56, 56, 56),
                                         fontSize: 16,
                                       ),
                                     ),
@@ -862,7 +862,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   left: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
                     onPressed: () {
                       if (pageController.page! > 0) {
                         pageController.previousPage(
@@ -877,7 +877,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   right: 10,
                   top: MediaQuery.of(context).size.height * 0.4 - 25,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
+                    icon: const Icon(Icons.arrow_forward_ios, color: Color.fromARGB(255, 0, 0, 0), size: 30),
                     onPressed: () {
                       if (pageController.page! < document.imageUrls.length - 1) {
                         pageController.nextPage(
@@ -893,7 +893,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                 top: 40,
                 right: 20,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  icon: const Icon(Icons.close, color: Colors.black, size: 30),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
