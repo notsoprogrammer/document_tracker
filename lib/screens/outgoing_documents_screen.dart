@@ -345,7 +345,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       barrierDismissible: true,
       barrierColor: Colors.black.withOpacity(0.5),
       builder: (_) => Dialog(
-        backgroundColor: Colors.white.withOpacity(0.8),
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(14),
         child: SizedBox.expand(
           child: Stack(
@@ -376,7 +376,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   Text(
                                     'wait la po...',
                                     style: TextStyle(
-                                      color: Color.fromARGB(255, 56, 56, 56),
+                                      color: Color(0xFFFFFFFF),
                                       fontSize: 16,
                                     ),
                                   ),
@@ -416,7 +416,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               if (document.imageUrls.length > 1) ...[
                 Positioned(
                   left: 10,
-                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  top: MediaQuery.of(context).size.height * 0.5 - 25,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
                     onPressed: () {
@@ -431,7 +431,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 ),
                 Positioned(
                   right: 10,
-                  top: MediaQuery.of(context).size.height * 0.4 - 25,
+                  top: MediaQuery.of(context).size.height * 0.5 - 25,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
                     onPressed: () {
