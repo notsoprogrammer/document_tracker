@@ -780,36 +780,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             _buildDetailRow('From/To', doc.fromOrTo),
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                SizedBox(
-                                  width: 120,
-                                  child: Text(
-                                    'Remarks:',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey,
-                                    ),
+                                const Text(
+                                  'Remarks:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey,
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+
+                                IconButton(
+                                  color: const Color(0xFF088395),
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  onPressed: () => _editRemarks(context, doc),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minHeight: 36, minWidth: 36),
+                                ),
+                                const SizedBox(width: 8),
+
                                 Expanded(
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _cleanRemarks(doc.remarks),
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, size: 16),
-                                        onPressed: () => _editRemarks(context, doc),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    _cleanRemarks(doc.remarks),
+                                    style: const TextStyle(fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
