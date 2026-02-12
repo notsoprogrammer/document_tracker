@@ -609,8 +609,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (context) {
         return Dialog(
+          insetPadding: EdgeInsets.zero,
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.8,
+            width: double.infinity,
+            height: double.infinity,
             child: Stack(
               children: [
               PageView.builder(
@@ -631,7 +633,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 if (imageUrls.length > 1) ...[
                   Positioned(
                     left: 10,
-                    top: MediaQuery.of(context).size.height * 0.4 - 25,
+                    top: MediaQuery.of(context).size.height * 0.5 - 25,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 30),
                       onPressed: () {
@@ -646,7 +648,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                   Positioned(
                     right: 10,
-                    top: MediaQuery.of(context).size.height * 0.4 - 25,
+                    top: MediaQuery.of(context).size.height * 0.5 - 25,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
                       onPressed: () {
@@ -813,7 +815,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ],
                             ),
                             if (doc.calendarDeadline != null)
-                              _buildDetailRow('Calendar Set Date & Time', DateFormat('MM/dd/yy hh:mm a').format(doc.calendarDeadline!)),
+                              _buildDetailRow('Date & Time', DateFormat('MM/dd/yy | hh:mm a').format(doc.calendarDeadline!)),
                             if (doc.complianceDeadline != null)
                               _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                           ],
