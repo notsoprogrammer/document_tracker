@@ -1175,27 +1175,27 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   Text(
                                     doc.code,
                                   ),
-                                  if (doc.flowStage != 'incoming' && doc.incoming) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFB74D).withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
-                                      ),
-                                      child: const Text(
-                                        'Fr. Incoming',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Color(0xFFFFB74D),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
+                              if (doc.flowStage != 'incoming' && doc.incoming) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFB74D).withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
+                                  ),
+                                  child: const Text(
+                                    'Fr. Incoming',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFFFFB74D),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               _buildUploadStatusIndicator(doc),
                             ],
