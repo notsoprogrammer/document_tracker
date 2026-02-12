@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:html' as html;
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -791,14 +790,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
 
   void _showImageDialog(BuildContext context, Document document) {
     final PageController pageController = PageController();
-    int currentImageIndex = 0;
-
-    pageController.addListener(() {
-      setState(() {
-        currentImageIndex = pageController.page?.round() ?? 0;
-      });
-    });
-
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -898,18 +889,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                   ),
                 ),
               ],
-              Positioned(
-                top: 40,
-                right: 80,
-                child: IconButton(
-                  icon: const Icon(Icons.download, color: Colors.black, size: 30),
-                  onPressed: () {
-                    String normalizedFileId = GoogleDriveService.normalizeFileId(document.imageUrls[currentImageIndex]);
-                    String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
-                    _downloadImage(proxyUrl);
-                  },
-                ),
-              ),
               Positioned(
                 top: 40,
                 right: 20,
@@ -1032,27 +1011,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
       }
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
-    }
-  }
-
-  void _downloadImage(String proxyUrl) async {
-    try {
-      if (kIsWeb) {
-        // Web: Use anchor element to trigger download
-        final anchor = html.AnchorElement(href: proxyUrl)
-          ..download = 'image.jpg'  // Default filename, browser will suggest based on content
-          ..click();
-      } else {
-        // Mobile: Open in browser for user to save
-        final uri = Uri.parse(proxyUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-        } else {
-          SnackbarUtils.showErrorSnackBar(context, 'Could not open image');
-        }
-      }
-    } catch (e) {
-      SnackbarUtils.showErrorSnackBar(context, 'Could not download image');
     }
   }
 
