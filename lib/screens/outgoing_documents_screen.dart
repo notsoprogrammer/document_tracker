@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform, File;
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
+
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -474,6 +477,17 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
+  Future<int> _getAndroidVersion() async {
+    if (!Platform.isAndroid) return 0;
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      return androidInfo.version.sdkInt;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   void _downloadImage(BuildContext context, String imageUrl) async {
     if (imageUrl.isEmpty) {
       SnackbarUtils.showErrorSnackBar(context, 'No image to download');
@@ -494,34 +508,95 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
           SnackbarUtils.showErrorSnackBar(context, 'Could not open download link');
         }
       } else {
-        // Mobile: Request permission and download directly
-        final status = await Permission.storage.request();
-        if (status.isGranted) {
-          final directory = await getExternalStorageDirectory();
-          if (directory != null) {
-            final fileName = 'document_${DateTime.now().millisecondsSinceEpoch}.jpg';
-            final savePath = '${directory.path}/$fileName';
+        // Mobile: Request permissions and save to gallery using GallerySaver
+        bool hasPermission = false;
 
-            await Dio().download(downloadUrl, savePath);
-            if (context.mounted) {
-              SnackbarUtils.showSuccessSnackBar(context, 'Image downloaded to: $savePath');
-            }
+        if (Platform.isAndroid) {
+          final androidVersion = await _getAndroidVersion();
+          if (androidVersion >= 33) {
+            // Android 13+ (API 33+): Use granular photos permission
+            final photosStatus = await Permission.photos.request();
+            hasPermission = photosStatus.isGranted || photosStatus.isLimited;
+          } else if (androidVersion >= 29) {
+            // Android 10-12: Use storage permission (scoped storage)
+            final storageStatus = await Permission.storage.request();
+            hasPermission = storageStatus.isGranted;
+          } else {
+            // Android 9 and below: Need write external storage
+            final status = await Permission.storage.request();
+            hasPermission = status.isGranted;
           }
-        } else if (status.isPermanentlyDenied) {
-          // Open app settings if permission permanently denied
-          await openAppSettings();
         } else {
-          // Fallback to browser download
-          final uri = Uri.parse(downloadUrl);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          // iOS or other platforms
+          final status = await Permission.photos.request();
+          hasPermission = status.isGranted || status.isLimited;
+        }
+
+        if (hasPermission) {
+          // Show loading indicator
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                    SizedBox(width: 16),
+                    Text('Downloading and saving to gallery...'),
+                  ],
+                ),
+                duration: Duration(seconds: 10),
+              ),
+            );
+          }
+
+          // Download image to temporary file first
+          final tempDir = await getTemporaryDirectory();
+          final fileName = 'doc_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final tempPath = '${tempDir.path}/$fileName';
+
+          await Dio().download(downloadUrl, tempPath);
+
+          // Read file as bytes and save to gallery
+          final bytes = await File(tempPath).readAsBytes();
+          await FlutterImageGallerySaver.saveImage(bytes);
+
+          // Clean up temporary file
+          try {
+            await File(tempPath).delete();
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            SnackbarUtils.showSuccessSnackBar(
+              context,
+              'Image saved to gallery',
+              duration: const Duration(seconds: 5),
+            );
+          }
+        } else {
+          // Permission denied - show message
+          if (context.mounted) {
+            SnackbarUtils.showErrorSnackBar(
+              context,
+              'Photos permission required to download images',
+            );
           }
         }
       }
     } catch (e) {
-      SnackbarUtils.showErrorSnackBar(context, 'Failed to download image');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        SnackbarUtils.showErrorSnackBar(context, 'Failed to download image: $e');
+      }
     }
   }
+
 
   void _showFileDialog(BuildContext context, Document document) {
     final allFiles = <String>[];
