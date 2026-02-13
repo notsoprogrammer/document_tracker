@@ -61,6 +61,12 @@ dependencies:
   package_info_plus: ^8.0.1
   flutter_downloader: ^1.11.8
   dio: ^5.4.3
+  device_info_plus: ^12.3.0
+  flutter_image_gallery_saver: ^0.0.2
+
+
+
+
 
 dev_dependencies:
   flutter_test:
@@ -126,4 +132,3 @@ flutter_icons:
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/image/FTHubLogo.png"
-
