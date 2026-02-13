@@ -3,6 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -892,9 +896,19 @@ Widget _buildUploadStatusIndicator(Document doc) {
               Positioned(
                 top: 40,
                 right: 20,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black, size: 30),
-                  onPressed: () => Navigator.pop(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.download, color: Colors.black, size: 30),
+                      onPressed: () => _downloadImage(context, document.imageUrls.isNotEmpty ? document.imageUrls[0] : ''),
+                      tooltip: 'Download Image',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.black, size: 30),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -903,7 +917,54 @@ Widget _buildUploadStatusIndicator(Document doc) {
       ),
     );
   }
+  void _downloadImage(BuildContext context, String imageUrl) async {
+    if (imageUrl.isEmpty) {
+      SnackbarUtils.showErrorSnackBar(context, 'No image to download');
+      return;
+    }
+    try {
+      // Extract file ID from the URL
+      String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrl);
+      // Build direct download URL
+      String downloadUrl = 'https://drive.google.com/uc?id=$normalizedFileId&export=download';
 
+      if (kIsWeb) {
+        // Web: Open in browser
+        final uri = Uri.parse(downloadUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open download link');
+        }
+      } else {
+        // Mobile: Request permission and download directly
+        final status = await Permission.storage.request();
+        if (status.isGranted) {
+          final directory = await getExternalStorageDirectory();
+          if (directory != null) {
+            final fileName = 'document_${DateTime.now().millisecondsSinceEpoch}.jpg';
+            final savePath = '${directory.path}/$fileName';
+
+            await Dio().download(downloadUrl, savePath);
+            if (context.mounted) {
+              SnackbarUtils.showSuccessSnackBar(context, 'Image downloaded to: $savePath');
+            }
+          }
+        } else if (status.isPermanentlyDenied) {
+          // Open app settings if permission permanently denied
+          await openAppSettings();
+        } else {
+          // Fallback to browser download
+          final uri = Uri.parse(downloadUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+      }
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Failed to download image');
+    }
+  }
   void _showFileDialog(BuildContext context, Document document) {
     final allFiles = <String>[];
     final allNames = <String>[];
