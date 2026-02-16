@@ -2,14 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform, File;
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 
+import '../services/image_download_service.dart';
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -344,64 +339,50 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     )..layout(maxWidth: maxWidth);
     return textPainter.didExceedMaxLines;
   }
-
   void _showImageDialog(BuildContext context, Document document) {
-    final PageController pageController = PageController();
     showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withOpacity(0.5),
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.all(14),
-        child: SizedBox.expand(
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: pageController,
-                itemCount: document.imageUrls.length,
-                itemBuilder: (context, index) {
-                  String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
+      builder: (dialogContext) {
+        int currentIndex = 0;
+        bool isDownloading = false;
+        bool isSuccess = false;
+        final PageController pageController = PageController();
 
-                  String normalizedFileId = GoogleDriveService.normalizeFileId(document.imageUrls[index]);
-                  String proxyUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              insetPadding: const EdgeInsets.all(14),
+              child: SizedBox.expand(
+                child: Stack(
+                  children: [
+                    /// IMAGE VIEWER
+                    PageView.builder(
+                      controller: pageController,
+                      itemCount: document.imageUrls.length,
+                      onPageChanged: (index) {
+                        setState(() => currentIndex = index);
+                      },
+                      itemBuilder: (context, index) {
+                        String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
+                        String imageUrl = document.imageUrls[index];
+                        String proxyUrl;
 
-                  return InteractiveViewer(
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: CachedNetworkImage(
-                            imageUrl: proxyUrl,
-                            httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'wait la po...',
-                                    style: TextStyle(
-                                      color: Color(0xFFFFFFFF),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => const Center(
-                              child: Text('Failed to load image'),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            color: Colors.white,
-                            child: Padding(
+                        if (imageUrl.contains('drive.google.com/uc?id=')) {
+                          final uri = Uri.parse(imageUrl);
+                          final fileId = uri.queryParameters['id'];
+                          proxyUrl = fileId != null
+                              ? GoogleDriveService.generateProxyUrl(fileId)
+                              : imageUrl;
+                        } else {
+                          proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
+                        }
+
+                        return Column(
+                          children: [
+                            Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Text(
                                 fileName,
@@ -413,190 +394,202 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                 textAlign: TextAlign.center,
                               ),
                             ),
+                            Expanded(
+                              child: InteractiveViewer(
+                                child: Center(
+                                  child: CachedNetworkImage(
+                                    imageUrl: proxyUrl,
+                                    httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) => const Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          CircularProgressIndicator(),
+                                          SizedBox(height: 16),
+                                          Text(
+                                            'Please wait...',
+                                            style: TextStyle(
+                                              color: Color.fromARGB(255, 56, 56, 56),
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => const Center(
+                                      child: Text('Failed to load image'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    /// NAVIGATION ARROWS
+                    if (document.imageUrls.length > 1) ...[
+                      Positioned(
+                        left: 10,
+                        top: MediaQuery.of(context).size.height * 0.5 - 25,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
+                          onPressed: () {
+                            if (pageController.page! > 0) {
+                              pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        right: 10,
+                        top: MediaQuery.of(context).size.height * 0.5 - 25,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
+                          onPressed: () {
+                            if (pageController.page! < document.imageUrls.length - 1) {
+                              pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+
+                    /// TOP RIGHT BUTTONS
+                    Positioned(
+                      top: 40,
+                      right: 20,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.download,
+                              color: Colors.black,
+                              size: 30,
+                            ),
+                            onPressed: isDownloading
+                                ? null
+                                : () async {
+                                    setState(() {
+                                      isDownloading = true;
+                                      isSuccess = false;
+                                    });
+
+                                    try {
+                                      await ImageDownloadService.downloadAndSave(
+                                          document.imageUrls[currentIndex]);
+
+                                      if (context.mounted) {
+                                        setState(() {
+                                          isDownloading = false;
+                                          isSuccess = true;
+                                        });
+
+                                        // Auto hide success after 1.5 seconds
+                                        await Future.delayed(
+                                            const Duration(milliseconds: 1500));
+
+                                        if (context.mounted) {
+                                          setState(() {
+                                            isSuccess = false;
+                                          });
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        setState(() {
+                                          isDownloading = false;
+                                        });
+
+                                        SnackbarUtils.showErrorSnackBar(
+                                          context,
+                                          e.toString().replaceAll('Exception: ', ''),
+                                        );
+                                      }
+                                    }
+                                  },
+                            tooltip: 'Download Image',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close,
+                                color: Colors.black, size: 30),
+                            onPressed: () =>
+                                Navigator.pop(dialogContext),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    /// LOADING / SUCCESS OVERLAY
+                    if (isDownloading || isSuccess)
+                      Container(
+                        color: Colors.black.withOpacity(0.4),
+                        child: Center(
+                          child: AnimatedSwitcher(
+                            duration:
+                                const Duration(milliseconds: 300),
+                            child: isDownloading
+                                ? const CircularProgressIndicator(
+                                    key: ValueKey('loading'),
+                                    color: Colors.white,
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.check, color: Colors.green, size: 48),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'Saved!',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              if (document.imageUrls.length > 1) ...[
-                Positioned(
-                  left: 10,
-                  top: MediaQuery.of(context).size.height * 0.5 - 25,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
-                    onPressed: () {
-                      if (pageController.page! > 0) {
-                        pageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: MediaQuery.of(context).size.height * 0.5 - 25,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
-                    onPressed: () {
-                      if (pageController.page! < document.imageUrls.length - 1) {
-                        pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-              Positioned(
-                top: 40,
-                right: 20,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.download, color: Colors.black, size: 30),
-                      onPressed: () => _downloadImage(context, document.imageUrls.isNotEmpty ? document.imageUrls[0] : ''),
-                      tooltip: 'Download Image',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.black, size: 30),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                      ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Future<int> _getAndroidVersion() async {
-    if (!Platform.isAndroid) return 0;
-    try {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.version.sdkInt;
-    } catch (e) {
-      return 0;
-    }
-  }
-
   void _downloadImage(BuildContext context, String imageUrl) async {
-    if (imageUrl.isEmpty) {
-      SnackbarUtils.showErrorSnackBar(context, 'No image to download');
-      return;
-    }
     try {
-      // Extract file ID from the URL
-      String normalizedFileId = GoogleDriveService.normalizeFileId(imageUrl);
-      // Build direct download URL
-      String downloadUrl = 'https://drive.google.com/uc?id=$normalizedFileId&export=download';
+      await ImageDownloadService.downloadAndSave(imageUrl);
 
-      if (kIsWeb) {
-        // Web: Open in browser
-        final uri = Uri.parse(downloadUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          SnackbarUtils.showErrorSnackBar(context, 'Could not open download link');
-        }
-      } else {
-        // Mobile: Request permissions and save to gallery using GallerySaver
-        bool hasPermission = false;
-
-        if (Platform.isAndroid) {
-          final androidVersion = await _getAndroidVersion();
-          if (androidVersion >= 33) {
-            // Android 13+ (API 33+): Use granular photos permission
-            final photosStatus = await Permission.photos.request();
-            hasPermission = photosStatus.isGranted || photosStatus.isLimited;
-          } else if (androidVersion >= 29) {
-            // Android 10-12: Use storage permission (scoped storage)
-            final storageStatus = await Permission.storage.request();
-            hasPermission = storageStatus.isGranted;
-          } else {
-            // Android 9 and below: Need write external storage
-            final status = await Permission.storage.request();
-            hasPermission = status.isGranted;
-          }
-        } else {
-          // iOS or other platforms
-          final status = await Permission.photos.request();
-          hasPermission = status.isGranted || status.isLimited;
-        }
-
-        if (hasPermission) {
-          // Show loading indicator
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Row(
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    ),
-                    SizedBox(width: 16),
-                    Text('Downloading and saving to gallery...'),
-                  ],
-                ),
-                duration: Duration(seconds: 10),
-              ),
-            );
-          }
-
-          // Download image to temporary file first
-          final tempDir = await getTemporaryDirectory();
-          final fileName = 'doc_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final tempPath = '${tempDir.path}/$fileName';
-
-          await Dio().download(downloadUrl, tempPath);
-
-          // Read file as bytes and save to gallery
-          final bytes = await File(tempPath).readAsBytes();
-          await FlutterImageGallerySaver.saveImage(bytes);
-
-          // Clean up temporary file
-          try {
-            await File(tempPath).delete();
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            SnackbarUtils.showSuccessSnackBar(
-              context,
-              'Image saved to gallery',
-              duration: const Duration(seconds: 5),
-            );
-          }
-        } else {
-          // Permission denied - show message
-          if (context.mounted) {
-            SnackbarUtils.showErrorSnackBar(
-              context,
-              'Photos permission required to download images',
-            );
-          }
-        }
+      if (context.mounted) {
+        SnackbarUtils.showSuccessSnackBar(
+          context,
+          'Image saved to gallery',
+          duration: const Duration(seconds: 4),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        SnackbarUtils.showErrorSnackBar(context, 'Failed to download image: $e');
+        SnackbarUtils.showErrorSnackBar(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+        );
       }
     }
   }
-
 
   void _showFileDialog(BuildContext context, Document document) {
     final allFiles = <String>[];
