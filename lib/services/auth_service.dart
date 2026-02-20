@@ -93,7 +93,6 @@ class AuthService {
       final userId = response['id'];
       final storedHash = response['password_hash'];
 
-      print('Fetched user ID: $userId, stored hash: $storedHash');
 
       // Verify password
       if (!BCrypt.checkpw(password, storedHash)) {
@@ -150,7 +149,7 @@ class AuthService {
         'expires_at': expiresAt.toIso8601String(),
       });
 
-      print('Inserted reset record for token: $resetToken');
+      // print('Inserted reset record for token: $resetToken');
       return resetToken;
     } catch (e) {
       print('Password reset request error: $e');

@@ -2,6 +2,7 @@ import 'package:com.cpdco.docutracker/screens/add_attendance_movs_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/image_download_service.dart';
@@ -1072,12 +1073,64 @@ class _AttendanceMovsScreenState
     );
   }
 
+  /// Extract file ID from various Google Drive URL formats
+  String? _extractFileId(String url) {
+    if (url.contains('drive.google.com')) {
+      final uri = Uri.parse(url);
+      if (url.contains('/file/d/')) {
+        // Format: https://drive.google.com/file/d/FILE_ID/view
+        final segments = uri.pathSegments;
+        final fileIndex = segments.indexOf('d');
+        if (fileIndex != -1 && fileIndex + 1 < segments.length) {
+          return segments[fileIndex + 1];
+        }
+      } else if (url.contains('uc?id=')) {
+        // Format: https://drive.google.com/uc?id=FILE_ID
+        return uri.queryParameters['id'];
+      }
+    }
+    // Assume it's already a file ID if it matches the pattern
+    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) {
+      return url;
+    }
+    return null;
+  }
+
+  /// Build download URL for web platform
+  String _buildDownloadUrl(String fileId) {
+    return 'https://drive.google.com/uc?id=$fileId&export=download';
+  }
+
+  /// Build preview URL for mobile/desktop platforms
+  String _buildPreviewUrl(String fileId) {
+    return 'https://drive.google.com/file/d/$fileId/view?usp=sharing';
+  }
+
   void _viewFile(String filePath) async {
-    final uri = Uri.parse(filePath);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      // Handle error
+    try {
+      final fileId = _extractFileId(filePath);
+      if (fileId == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
+        return;
+      }
+
+      String urlToLaunch;
+      if (kIsWeb) {
+        // Web: Use direct download link
+        urlToLaunch = _buildDownloadUrl(fileId);
+      } else {
+        // Mobile/Desktop: Use Drive preview link
+        urlToLaunch = _buildPreviewUrl(fileId);
+      }
+
+      final uri = Uri.parse(urlToLaunch);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+      }
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
   }
 
