@@ -47,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDocuments() async {
     try {
       final loadedDocuments = await _documentService.fetchDocuments();
-      print('Loaded documents: ${loadedDocuments.map((d) => '${d.code}: incoming=${d.incoming}').toList()}');
       setState(() {
         documents = loadedDocuments;
         _isLoading = false;

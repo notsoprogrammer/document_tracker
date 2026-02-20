@@ -78,6 +78,7 @@ class GoogleDriveService {
       'Cash Advance',
       'L&D/IDP/DNA',
       'Budget',
+      'Others',
     ].contains(category)) {
       return _certificatesFolderId; // Support Function -> certificates
     } else {

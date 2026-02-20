@@ -26,7 +26,7 @@ class CachedDocumentService {
     try {
       // Access the database to trigger any pending upgrades
       await _localDb.database;
-      debugPrint('Database schema check completed');
+      // debugPrint('Database schema check completed');
     } catch (e) {
       debugPrint('Error ensuring database schema: $e');
     }
@@ -64,7 +64,7 @@ class CachedDocumentService {
               // If local document exists in remote and is marked as needing sync, mark as synced
               if (localDoc.needsSync) {
                 await _localDb.updateDocument(localDoc.code, {'needs_sync': 0});
-                debugPrint('Marked local document ${localDoc.code} as synced (already exists in remote)');
+                // debugPrint('Marked local document ${localDoc.code} as synced (already exists in remote)');
               }
             }
           }
@@ -189,7 +189,7 @@ class CachedDocumentService {
               // Extract file ID from URL if needed
               final fileId = GoogleDriveService.normalizeFileId(driveUrl);
               await GoogleDriveService.deleteFile(fileId);
-              debugPrint('Deleted Drive file: $fileId');
+              // debugPrint('Deleted Drive file: $fileId');
             } catch (e) {
               debugPrint('Failed to delete Drive file $driveUrl: $e');
               // Continue with other files even if one fails
@@ -207,7 +207,7 @@ class CachedDocumentService {
           // Delete locally after successful remote deletion
           await _localDb.deleteDocument(documentCode);
           
-          debugPrint('Document $documentCode deleted successfully (online)');
+          // debugPrint('Document $documentCode deleted successfully (online)');
         } catch (e) {
           print('Failed to delete from remote: $e');
           rethrow;
@@ -237,7 +237,7 @@ class CachedDocumentService {
           );
         }
         
-        debugPrint('Document $documentCode marked for deletion (offline)');
+        // debugPrint('Document $documentCode marked for deletion (offline)');
       }
     } catch (e) {
       print('Error deleting document: $e');
@@ -248,7 +248,7 @@ class CachedDocumentService {
   /// Sync pending deletions to Supabase
   Future<void> syncPendingDeletions() async {
     if (!(await isOnline)) {
-      debugPrint('Device is offline - skipping pending deletions sync');
+      // debugPrint('Device is offline - skipping pending deletions sync');
       return;
     }
 
@@ -256,11 +256,11 @@ class CachedDocumentService {
       final pendingDeletions = await _localDb.getPendingDeletions();
       
       if (pendingDeletions.isEmpty) {
-        debugPrint('No pending deletions to sync');
+        // debugPrint('No pending deletions to sync');
         return;
       }
 
-      debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
+      // debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
       int successCount = 0;
 
       for (final deletion in pendingDeletions) {
@@ -283,14 +283,14 @@ class CachedDocumentService {
           await _localDb.deletePendingDeletionRecord(deletionId);
           
           successCount++;
-          debugPrint('Synced deletion for document $docCode');
+          // debugPrint('Synced deletion for document $docCode');
         } catch (e) {
           debugPrint('Failed to sync deletion for ${deletion['doc_code']}: $e');
           // Continue with next deletion
         }
       }
 
-      debugPrint('Synced $successCount of ${pendingDeletions.length} pending deletions');
+      // debugPrint('Synced $successCount of ${pendingDeletions.length} pending deletions');
     } catch (e) {
       debugPrint('Error syncing pending deletions: $e');
     }
@@ -303,7 +303,7 @@ class CachedDocumentService {
         final docs = await _localDb.fetchDocuments();
         final doc = docs.firstWhere((d) => d.code == documentCode);
         if (doc.history.isNotEmpty && doc.history.last.action == 'Files Uploaded') {
-          debugPrint('Skipping duplicate "Files Uploaded" history entry for document $documentCode');
+          // debugPrint('Skipping duplicate "Files Uploaded" history entry for document $documentCode');
           return;
         }
       }
@@ -413,7 +413,7 @@ class CachedDocumentService {
   }) async {
     // Check offline
     if (!(await isOnline)) {
-      debugPrint('Device is offline - skipping sync');
+      // debugPrint('Device is offline - skipping sync');
       if (context.mounted && showMessages) {
         SnackbarUtils.showWarningSnackBar(context, 'Device is offline - sync skipped');
       }
@@ -538,7 +538,7 @@ class CachedDocumentService {
 
     // Prevent concurrent processing
     if (!queueManager.startProcessing()) {
-      debugPrint('Upload processing already in progress, skipping');
+      // debugPrint('Upload processing already in progress, skipping');
       return;
     }
 
@@ -605,8 +605,13 @@ class CachedDocumentService {
             'Cash Advance',
             'L&D/IDP/DNA',
             'Budget',
+            'Others'
           ].contains(doc.category)) {
             folder = DriveFolder.certificates; // Support Function -> certificates
+          } else if (doc.mode == 'Office Function MOVs') {
+            // For Office Function MOVs with category not in predefined lists (e.g., "Others"),
+            // use movs folder as default for Office Function MOVs
+            folder = DriveFolder.movs;
           } else if (doc.incoming) {
             folder = DriveFolder.incoming;
           } else {
@@ -619,7 +624,7 @@ class CachedDocumentService {
           // Check if this is a web camera image (blob URL that we can't handle)
           if (kIsWeb && upload['localPath'].startsWith('blob:')) {
             // Skip blob URLs - these should have been replaced with bytes in the screens
-            debugPrint('Skipping blob URL upload: ${upload['localPath']}');
+            // debugPrint('Skipping blob URL upload: ${upload['localPath']}');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
@@ -635,7 +640,7 @@ class CachedDocumentService {
               docFileName,
               folder: folder,
             );
-            debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
+            // debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
             uploadedFileName = docFileName;
           } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
             // Regular file - use existing methods (only for non-web or non-web-prefixed files)
@@ -647,7 +652,7 @@ class CachedDocumentService {
                 fileName,
                 folder: folder,
               );
-              debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
+              // debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
               // For images, the uploaded filename is fileName + extension
               final extension = upload['localPath'].split('.').last.toLowerCase();
               uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
@@ -661,12 +666,12 @@ class CachedDocumentService {
                 docFileName,
                 folder: folder,
               );
-              debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
+              // debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
               uploadedFileName = docFileName;
             }
           } else {
             // Web file without bytes - this shouldn't happen with our new implementation
-            debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
+            // debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
@@ -747,7 +752,7 @@ class CachedDocumentService {
             queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
             hasCompletedUploads = true;
             documentsWithUploads.add(documentCode);
-            debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
+            // debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
           } else {
             throw Exception('Upload returned null URL');
           }
