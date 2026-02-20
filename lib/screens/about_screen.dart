@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -215,6 +216,24 @@ class _AboutScreenState extends State<AboutScreen> {
                             "For technical support or questions about the FileTrack Hub application, please contact the City Planning and Development Coordinator's Office IT support team.",
                             style: Theme.of(context).textTheme.bodyLarge,
                           ),
+                          const SizedBox(height: 4),
+                          RichText(
+                            text: TextSpan(
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              children: [
+                                const TextSpan(text: "Download APK: "),
+                                TextSpan(
+                                  text: "here",
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  recognizer: TapGestureRecognizer()..onTap = () => _openDownloadLink(),
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             "Version: $_appVersion",
@@ -426,5 +445,12 @@ class _AboutScreenState extends State<AboutScreen> {
         );
       },
     );
+  }
+
+  void _openDownloadLink() async {
+    const url = "https://drive.google.com/file/d/1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6/view?usp=drive_link";
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
   }
 }
