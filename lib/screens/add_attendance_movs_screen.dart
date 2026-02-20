@@ -217,6 +217,9 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             if (imageFiles.isNotEmpty) {
                               final currentIndex = _pageController.page?.round() ?? 0;
                               setState(() {
+                                // Remove from upload queue
+                                final queueManager = UploadQueueManager();
+                                queueManager.removeFromQueue(codeController.text, imageFiles[currentIndex]);
                                 _selectedImagePaths.remove(imageFiles[currentIndex]);
                               });
                               setStateDialog(() {
@@ -690,6 +693,9 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                               return Chip(
                                 label: Text(fileName),
                                 onDeleted: _isSaving ? null : () {
+                                  // Remove from upload queue
+                                  final queueManager = UploadQueueManager();
+                                  queueManager.removeFromQueue(codeController.text, path);
                                   setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );

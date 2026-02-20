@@ -191,6 +191,9 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                             if (imageFiles.isNotEmpty) {
                               final currentIndex = _pageController.page?.round() ?? 0;
                               setState(() {
+                                // Remove from upload queue
+                                final queueManager = UploadQueueManager();
+                                queueManager.removeFromQueue(widget.document.code, imageFiles[currentIndex]);
                                 _selectedImagePaths.remove(imageFiles[currentIndex]);
                               });
                               setStateDialog(() {
@@ -861,6 +864,9 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                               return Chip(
                                 label: Text(fileName),
                                 onDeleted: _isSaving ? null : () {
+                                  // Remove from upload queue
+                                  final queueManager = UploadQueueManager();
+                                  queueManager.removeFromQueue(widget.document.code, path);
                                   setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );

@@ -318,6 +318,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           onPressed: () {
                             if (_selectedImagePaths.isNotEmpty) {
                               final currentIndex = _pageController.page?.round() ?? 0;
+                              final removedPath = _selectedImagePaths[currentIndex];
+                              // Remove from upload queue
+                              final queueManager = UploadQueueManager();
+                              queueManager.removeFromQueue(codeController.text, removedPath);
                               setState(() {
                                 _selectedImagePaths.removeAt(currentIndex);
                               });
@@ -1156,6 +1160,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                               return Chip(
                                 label: Text(fileName),
                                 onDeleted: _isSaving ? null : () {
+                                  // Remove from upload queue
+                                  final queueManager = UploadQueueManager();
+                                  queueManager.removeFromQueue(codeController.text, path);
                                   setState(() => _selectedDocumentPaths.remove(path));
                                 },
                               );
