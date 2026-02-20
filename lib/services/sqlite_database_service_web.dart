@@ -370,4 +370,80 @@ class SQLiteDatabaseService {
     final box = await _activities;
     await box.delete(activityId);
   }
+
+  // Pending uploads methods (stub implementations for web)
+  // Note: Web version uses in-memory queue in UploadQueueManager instead of SQLite persistence
+
+  /// Add a pending upload to the queue (stub for web - uploads are handled in-memory)
+  Future<void> addPendingUpload({
+    required String documentCode,
+    required String filePath,
+    required bool isImage,
+    required String localPath,
+    String status = 'pending',
+    int retryCount = 0,
+  }) async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+    // This method exists for API compatibility but does nothing in web
+    print('addPendingUpload called on web - uploads handled in-memory');
+  }
+
+  /// Get all pending uploads (stub for web - uploads are handled in-memory)
+  Future<List<Map<String, dynamic>>> getPendingUploads() async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+    // This method exists for API compatibility but returns empty list
+    print('getPendingUploads called on web - uploads handled in-memory');
+    return [];
+  }
+
+  /// Remove a pending upload by document code and file path (stub for web)
+  Future<void> removePendingUploadByDocumentAndPath(String documentCode, String filePath) async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+    print('removePendingUploadByDocumentAndPath called on web - uploads handled in-memory');
+  }
+
+  /// Update the status of a pending upload (stub for web)
+  Future<void> updatePendingUploadStatus(int id, String status, {int? retryCount}) async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+    print('updatePendingUploadStatus called on web - uploads handled in-memory');
+  }
+
+  /// Reset any stuck uploads (stub for web)
+  Future<void> resetStuckUploads() async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+    // This method exists for API compatibility but does nothing in web
+    print('resetStuckUploads called on web - uploads handled in-memory');
+  }
+
+  // Pending drive deletions methods (stub implementations for web)
+  // Note: Web version cannot directly delete Drive files - user must be on mobile
+
+  /// Add a pending drive deletion (stub for web)
+  Future<void> addPendingDriveDeletion({
+    required String fileId,
+    required String documentCode,
+  }) async {
+    // Stub: Web version cannot directly delete Drive files
+    // This method exists for API compatibility but does nothing in web
+    print('addPendingDriveDeletion called on web - Drive deletion not supported on web');
+  }
+
+  /// Get pending drive deletions (stub for web)
+  Future<List<Map<String, dynamic>>> getPendingDriveDeletions() async {
+    // Stub: Web version cannot directly delete Drive files
+    print('getPendingDriveDeletions called on web - returning empty list');
+    return [];
+  }
+
+  /// Delete a pending drive deletion record (stub for web)
+  Future<void> deletePendingDriveDeletionRecord(int id) async {
+    // Stub: Web version cannot directly delete Drive files
+    print('deletePendingDriveDeletionRecord called on web - Drive deletion not supported on web');
+  }
+
+  /// Delete a pending drive deletion by file ID (stub for web)
+  Future<void> deletePendingDriveDeletionByFileId(String fileId) async {
+    // Stub: Web version cannot directly delete Drive files
+    print('deletePendingDriveDeletionByFileId called on web - Drive deletion not supported on web');
+  }
 }
