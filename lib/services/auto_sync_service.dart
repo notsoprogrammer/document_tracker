@@ -5,6 +5,7 @@ import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
 import 'connectivity_service.dart';
+import 'upload_queue_manager.dart';
 import '../utils/date_time_utils.dart';
 
 /// Auto-sync service to handle unsynced documents periodically and when online
@@ -20,6 +21,9 @@ class AutoSyncService {
     try {
       // Initialize connectivity service
       await ConnectivityService().initialize();
+
+      // Initialize upload queue from SQLite persistence
+      await UploadQueueManager().initialize();
 
       // Register for reconnection events
       ConnectivityService().registerReconnectionCallback(_onReconnection);

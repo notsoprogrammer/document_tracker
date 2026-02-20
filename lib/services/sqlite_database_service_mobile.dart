@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 22,
+      version: 23,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -359,6 +359,38 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
+    if (oldVersion < 23) {
+      // Add pending_uploads table for offline upload queue persistence
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS pending_uploads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_code TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            is_image INTEGER NOT NULL DEFAULT 1,
+            local_path TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            timestamp TEXT NOT NULL
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
+      }
+      // Add pending_drive_deletions table for offline Drive file deletion
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS pending_drive_deletions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_id TEXT NOT NULL,
+            document_code TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        ''');
+      } catch (e) {
+        // Table might already exist
+      }
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -640,5 +672,109 @@ class SQLiteDatabaseService {
   Future<void> deleteActivity(int activityId) async {
     final db = await database;
     await db.delete('activities', where: 'id = ?', whereArgs: [activityId]);
+  }
+
+  // Pending uploads methods (for offline upload queue persistence)
+  Future<void> addPendingUpload({
+    required String documentCode,
+    required String filePath,
+    required bool isImage,
+    required String localPath,
+    String status = 'pending',
+    int retryCount = 0,
+  }) async {
+    final db = await database;
+    await db.insert('pending_uploads', {
+      'document_code': documentCode,
+      'file_path': filePath,
+      'is_image': isImage ? 1 : 0,
+      'local_path': localPath,
+      'status': status,
+      'retry_count': retryCount,
+      'timestamp': getPhilippineTime().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingUploads() async {
+    final db = await database;
+    return await db.query(
+      'pending_uploads',
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingUploadsByDocument(String documentCode) async {
+    final db = await database;
+    return await db.query(
+      'pending_uploads',
+      where: 'document_code = ?',
+      whereArgs: [documentCode],
+      orderBy: 'timestamp ASC',
+    );
+  }
+
+  Future<void> removePendingUpload(int id) async {
+    final db = await database;
+    await db.delete('pending_uploads', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> removePendingUploadByDocumentAndPath(String documentCode, String filePath) async {
+    final db = await database;
+    await db.delete(
+      'pending_uploads',
+      where: 'document_code = ? AND file_path = ?',
+      whereArgs: [documentCode, filePath],
+    );
+  }
+
+  Future<void> updatePendingUploadStatus(int id, String status, {int? retryCount}) async {
+    final db = await database;
+    final updates = <String, dynamic>{'status': status};
+    if (retryCount != null) {
+      updates['retry_count'] = retryCount;
+    }
+    await db.update('pending_uploads', updates, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> resetStuckUploads() async {
+    // Reset any 'uploading' status back to 'pending' (in case app crashed during upload)
+    final db = await database;
+    await db.update(
+      'pending_uploads',
+      {'status': 'pending'},
+      where: 'status = ?',
+      whereArgs: ['uploading'],
+    );
+  }
+
+  // Pending drive deletions methods (for offline Drive file deletion)
+  Future<void> addPendingDriveDeletion({
+    required String fileId,
+    required String documentCode,
+  }) async {
+    final db = await database;
+    await db.insert('pending_drive_deletions', {
+      'file_id': fileId,
+      'document_code': documentCode,
+      'created_at': getPhilippineTime().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingDriveDeletions() async {
+    final db = await database;
+    return await db.query(
+      'pending_drive_deletions',
+      orderBy: 'created_at ASC',
+    );
+  }
+
+  Future<void> deletePendingDriveDeletionRecord(int id) async {
+    final db = await database;
+    await db.delete('pending_drive_deletions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deletePendingDriveDeletionByFileId(String fileId) async {
+    final db = await database;
+    await db.delete('pending_drive_deletions', where: 'file_id = ?', whereArgs: [fileId]);
   }
 }

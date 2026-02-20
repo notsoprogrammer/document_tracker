@@ -176,10 +176,26 @@ class CachedDocumentService {
       final document = localDocs.firstWhere((doc) => doc.code == documentCode);
       final username = await AuthService.getUsername();
 
+      // Get all Drive URLs that need to be deleted
+      final allDriveUrls = [...document.imageUrls, ...document.fileUrls];
+
       // Check if online
       if (await isOnline) {
         // Online: Delete immediately and log to Supabase
         try {
+          // Delete all Drive files first
+          for (final driveUrl in allDriveUrls) {
+            try {
+              // Extract file ID from URL if needed
+              final fileId = GoogleDriveService.normalizeFileId(driveUrl);
+              await GoogleDriveService.deleteFile(fileId);
+              debugPrint('Deleted Drive file: $fileId');
+            } catch (e) {
+              debugPrint('Failed to delete Drive file $driveUrl: $e');
+              // Continue with other files even if one fails
+            }
+          }
+
           // Delete from remote first
           await _remoteDb.deleteDocument(documentCode);
           
@@ -209,6 +225,15 @@ class CachedDocumentService {
             deletedBy: username,
             docCode: documentCode,
             title: document.title ?? documentCode,
+          );
+        }
+
+        // Also queue Drive file deletions for when back online
+        for (final driveUrl in allDriveUrls) {
+          final fileId = GoogleDriveService.normalizeFileId(driveUrl);
+          await _localDb.addPendingDriveDeletion(
+            fileId: fileId,
+            documentCode: documentCode,
           );
         }
         
