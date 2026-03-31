@@ -190,6 +190,21 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     });
   }
 
+  Future<void> _refreshDocuments() async {
+    final allDocs = await CachedDocumentService().fetchDocuments();
+    if (!mounted) return;
+    setState(() {
+      _expandedTiles.clear();
+      _filteredDocuments = searchAndFilterDocuments(
+        allDocs.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
+        searchQuery: _searchQuery,
+        startDate: _startDate,
+        endDate: _endDate,
+        specificDate: _specificDate,
+      );
+    });
+  }
+
   String _formatDateTime(DateTime dateTime) {
     // Timestamps are already in Philippine time
     final hour = dateTime.hour;
@@ -1116,6 +1131,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               builder: (context) => const AddDocumentScreen(incoming: false),
             ),
           );
+          await _refreshDocuments();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }

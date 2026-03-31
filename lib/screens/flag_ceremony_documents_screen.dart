@@ -272,6 +272,32 @@ class _FlagCeremonyDocumentsScreenState
     });
   }
 
+  Future<void> _refreshDocuments() async {
+    final allDocs = await CachedDocumentService().fetchDocuments();
+    if (!mounted) return;
+    setState(() {
+      _filteredDocuments = allDocs.where((doc) {
+        if (doc.mode != 'Flag Ceremony') return false;
+        bool matchesSearch =
+            _searchQuery.isEmpty ||
+            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.status.toLowerCase().contains(_searchQuery.toLowerCase());
+        bool matchesDate = true;
+        if (_startDate != null || _endDate != null) {
+          final docDate = _parseDate(doc.fromOrTo);
+          if (_startDate != null && docDate.isBefore(_startDate!)) matchesDate = false;
+          if (_endDate != null && docDate.isAfter(_endDate!)) matchesDate = false;
+        }
+        return matchesSearch && matchesDate;
+      }).toList()
+        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ConnectivityBanner(
@@ -284,6 +310,7 @@ class _FlagCeremonyDocumentsScreenState
               builder: (context) => const AddFlagCeremonyScreen(),
             ),
           );
+          await _refreshDocuments();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }

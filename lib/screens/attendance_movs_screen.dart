@@ -281,6 +281,33 @@ class _AttendanceMovsScreenState
     });
   }
 
+  Future<void> _refreshDocuments() async {
+    final allDocs = await CachedDocumentService().fetchDocuments();
+    if (!mounted) return;
+    setState(() {
+      _filteredDocuments = allDocs.where((doc) {
+        if (doc.mode != 'Office Function MOVs') return false;
+        bool matchesSearch =
+            _searchQuery.isEmpty ||
+            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+            (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        bool matchesDate = true;
+        if (_startDate != null || _endDate != null) {
+          final docDate = _parseDate(doc.fromOrTo);
+          if (_startDate != null && docDate.isBefore(_startDate!)) matchesDate = false;
+          if (_endDate != null && docDate.isAfter(_endDate!)) matchesDate = false;
+        }
+        return matchesSearch && matchesDate;
+      }).toList()
+        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ConnectivityBanner(
@@ -293,6 +320,7 @@ class _AttendanceMovsScreenState
               builder: (context) => const AddAttendanceMovScreen(),
             ),
           );
+          await _refreshDocuments();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }

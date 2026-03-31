@@ -131,6 +131,26 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     });
   }
 
+  Future<void> _refreshDocuments() async {
+    final allDocs = await CachedDocumentService().fetchDocuments();
+    if (!mounted) return;
+    setState(() {
+      _expandedTiles.clear();
+      _filteredDocuments = searchAndFilterDocuments(
+        allDocs.where((doc) => doc.flowStage == 'incoming').toList(),
+        searchQuery: _searchQuery,
+        startDate: _startDate,
+        endDate: _endDate,
+        specificDate: _specificDate,
+      );
+      _filteredDocuments.sort((a, b) {
+        final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+        final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+        return bDate.compareTo(aDate);
+      });
+    });
+  }
+
   String _formatDateTime(DateTime dateTime) {
     // Timestamps are already in Philippine time
     final hour = dateTime.hour;
@@ -1369,6 +1389,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
               builder: (context) => const AddDocumentScreen(incoming: true),
             ),
           );
+          await _refreshDocuments();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }
