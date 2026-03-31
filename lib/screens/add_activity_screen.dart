@@ -195,7 +195,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                               final date = await showDatePicker(
                                 context: context,
                                 initialDate: selectedStartDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
+                                firstDate: DateTime(2020),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {
@@ -251,7 +251,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                               final date = await showDatePicker(
                                 context: context,
                                 initialDate: selectedEndDate ?? selectedStartDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
+                                firstDate: DateTime(2020),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
                               if (date != null) {

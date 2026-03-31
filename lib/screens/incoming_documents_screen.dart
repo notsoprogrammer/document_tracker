@@ -618,7 +618,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                             final date = await showDatePicker(
                               context: context,
                               initialDate: selectedDeadline ?? DateTime.now(),
-                              firstDate: DateTime.now(),
+                              firstDate: DateTime(2020),
                               lastDate: DateTime.now().add(const Duration(days: 365)),
                             );
                             if (date != null) {
