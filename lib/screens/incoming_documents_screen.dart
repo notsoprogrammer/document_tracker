@@ -1099,6 +1099,28 @@ Widget _buildUploadStatusIndicator(Document doc) {
       final xFiles = <XFile>[];
       final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*\r\n]'), '').replaceAll(RegExp(r'\s+'), '_').trim();
 
+      // Downloads a Google Drive file with a 30 s timeout.
+      // Handles the virus-scan confirmation page that Drive returns for some files:
+      // Drive responds 200 with HTML instead of the file — we detect this, extract
+      // the confirm token, and retry the download with it.
+      Future<List<int>?> fetchGDriveBytes(String url) async {
+        try {
+          var res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+          if (res.statusCode != 200) return null;
+          final ct = res.headers['content-type'] ?? '';
+          if (ct.contains('text/html')) {
+            final m = RegExp(r'confirm=([0-9A-Za-z_-]+)').firstMatch(res.body);
+            if (m == null) return null;
+            res = await http.get(Uri.parse('$url&confirm=${m.group(1)}')).timeout(const Duration(seconds: 30));
+            if (res.statusCode != 200) return null;
+            if ((res.headers['content-type'] ?? '').contains('text/html')) return null;
+          }
+          return res.bodyBytes;
+        } catch (_) {
+          return null;
+        }
+      }
+
       String? toDownloadUrl(String url) {
         if (url.contains('uc?id=')) {
           return url.contains('export=download') ? url : '$url&export=download';
@@ -1112,41 +1134,56 @@ Widget _buildUploadStatusIndicator(Document doc) {
       for (int i = 0; i < doc.imageUrls.length; i++) {
         final dlUrl = toDownloadUrl(doc.imageUrls[i]);
         if (dlUrl == null) continue;
-        final res = await http.get(Uri.parse(dlUrl));
-        if (res.statusCode == 200) {
+        final bytes = await fetchGDriveBytes(dlUrl);
+        if (bytes != null) {
           final file = File('${tempDir.path}/${safeTitle}_${i + 1}.jpg');
-          await file.writeAsBytes(res.bodyBytes);
+          await file.writeAsBytes(bytes);
           xFiles.add(XFile(file.path, mimeType: 'image/jpeg'));
         }
       }
 
-      for (int i = 0; i < doc.fileUrls.length; i++) {
-        final dlUrl = toDownloadUrl(doc.fileUrls[i]);
-        if (dlUrl == null) continue;
-        final name = i < doc.fileNames.length ? doc.fileNames[i] : 'file_$i.pdf';
-        final ext = name.contains('.') ? name.split('.').last.toLowerCase() : 'pdf';
-        final res = await http.get(Uri.parse(dlUrl));
-        if (res.statusCode == 200) {
-          final file = File('${tempDir.path}/${safeTitle}_${i + 1}.$ext');
-          await file.writeAsBytes(res.bodyBytes);
-          xFiles.add(XFile(file.path));
+      // PDFs → Google Drive view links (no download; Messenger can't open PDFs natively)
+      String? toViewLink(String url) {
+        if (url.contains('uc?id=')) {
+          final id = Uri.parse(url).queryParameters['id'];
+          if (id != null) return 'https://drive.google.com/file/d/$id/view';
+          return null;
         }
+        final m = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(url);
+        if (m != null) return 'https://drive.google.com/file/d/${m.group(1)}/view';
+        if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) return 'https://drive.google.com/file/d/$url/view';
+        return null;
+      }
+
+      final pdfLinks = <String>[];
+      for (final fileUrl in doc.fileUrls) {
+        final link = toViewLink(fileUrl);
+        if (link != null) pdfLinks.add(link);
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
+      // Clipboard: title + any PDF links so user can paste them in Messenger
+      final clipboardText = pdfLinks.isEmpty
+          ? title
+          : '$title\n\n${pdfLinks.join('\n')}';
+      await Clipboard.setData(ClipboardData(text: clipboardText));
+
+      if (mounted) {
+        final msg = pdfLinks.isEmpty
+            ? 'Title copied to clipboard — paste it as your message in Messenger'
+            : 'PDF links copied to clipboard — paste them in Messenger after sending the images';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
+        );
+      }
+
       if (xFiles.isNotEmpty) {
-        await Clipboard.setData(ClipboardData(text: title));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Title copied to clipboard — paste it as your message in Messenger'),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-        await Share.shareXFiles(xFiles, subject: title, text: title);
+        // Omit text: title — Messenger drops attached files when a text extra is present.
+        await Share.shareXFiles(xFiles, subject: title);
+      } else if (pdfLinks.isNotEmpty) {
+        await Share.share(clipboardText, subject: title);
       } else {
         Share.share(title, subject: title);
       }
