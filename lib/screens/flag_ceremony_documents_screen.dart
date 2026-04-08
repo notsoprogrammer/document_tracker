@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../services/image_download_service.dart';
 import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
@@ -646,17 +649,89 @@ class _FlagCeremonyDocumentsScreenState
   }
 
 
-  void _shareDocument(Document doc) {
+  Future<void> _shareDocument(Document doc) async {
     final title = (doc.title != null && doc.title!.isNotEmpty)
         ? '${doc.type} - ${doc.title}'
         : doc.type;
-    final allUrls = [...doc.imageUrls, ...doc.fileUrls];
-    final lines = <String>[title];
-    if (allUrls.isNotEmpty) {
-      lines.add('');
-      lines.addAll(allUrls);
+
+    if (doc.imageUrls.isEmpty && doc.fileUrls.isEmpty) {
+      Share.share(title, subject: title);
+      return;
     }
-    Share.share(lines.join('\n'), subject: title);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(children: [
+          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          SizedBox(width: 12),
+          Text('Preparing files to share...'),
+        ]),
+        duration: Duration(seconds: 60),
+      ),
+    );
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final xFiles = <XFile>[];
+      final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*\r\n]'), '').replaceAll(RegExp(r'\s+'), '_').trim();
+
+      String? toDownloadUrl(String url) {
+        if (url.contains('uc?id=')) {
+          return url.contains('export=download') ? url : '$url&export=download';
+        }
+        final m = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(url);
+        if (m != null) return 'https://drive.google.com/uc?id=${m.group(1)}&export=download';
+        if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) return 'https://drive.google.com/uc?id=$url&export=download';
+        return null;
+      }
+
+      for (int i = 0; i < doc.imageUrls.length; i++) {
+        final dlUrl = toDownloadUrl(doc.imageUrls[i]);
+        if (dlUrl == null) continue;
+        final res = await http.get(Uri.parse(dlUrl));
+        if (res.statusCode == 200) {
+          final file = File('${tempDir.path}/${safeTitle}_${i + 1}.jpg');
+          await file.writeAsBytes(res.bodyBytes);
+          xFiles.add(XFile(file.path, mimeType: 'image/jpeg'));
+        }
+      }
+
+      for (int i = 0; i < doc.fileUrls.length; i++) {
+        final dlUrl = toDownloadUrl(doc.fileUrls[i]);
+        if (dlUrl == null) continue;
+        final name = i < doc.fileNames.length ? doc.fileNames[i] : 'file_$i.pdf';
+        final ext = name.contains('.') ? name.split('.').last.toLowerCase() : 'pdf';
+        final res = await http.get(Uri.parse(dlUrl));
+        if (res.statusCode == 200) {
+          final file = File('${tempDir.path}/${safeTitle}_${i + 1}.$ext');
+          await file.writeAsBytes(res.bodyBytes);
+          xFiles.add(XFile(file.path));
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (xFiles.isNotEmpty) {
+        await Clipboard.setData(ClipboardData(text: title));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Title copied to clipboard — paste it as your message in Messenger'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        await Share.shareXFiles(xFiles, subject: title, text: title);
+      } else {
+        Share.share(title, subject: title);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      SnackbarUtils.showErrorSnackBar(context, 'Failed to prepare files for sharing');
+    }
   }
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
