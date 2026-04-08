@@ -129,18 +129,56 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
     }
   }
 
+  Future<ImageSource?> _chooseWebScanSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text('Scan Document', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Camera'),
+                subtitle: const Text('Scan with device camera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                subtitle: const Text('Choose from photo library'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _takePicture() async {
     if (!kIsWeb && Platform.isAndroid) {
       await _scanWithMlKit();
       return;
     }
+    // Web / iOS: let user choose Camera or Gallery before capturing.
+    final ImageSource? source = await _chooseWebScanSource();
+    if (source == null || !mounted) return;
     final int count = _selectedImagePaths.where(_isImage).length;
     if (count >= 10) {
       SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    final XFile? image = await _picker.pickImage(source: source);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
