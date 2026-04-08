@@ -1344,62 +1344,183 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             ),
                           ],
                         ),
+                        // Picking state indicators
                         if (_isPickingImage) ...[
-                          const SizedBox(height: 8),
-                          const LinearProgressIndicator(),
-                          const Text("Capturing image..."),
-                        ],
-                        if (_isPickingFile) ...[
-                          const SizedBox(height: 8),
-                          const LinearProgressIndicator(),
-                          const Text("Selecting document..."),
-                        ],
-                        if (_selectedImagePaths.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: _isSaving ? null : () => _viewSelectedFiles(context),
-                            child: Text(
-                              "View Selected Images (${_selectedImagePaths.length})",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
-                                color: Theme.of(context).colorScheme.primary,
-                                decoration: TextDecoration.underline,
-                              ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.blue.withOpacity(0.25)),
+                            ),
+                            child: const Row(
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                                ),
+                                SizedBox(width: 12),
+                                Icon(Icons.camera_alt_outlined, size: 18, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Processing scan...",
+                                  style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                        if (_selectedDocumentPaths.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            "${_selectedDocumentPaths.length} document(s) selected",
-                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                        if (_isPickingFile) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.blue.withOpacity(0.25)),
+                            ),
+                            child: const Row(
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                                ),
+                                SizedBox(width: 12),
+                                Icon(Icons.folder_open_outlined, size: 18, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Selecting files...",
+                                  style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _selectedDocumentPaths.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final path = entry.value;
-                              final fileName = path.split('\\').last.split('/').last;
-                              return Chip(
-                                label: Text(fileName),
-                                onDeleted: _isSaving ? null : () {
-                                  // Remove from upload queue
-                                  final queueManager = UploadQueueManager();
-                                  queueManager.removeFromQueue(codeController.text, path);
-                                  setState(() => _selectedDocumentPaths.remove(path));
-                                },
-                              );
-                            }).toList(),
+                        ],
+
+                        // Selected files summary panel
+                        if (_selectedImagePaths.isNotEmpty || _selectedDocumentPaths.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.cloud_upload_outlined, color: Colors.green.shade600, size: 18),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "${_selectedImagePaths.length + _selectedDocumentPaths.length} file(s) queued for upload",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green.shade700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_selectedImagePaths.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.image_outlined, size: 15, color: Colors.grey.shade600),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "${_selectedImagePaths.length} image(s)",
+                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                      ),
+                                      const Spacer(),
+                                      TextButton.icon(
+                                        onPressed: _isSaving ? null : () => _viewSelectedFiles(context),
+                                        icon: const Icon(Icons.visibility_outlined, size: 14),
+                                        label: const Text("View", style: TextStyle(fontSize: 13)),
+                                        style: TextButton.styleFrom(
+                                          minimumSize: Size.zero,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (_selectedDocumentPaths.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.description_outlined, size: 15, color: Colors.grey.shade600),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "${_selectedDocumentPaths.length} document(s)",
+                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: _selectedDocumentPaths.map((path) {
+                                      final fileName = path.split('\\').last.split('/').last;
+                                      final isPdf = fileName.toLowerCase().endsWith('.pdf');
+                                      return Chip(
+                                        avatar: Icon(
+                                          isPdf ? Icons.picture_as_pdf : Icons.description,
+                                          size: 16,
+                                          color: isPdf ? Colors.red.shade400 : Colors.blue.shade400,
+                                        ),
+                                        label: Text(
+                                          fileName.length > 20 ? '${fileName.substring(0, 17)}...' : fileName,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        onDeleted: _isSaving ? null : () {
+                                          final queueManager = UploadQueueManager();
+                                          queueManager.removeFromQueue(codeController.text, path);
+                                          setState(() => _selectedDocumentPaths.remove(path));
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ],
 
                         if (_isUploadingImages) ...[
-                          const SizedBox(height: 8),
-                          const LinearProgressIndicator(),
-                          const Text("Uploading images to Google Drive..."),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.orange),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(Icons.cloud_upload, size: 18, color: Colors.orange.shade700),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Uploading to Google Drive...",
+                                  style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 12),
                         TextField(
@@ -1547,12 +1668,94 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       : const Text("Save Document", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
                 if (_isSaving) ...[
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: _totalUploads > 0 ? _completedUploads / _totalUploads : null,
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.withOpacity(0.22)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2.2),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(Icons.cloud_upload, color: Colors.blue.shade400, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _totalUploads > 0
+                                    ? 'Uploading files to Google Drive...'
+                                    : 'Saving document...',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_totalUploads > 0) ...[
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: _completedUploads / _totalUploads,
+                              minHeight: 8,
+                              backgroundColor: Colors.blue.withOpacity(0.15),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.check_circle_outline, size: 14, color: Colors.green.shade600),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_completedUploads uploaded',
+                                    style: TextStyle(fontSize: 12, color: Colors.green.shade600, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Icon(Icons.hourglass_bottom, size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${_totalUploads - _completedUploads} remaining',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange.shade700, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${(_completedUploads / _totalUploads * 100).round()}%',
+                                style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (_uploadStatus.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            _uploadStatus,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(_uploadStatus, textAlign: TextAlign.center),
                 ],
               ],
             ),
