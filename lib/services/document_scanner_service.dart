@@ -13,7 +13,7 @@ class _Pt {
 
 /// Professional document scanner service.
 ///
-/// Processing pipeline (matches spec exactly):
+/// Processing pipeline:
 ///  1. Resize (max 1500 px wide)
 ///  2. Grayscale
 ///  3. Gaussian blur 5×5
@@ -21,11 +21,12 @@ class _Pt {
 ///  5. Find contours
 ///  6. Select largest 4-point contour
 ///  7. Perspective warp (4-pt homography)
-///  8. CLAHE (clipLimit=2.0, tileGrid=8×8)
-///  9. Adaptive threshold (Gaussian, blockSize=15, C=10)
+///  8. Grayscale + CLAHE (clipLimit=2.0, tileGrid=8×8)
+///  9. Adaptive threshold (mean, blockSize=25, C=15) — CamScanner/Adobe Scan style
 /// 10. Morphological closing (3×3 kernel)
 /// 11. Sharpening kernel [[0,−1,0],[−1,5,−1],[0,−1,0]]
 ///
+/// Produces crisp black text on a clean white background with minimal gray tones.
 /// Fully offline, no manual cropping, cross-platform (web + mobile).
 class DocumentScannerService {
   static const int _maxWidth = 1500;
@@ -79,21 +80,28 @@ class DocumentScannerService {
 
     final int wW = warped.width, wH = warped.height;
 
-    // 8. Convert warped to LAB color space-like processing
-    img.Image enhanced = _enhanceColorScan(warped);
+    // 8. Grayscale + CLAHE for illumination normalization
+    final Uint8List warpedGray = _toGray(warped);
+    final Uint8List clahed = _clahe(warpedGray, wW, wH);
 
-    // Return enhanced color image
-    return Uint8List.fromList(img.encodeJpg(enhanced, quality: 95));
-    
-    // // Build RGB output (r=g=b) for universal JPEG compatibility
-    // final img.Image out = img.Image(width: wW, height: wH);
-    // for (var y = 0; y < wH; y++) {
-    //   for (var x = 0; x < wW; x++) {
-    //     final v = wg[y * wW + x];
-    //     out.setPixelRgb(x, y, v, v, v);
-    //   }
-    // }
-    // return Uint8List.fromList(img.encodeJpg(out, quality: 95));
+    // 9. Adaptive threshold (CamScanner/Adobe Scan style — strong text, white paper)
+    final Uint8List thresh = _adaptThresh(clahed, wW, wH, 25, 15);
+
+    // 10. Morphological closing to connect broken character strokes
+    final Uint8List closed = _morphClose(thresh, wW, wH);
+
+    // 11. Sharpening for crisp edges
+    final Uint8List sharp = _sharpen(closed, wW, wH);
+
+    // Build RGB output (r=g=b) — clean B&W, universal JPEG compatibility
+    final img.Image out = img.Image(width: wW, height: wH);
+    for (var y = 0; y < wH; y++) {
+      for (var x = 0; x < wW; x++) {
+        final v = sharp[y * wW + x];
+        out.setPixelRgb(x, y, v, v, v);
+      }
+    }
+    return Uint8List.fromList(img.encodeJpg(out, quality: 95));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -468,63 +476,6 @@ class DocumentScannerService {
     }
     return out;
   }
-
-  static img.Image _enhanceColorScan(img.Image src) {
-  final w = src.width;
-  final h = src.height;
-
-  final out = img.Image(width: w, height: h);
-
-  // 1. Convert to Y (luminance) and apply CLAHE-like contrast boost
-  final gray = _toGray(src);
-  final boosted = _clahe(gray, w, h, clipLimit: 3.0);
-
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      final p = src.getPixel(x, y);
-
-      // Get original RGB
-      double r = p.r.toDouble();
-      double g = p.g.toDouble();
-      double b = p.b.toDouble();
-
-      // Boost luminance ratio
-      double ratio = boosted[y * w + x] / (gray[y * w + x] + 1);
-
-      r = (r * ratio).clamp(0.0, 255.0);
-      g = (g * ratio).clamp(0.0, 255.0);
-      b = (b * ratio).clamp(0.0, 255.0);
-
-      // 2. Whiten near-white pixels (paper normalization)
-      if (r > 200 && g > 200 && b > 200) {
-        r = 255;
-        g = 255;
-        b = 255;
-      }
-
-      out.setPixelRgb(x, y, r.toInt(), g.toInt(), b.toInt());
-    }
-  }
-
-  // 3. Unsharp mask (professional scan sharpening)
-  final blurred = img.gaussianBlur(out, radius: 1);
-  final sharpened = img.Image(width: w, height: h);
-
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      final orig = out.getPixel(x, y);
-      final blur = blurred.getPixel(x, y);
-
-      int r = (orig.r + (orig.r - blur.r)).clamp(0, 255).toInt();
-      int g = (orig.g + (orig.g - blur.g)).clamp(0, 255).toInt();
-      int b = (orig.b + (orig.b - blur.b)).clamp(0, 255).toInt();
-
-      sharpened.setPixelRgb(x, y, r, g, b);
-    }
-  }
-
-  return sharpened;
-}
 
   // Fallback: warp using edge-density extreme points
   static img.Image _fallbackWarp(img.Image src, Uint8List edges, int w, int h) {
