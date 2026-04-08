@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
+import '../services/document_scanner_service.dart';
+import '../services/mlkit_scanner_service.dart';
 import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
@@ -241,6 +244,163 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       if (mounted) {
         Navigator.pop(context, null); // Document was already saved
       }
+    }
+  }
+
+  Future<void> _takePicture() async {
+    // Android: delegate to the ML Kit native scanner (multi-page, auto-detect).
+    // Falls back to the camera + custom CV pipeline when ML Kit is unavailable.
+    if (!kIsWeb && Platform.isAndroid) {
+      await _scanWithMlKit();
+      return;
+    }
+
+    final int currentImageCount = _selectedImagePaths.where(_isImage).length;
+    if (currentImageCount >= 10) {
+      SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+      return;
+    }
+    setState(() => _isPickingImage = true);
+
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image == null) {
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      SnackbarUtils.showErrorSnackBar(context, 'No image captured');
+      return;
+    }
+
+    // Run the full document-scanning pipeline; fall back to the raw capture on failure
+    final rawBytes = await image.readAsBytes();
+    final scannedBytes =
+        await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+
+    if (!mounted) return;
+
+    if (kIsWeb) {
+      final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      setState(() {
+        _selectedImagePaths.add(fileName);
+        _selectedImageBytes.add(scannedBytes);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addWebCameraImageToQueue(
+        documentCode: codeController.text,
+        filePath: fileName,
+        bytes: scannedBytes,
+      );
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(
+        '${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tempFile.writeAsBytes(scannedBytes);
+      if (!mounted) return;
+      setState(() {
+        _selectedImagePaths.add(tempFile.path);
+        _selectedImageBytes.add(null);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addToQueue(
+        documentCode: codeController.text,
+        filePath: tempFile.path,
+        isImage: true,
+        localPath: tempFile.path,
+      );
+    }
+  }
+
+  /// Android-only: launches the ML Kit Document Scanner native UI.
+  /// Supports multi-page capture, automatic edge detection and perspective
+  /// correction. Applies post-processing (unsharp mask + contrast + background
+  /// normalisation) before storing each page.
+  /// Falls back to [_takePicture]'s camera + CV pipeline on error.
+  Future<void> _scanWithMlKit() async {
+    final int remaining = 10 - _selectedImagePaths.where(_isImage).length;
+    if (remaining <= 0) {
+      SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+      return;
+    }
+
+    setState(() => _isPickingImage = true);
+
+    List<Uint8List>? pages;
+    try {
+      pages = await MlKitScannerService.scanDocument(maxPages: remaining);
+    } catch (_) {
+      pages = null;
+    }
+
+    if (!mounted) return;
+
+    if (pages == null) {
+      // ML Kit unavailable or failed — fall back to camera + custom CV pipeline.
+      setState(() => _isPickingImage = false);
+      final int currentImageCount = _selectedImagePaths.where(_isImage).length;
+      if (currentImageCount >= 10) {
+        SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+        return;
+      }
+      setState(() => _isPickingImage = true);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      if (image == null) {
+        if (!mounted) return;
+        setState(() => _isPickingImage = false);
+        SnackbarUtils.showErrorSnackBar(context, 'No image captured');
+        return;
+      }
+      final rawBytes = await image.readAsBytes();
+      final scannedBytes =
+          await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      if (!mounted) return;
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(
+        '${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tempFile.writeAsBytes(scannedBytes);
+      if (!mounted) return;
+      setState(() {
+        _selectedImagePaths.add(tempFile.path);
+        _selectedImageBytes.add(null);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addToQueue(
+        documentCode: codeController.text,
+        filePath: tempFile.path,
+        isImage: true,
+        localPath: tempFile.path,
+      );
+      return;
+    }
+
+    if (pages.isEmpty) {
+      // User cancelled the scanner.
+      setState(() => _isPickingImage = false);
+      return;
+    }
+
+    // Save each scanned page to a temp file and queue for upload.
+    try {
+      for (var i = 0; i < pages.length; i++) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(
+          '${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+        );
+        await tempFile.writeAsBytes(pages[i]);
+        if (!mounted) return;
+        setState(() {
+          _selectedImagePaths.add(tempFile.path);
+          _selectedImageBytes.add(null);
+        });
+        UploadQueueManager().addToQueue(
+          documentCode: codeController.text,
+          filePath: tempFile.path,
+          isImage: true,
+          localPath: tempFile.path,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
     }
   }
 
@@ -942,58 +1102,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : () async {
-                                  int currentImageCount = _selectedImagePaths.where(_isImage).length;
-                                  if (currentImageCount >= 10) {
-                                    SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
-                                    return;
-                                  }
-                                  setState(() => _isPickingImage = true);
-                                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null) {
-                                    // For web, read bytes; for mobile, use path
-                                    if (kIsWeb) {
-                                      final bytes = await image.readAsBytes();
-                                      final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                                      setState(() {
-                                        if (!_selectedImagePaths.contains(fileName)) {
-                                          _selectedImagePaths.add(fileName);
-                                          _selectedImageBytes.add(bytes);
-                                        }
-                                        _isPickingImage = false;
-                                      });
-                                      // Queue for upload
-                                      final queueManager = UploadQueueManager();
-                                      queueManager.addWebCameraImageToQueue(
-                                        documentCode: codeController.text,
-                                        filePath: fileName,
-                                        bytes: bytes,
-                                      );
-                                    } else {
-                                      if (image.path.isNotEmpty) {
-                                        setState(() {
-                                          _selectedImagePaths.add(image.path);
-                                          _selectedImageBytes.add(null); // No bytes for mobile
-                                          _isPickingImage = false;
-                                        });
-                                        // Queue for upload
-                                        final queueManager = UploadQueueManager();
-                                        queueManager.addToQueue(
-                                          documentCode: codeController.text,
-                                          filePath: image.path,
-                                          isImage: true,
-                                          localPath: image.path,
-                                        );
-                                      } else {
-                                        setState(() => _isPickingImage = false);
-                                        SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
-                                      }
-                                    }
-                                  } else {
-                                    setState(() => _isPickingImage = false);
-                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured');
-                                  }
-                                },
+                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : _takePicture,
                                 icon: const Icon(Icons.camera_alt),
                                 label: const Text("Take Picture"),
                                 style: ElevatedButton.styleFrom(
