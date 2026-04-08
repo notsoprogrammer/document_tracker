@@ -65,6 +65,7 @@ dependencies:
   flutter_image_gallery_saver: ^0.0.2
   image: ^4.2.0
   google_mlkit_document_scanner: ^0.2.0
+  share_plus: ^10.0.0
 
 
 

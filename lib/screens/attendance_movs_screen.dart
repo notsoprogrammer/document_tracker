@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/image_download_service.dart';
@@ -690,6 +691,21 @@ class _AttendanceMovsScreenState
                                               ),
                                             ),
                                           ),
+                                        if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
+                                          ElevatedButton.icon(
+                                            icon: const Icon(Icons.share),
+                                            label: const Text("Share"),
+                                            onPressed: () => _shareDocument(document),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ],
@@ -710,6 +726,19 @@ class _AttendanceMovsScreenState
     );
   }
 
+
+  void _shareDocument(Document doc) {
+    final title = (doc.title != null && doc.title!.isNotEmpty)
+        ? '${doc.type} - ${doc.title}'
+        : doc.type;
+    final allUrls = [...doc.imageUrls, ...doc.fileUrls];
+    final lines = <String>[title];
+    if (allUrls.isNotEmpty) {
+      lines.add('');
+      lines.addAll(allUrls);
+    }
+    Share.share(lines.join('\n'), subject: title);
+  }
 
   void _showImageDialog(BuildContext context, List<String> imageUrls) {
     showDialog(
