@@ -3,41 +3,71 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:image/image.dart' as img;
 
+// ─── Public result types ───────────────────────────────────────────────────
+
+/// Requested output format passed to [MlKitScannerService.scanDocument].
+enum ScanOutputFormat { image, pdf }
+
+/// Result returned by [MlKitScannerService.scanDocument].
+///
+/// - [images] → non-empty when [ScanOutputFormat.image] was requested.
+/// - [pdf]    → non-null when [ScanOutputFormat.pdf] was requested.
+/// - Both absent ([wasCancelled]) → user dismissed the scanner.
+class ScannerOutput {
+  final List<Uint8List> images;
+  final Uint8List? pdf;
+
+  const ScannerOutput({this.images = const [], this.pdf});
+
+  bool get wasCancelled => images.isEmpty && pdf == null;
+  bool get hasPdf => pdf != null;
+  bool get hasImages => images.isNotEmpty;
+}
+
+// ─── Service ───────────────────────────────────────────────────────────────
+
 /// Production-grade document scanner backed by Google ML Kit Document Scanner.
 ///
 /// Platform support:
 ///   Android – native ML Kit activity (auto edge-detection, perspective
 ///             correction, and built-in enhancement via Google Play Services).
-///   iOS / Web – returns null; caller should fall back to [DocumentScannerService].
+///   iOS / Web – [isAvailable] returns false; caller falls back to
+///               [DocumentScannerService].
 ///
-/// Post-processing (applied after ML Kit's own enhancement):
-///   1. Unsharp mask  – crisp text without B&W conversion (preserves colour).
-///   2. Contrast boost – mild midpoint stretch for readability.
-///   3. Background normalisation – whitens paper while keeping logos / colours.
+/// Post-processing applied to JPEG output (colour-preserving):
+///   1. Unsharp mask  – sharpens text without binarising.
+///   2. Contrast boost – mild midpoint stretch.
+///   3. Background normalisation – whitens paper, preserves logos / colours.
 class MlKitScannerService {
-  /// True when the ML Kit Document Scanner is available on this device.
+  /// True when ML Kit Document Scanner can be launched on this device.
   static bool get isAvailable => !kIsWeb && Platform.isAndroid;
 
-  // ─── Public API ────────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────
 
-  /// Launches the ML Kit Document Scanner UI.
+  /// Launches the ML Kit Document Scanner UI and returns a [ScannerOutput].
   ///
-  /// Returns a list of processed JPEG [Uint8List]s — one per scanned page.
-  /// Returns an **empty list** when the user cancels.
-  /// Returns **null** when ML Kit is unavailable or an error occurs (caller
-  /// should fall back to the custom CV pipeline).
-  static Future<List<Uint8List>?> scanDocument({int maxPages = 10}) async {
+  /// [maxPages] caps the number of pages the user can scan in one session.
+  /// [format] controls whether JPEG images or a single combined PDF is produced.
+  ///
+  /// Returns **null** when ML Kit is unavailable or an unexpected error occurs
+  /// (the caller should fall back to the custom CV pipeline).
+  static Future<ScannerOutput?> scanDocument({
+    int maxPages = 10,
+    ScanOutputFormat format = ScanOutputFormat.image,
+  }) async {
     if (!isAvailable) return null;
+
+    final mlkitFormat = format == ScanOutputFormat.pdf
+        ? DocumentFormat.pdf
+        : DocumentFormat.jpeg;
 
     final scanner = DocumentScanner(
       options: DocumentScannerOptions(
-        // JPEG gives the best quality/size tradeoff for document images.
-        documentFormat: DocumentFormat.jpeg,
+        documentFormat: mlkitFormat,
         // ScannerMode.full = automatic edge detection + perspective correction
-        // + built-in image enhancement (colour mode, not B&W).
+        // + colour-mode enhancement (not B&W).
         mode: ScannerMode.full,
         pageLimit: maxPages,
-        // Camera-only: no gallery import so the user can't bypass the scanner.
         isGalleryImport: false,
       ),
     );
@@ -45,15 +75,19 @@ class MlKitScannerService {
     try {
       final DocumentScanningResult result = await scanner.scanDocument();
 
-      if (result.images.isEmpty) return []; // user cancelled
-
-      // Post-process every page concurrently via compute() isolates.
-      final futures = result.images.map((path) async {
-        final rawBytes = await File(path).readAsBytes();
-        return compute(_postProcess, rawBytes);
-      });
-
-      return await Future.wait(futures);
+      if (format == ScanOutputFormat.pdf) {
+        if (result.pdf == null) return const ScannerOutput(); // cancelled
+        final bytes = await File(result.pdf!.uri).readAsBytes();
+        return ScannerOutput(pdf: bytes);
+      } else {
+        if (result.images.isEmpty) return const ScannerOutput(); // cancelled
+        // Post-process every page concurrently in isolates.
+        final futures = result.images.map((path) async {
+          final raw = await File(path).readAsBytes();
+          return compute(_postProcess, raw);
+        });
+        return ScannerOutput(images: await Future.wait(futures));
+      }
     } on Exception catch (e) {
       debugPrint('[MlKitScannerService] scanDocument error: $e');
       return null; // caller falls back to custom CV pipeline
@@ -62,7 +96,7 @@ class MlKitScannerService {
     }
   }
 
-  // ─── Post-processing (top-level for compute()) ─────────────────────────────
+  // ─── Post-processing (top-level for compute()) ───────────────────────────
 
   /// Applies unsharp mask → contrast boost → background normalisation.
   /// Colour-preserving: does NOT binarise the image.
@@ -78,12 +112,14 @@ class MlKitScannerService {
     return Uint8List.fromList(img.encodeJpg(image, quality: 93));
   }
 
-  // ─── Image enhancement helpers ─────────────────────────────────────────────
+  // ─── Image enhancement helpers ────────────────────────────────────────────
 
   /// Unsharp mask: output = original + amount × (original − blurred).
-  /// Sharpens fine text details without introducing haloing on large regions.
-  static void _unsharpMask(img.Image src, {required double amount, required int radius}) {
-    // gaussianBlur returns a new image; src is modified in-place below.
+  static void _unsharpMask(
+    img.Image src, {
+    required double amount,
+    required int radius,
+  }) {
     final blurred = img.gaussianBlur(src, radius: radius);
     for (var y = 0; y < src.height; y++) {
       for (var x = 0; x < src.width; x++) {
@@ -100,8 +136,7 @@ class MlKitScannerService {
     }
   }
 
-  /// Mild S-curve contrast stretch around the midpoint (128).
-  /// factor > 1 increases contrast; keep close to 1.0 to avoid clipping.
+  /// Mild contrast stretch around the midpoint (128).
   static void _contrastBoost(img.Image image, {required double factor}) {
     for (var y = 0; y < image.height; y++) {
       for (var x = 0; x < image.width; x++) {
@@ -117,12 +152,9 @@ class MlKitScannerService {
     }
   }
 
-  /// Scales all channels so the 95th-percentile pixel (the paper background)
-  /// maps to pure white. Pixels already near white are left untouched.
-  /// Colours (logos, stamps, ink) are preserved because every channel scales
-  /// by the same per-pixel factor derived from the *background* sample.
+  /// Scales all channels so the 95th-percentile pixel (paper background)
+  /// maps to pure white, preserving relative colours.
   static void _normalizeBackground(img.Image image) {
-    // Sample every 16th pixel for speed.
     final samples = <int>[];
     for (var y = 0; y < image.height; y += 16) {
       for (var x = 0; x < image.width; x += 16) {
@@ -135,8 +167,6 @@ class MlKitScannerService {
 
     final bgLevel =
         samples[(samples.length * 0.95).round().clamp(0, samples.length - 1)];
-
-    // Only normalise when the background is noticeably off-white.
     if (bgLevel < 200 || bgLevel >= 255) return;
 
     final scale = 255.0 / bgLevel;

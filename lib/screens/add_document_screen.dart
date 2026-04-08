@@ -311,10 +311,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   }
 
   /// Android-only: launches the ML Kit Document Scanner native UI.
+  /// Prompts the user to choose Image or PDF output before scanning.
   /// Supports multi-page capture, automatic edge detection and perspective
-  /// correction. Applies post-processing (unsharp mask + contrast + background
-  /// normalisation) before storing each page.
-  /// Falls back to [_takePicture]'s camera + CV pipeline on error.
+  /// correction. Falls back to camera + CV pipeline on error.
   Future<void> _scanWithMlKit() async {
     final int remaining = 10 - _selectedImagePaths.where(_isImage).length;
     if (remaining <= 0) {
@@ -322,19 +321,26 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       return;
     }
 
+    // Let the user pick output format before opening the scanner.
+    final ScanOutputFormat? format = await _chooseScanFormat();
+    if (format == null || !mounted) return;
+
     setState(() => _isPickingImage = true);
 
-    List<Uint8List>? pages;
+    ScannerOutput? output;
     try {
-      pages = await MlKitScannerService.scanDocument(maxPages: remaining);
+      output = await MlKitScannerService.scanDocument(
+        maxPages: format == ScanOutputFormat.pdf ? 20 : remaining,
+        format: format,
+      );
     } catch (_) {
-      pages = null;
+      output = null;
     }
 
     if (!mounted) return;
 
-    if (pages == null) {
-      // ML Kit unavailable or failed — fall back to camera + custom CV pipeline.
+    if (output == null) {
+      // ML Kit unavailable or error — fall back to camera + CV pipeline.
       setState(() => _isPickingImage = false);
       final int currentImageCount = _selectedImagePaths.where(_isImage).length;
       if (currentImageCount >= 10) {
@@ -373,35 +379,107 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       return;
     }
 
-    if (pages.isEmpty) {
-      // User cancelled the scanner.
+    if (output.wasCancelled) {
       setState(() => _isPickingImage = false);
       return;
     }
 
-    // Save each scanned page to a temp file and queue for upload.
     try {
-      for (var i = 0; i < pages.length; i++) {
-        final tempDir = await getTemporaryDirectory();
+      final tempDir = await getTemporaryDirectory();
+      if (output.hasPdf) {
+        // Single PDF containing all pages → store as document attachment.
         final tempFile = File(
-          '${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+          '${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.pdf',
         );
-        await tempFile.writeAsBytes(pages[i]);
+        await tempFile.writeAsBytes(output.pdf!);
         if (!mounted) return;
-        setState(() {
-          _selectedImagePaths.add(tempFile.path);
-          _selectedImageBytes.add(null);
-        });
+        setState(() => _selectedDocumentPaths.add(tempFile.path));
         UploadQueueManager().addToQueue(
           documentCode: codeController.text,
           filePath: tempFile.path,
-          isImage: true,
+          isImage: false,
           localPath: tempFile.path,
         );
+      } else {
+        // Individual JPEG pages → store as image attachments.
+        for (var i = 0; i < output.images.length; i++) {
+          final tempFile = File(
+            '${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
+          );
+          await tempFile.writeAsBytes(output.images[i]);
+          if (!mounted) return;
+          setState(() {
+            _selectedImagePaths.add(tempFile.path);
+            _selectedImageBytes.add(null);
+          });
+          UploadQueueManager().addToQueue(
+            documentCode: codeController.text,
+            filePath: tempFile.path,
+            isImage: true,
+            localPath: tempFile.path,
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isPickingImage = false);
     }
+  }
+
+  /// Shows a bottom-sheet dialog letting the user pick Image or PDF output.
+  /// Returns null if the user dismisses without choosing.
+  Future<ScanOutputFormat?> _chooseScanFormat() {
+    return showModalBottomSheet<ScanOutputFormat>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Save scan as…',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.pop(ctx, ScanOutputFormat.image),
+                      icon: const Icon(Icons.image_outlined),
+                      label: const Text('Image'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          Navigator.pop(ctx, ScanOutputFormat.pdf),
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('PDF'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<bool> _onWillPop() async {
