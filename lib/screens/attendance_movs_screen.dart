@@ -740,6 +740,33 @@ class _AttendanceMovsScreenState
       return;
     }
 
+    // Web: Google Drive blocks cross-origin fetches (CORS). Share view links instead.
+    if (kIsWeb) {
+      String? extractFileId(String url) {
+        if (url.contains('uc?id=')) return Uri.parse(url).queryParameters['id'];
+        final m = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(url);
+        if (m != null) return m.group(1);
+        if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) return url;
+        return null;
+      }
+      final viewLinks = [...doc.imageUrls, ...doc.fileUrls]
+          .map(extractFileId)
+          .whereType<String>()
+          .map((id) => 'https://drive.google.com/file/d/$id/view')
+          .toList();
+      final shareText = viewLinks.isEmpty ? title : '$title\n\n${viewLinks.join('\n')}';
+      await Clipboard.setData(ClipboardData(text: shareText));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(viewLinks.isEmpty ? 'Title copied to clipboard' : 'Links copied to clipboard'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      Share.share(shareText, subject: title);
+      return;
+    }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
