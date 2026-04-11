@@ -1931,20 +1931,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                           ),
                                         ),
                                       if (_username == doc.person)
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.delete),
-                                          label: const SizedBox.shrink(),
+                                        ElevatedButton(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color.fromARGB(
-                                              255,
-                                              218,
-                                              87,
-                                              78,
-                                            ),
+                                            backgroundColor: const Color.fromARGB(255, 218, 87, 78),
                                             foregroundColor: Colors.white,
-                                            minimumSize: const Size(48, 40), // shrink width, fixed height
-                                            padding: EdgeInsets.only(left:10),
-                                            alignment: Alignment.center,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
@@ -1964,6 +1955,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                               }
                                             }
                                           },
+                                          child: const Icon(Icons.delete),
                                         ),
                                       if (doc.imageUrls.isNotEmpty)
                                         ElevatedButton(
@@ -2009,19 +2001,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                           child: const Icon(Icons.attach_file),
                                         ),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.share),
-                                          label: const Text("Share"),
+                                        ElevatedButton(
                                           onPressed: () => _shareDocument(doc),
                                           style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
+                                          child: const Icon(Icons.share),
                                         ),
                                     ],
                                   ),

@@ -525,21 +525,11 @@ class _FlagCeremonyDocumentsScreenState
                                       runSpacing: 8,
                                       alignment: WrapAlignment.center,
                                       children: [
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.delete),
-                                          label: const Text("Delete"),
+                                        ElevatedButton(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color.fromARGB(
-                                              255,
-                                              218,
-                                              87,
-                                              78,
-                                            ),
+                                            backgroundColor: const Color.fromARGB(255, 218, 87, 78),
                                             foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
@@ -559,6 +549,7 @@ class _FlagCeremonyDocumentsScreenState
                                               }
                                             }
                                           },
+                                          child: const Icon(Icons.delete),
                                         ),
                                         if (document.imageUrls.isNotEmpty ||
                                             document.localImagePaths.isNotEmpty)
@@ -611,19 +602,15 @@ class _FlagCeremonyDocumentsScreenState
                                             child: const Icon(Icons.attach_file),
                                           ),
                                         if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
-                                          ElevatedButton.icon(
-                                            icon: const Icon(Icons.share),
-                                            label: const Text("Share"),
+                                          ElevatedButton(
                                             onPressed: () => _shareDocument(document),
                                             style: ElevatedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                             ),
+                                            child: const Icon(Icons.share),
                                           ),
                                       ],
                                     ),
