@@ -1099,46 +1099,32 @@ Widget _buildUploadStatusIndicator(Document doc) {
       final xFiles = <XFile>[];
       final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*\r\n]'), '').replaceAll(RegExp(r'\s+'), '_').trim();
 
-      // Downloads a Google Drive file with a 30 s timeout.
-      // Handles the virus-scan confirmation page that Drive returns for some files:
-      // Drive responds 200 with HTML instead of the file — we detect this, extract
-      // the confirm token, and retry the download with it.
-      Future<List<int>?> fetchGDriveBytes(String url) async {
+      // Download images through the Supabase proxy, which authenticates with
+      // the service account — the same mechanism used by the in-app image viewer.
+      // Direct Google Drive downloads are not possible because the folders are private.
+      Future<List<int>?> fetchImageViaProxy(String imageUrl) async {
         try {
-          var res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+          final fileId = imageUrl.contains('drive.google.com/uc?id=')
+              ? Uri.parse(imageUrl).queryParameters['id'] ?? imageUrl
+              : imageUrl;
+          final proxyUrl = GoogleDriveService.generateProxyUrl(fileId);
+          final res = await http.get(Uri.parse(proxyUrl)).timeout(const Duration(seconds: 30));
           if (res.statusCode != 200) return null;
-          final ct = res.headers['content-type'] ?? '';
-          if (ct.contains('text/html')) {
-            final m = RegExp(r'confirm=([0-9A-Za-z_-]+)').firstMatch(res.body);
-            if (m == null) return null;
-            res = await http.get(Uri.parse('$url&confirm=${m.group(1)}')).timeout(const Duration(seconds: 30));
-            if (res.statusCode != 200) return null;
-            if ((res.headers['content-type'] ?? '').contains('text/html')) return null;
-          }
+          if ((res.headers['content-type'] ?? '').contains('text/html')) return null;
           return res.bodyBytes;
         } catch (_) {
           return null;
         }
       }
 
-      String? toDownloadUrl(String url) {
-        if (url.contains('uc?id=')) {
-          return url.contains('export=download') ? url : '$url&export=download';
-        }
-        final m = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(url);
-        if (m != null) return 'https://drive.google.com/uc?id=${m.group(1)}&export=download';
-        if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) return 'https://drive.google.com/uc?id=$url&export=download';
-        return null;
-      }
-
       for (int i = 0; i < doc.imageUrls.length; i++) {
-        final dlUrl = toDownloadUrl(doc.imageUrls[i]);
-        if (dlUrl == null) continue;
-        final bytes = await fetchGDriveBytes(dlUrl);
+        final bytes = await fetchImageViaProxy(doc.imageUrls[i]);
         if (bytes != null) {
-          final file = File('${tempDir.path}/${safeTitle}_${i + 1}.jpg');
+          final mimeType = _detectMimeType(bytes);
+          final ext = mimeType == 'image/png' ? 'png' : 'jpg';
+          final file = File('${tempDir.path}/${safeTitle}_${i + 1}.$ext');
           await file.writeAsBytes(bytes);
-          xFiles.add(XFile(file.path, mimeType: 'image/jpeg'));
+          xFiles.add(XFile(file.path, mimeType: mimeType));
         }
       }
 
@@ -1192,6 +1178,16 @@ Widget _buildUploadStatusIndicator(Document doc) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       SnackbarUtils.showErrorSnackBar(context, 'Failed to prepare files for sharing');
     }
+  }
+
+  /// Detects image MIME type from magic bytes so files are saved with the correct
+  /// extension and MIME type before being handed to the share sheet.
+  String _detectMimeType(List<int> bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    return 'image/jpeg';
   }
 
   void _downloadImage(BuildContext context, String imageUrl) async {
@@ -2291,9 +2287,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                           },
                                         ),
                                       if (doc.imageUrls.isNotEmpty)
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.image),
-                                          label: const Text("View Image"),
+                                        ElevatedButton(
                                           onPressed: () => _showImageDialog(
                                             context,
                                             doc,
@@ -2307,14 +2301,11 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
+                                          child: const Icon(Icons.image),
                                         ),
                                       if (doc.filePath != null ||
                                           doc.fileUrls.isNotEmpty)
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.attach_file),
-                                          label: Text(
-                                            "View File${doc.filePath != null && doc.fileUrls.isNotEmpty ? 's' : ''}",
-                                          ),
+                                        ElevatedButton(
                                           onPressed: () {
                                             final allFiles = <String>[];
                                             if (doc.filePath != null) {
@@ -2336,6 +2327,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
+                                          child: const Icon(Icons.attach_file),
                                         ),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         ElevatedButton.icon(
