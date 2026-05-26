@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 23,
+      version: 24,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -123,6 +123,30 @@ class SQLiteDatabaseService {
         location TEXT,
         needs_sync INTEGER DEFAULT 0,
         created_at TEXT
+      )
+    ''');
+
+    // Pending uploads queue (offline support)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_uploads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_code TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        is_image INTEGER NOT NULL DEFAULT 1,
+        local_path TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        timestamp TEXT NOT NULL
+      )
+    ''');
+
+    // Pending Drive deletions queue (offline support)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_drive_deletions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_id TEXT NOT NULL,
+        document_code TEXT NOT NULL,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -359,37 +383,29 @@ class SQLiteDatabaseService {
         // Column might already exist
       }
     }
-    if (oldVersion < 23) {
-      // Add pending_uploads table for offline upload queue persistence
-      try {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS pending_uploads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            document_code TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            is_image INTEGER NOT NULL DEFAULT 1,
-            local_path TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            retry_count INTEGER NOT NULL DEFAULT 0,
-            timestamp TEXT NOT NULL
-          )
-        ''');
-      } catch (e) {
-        // Table might already exist
-      }
-      // Add pending_drive_deletions table for offline Drive file deletion
-      try {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS pending_drive_deletions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_id TEXT NOT NULL,
-            document_code TEXT NOT NULL,
-            created_at TEXT NOT NULL
-          )
-        ''');
-      } catch (e) {
-        // Table might already exist
-      }
+    if (oldVersion < 24) {
+      // Ensure pending_uploads and pending_drive_deletions exist for devices
+      // that were created at version 23 before these tables were added to _onCreate.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pending_uploads (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          document_code TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          is_image INTEGER NOT NULL DEFAULT 1,
+          local_path TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          timestamp TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pending_drive_deletions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          file_id TEXT NOT NULL,
+          document_code TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 
