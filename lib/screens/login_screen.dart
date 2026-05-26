@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await UserActivityService().logAppOpen(
         username: username,
-        method: _isLoginMode ? 'login' : 'signup',
+        method: _isLoginMode ? 'Logged in' : 'Signed up',
       );
 
       if (mounted) {

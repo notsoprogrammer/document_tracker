@@ -45,8 +45,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _logSessionResume() async {
     final username = await AuthService.getUsername();
-    if (username != null && username.isNotEmpty) {
-      await UserActivityService().logAppOpen(username: username, method: 'resume');
+    if (username == null || username.isEmpty) return;
+    // Skip if user just logged in (login_screen already logged the session)
+    final recent = await UserActivityService().getLastSessionTime(username);
+    final isJustLoggedIn = recent != null &&
+        DateTime.now().difference(recent).inSeconds < 10;
+    if (!isJustLoggedIn) {
+      await UserActivityService().logAppOpen(username: username, method: 'App reopened');
     }
   }
 

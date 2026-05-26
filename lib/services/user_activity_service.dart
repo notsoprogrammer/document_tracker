@@ -107,18 +107,23 @@ class UserActivityService {
     });
   }
 
+  // Returns today's active users — naturally resets each day.
   Future<List<Map<String, dynamic>>> fetchUserSessions() async {
     final db = await _db;
+    final today = DateTime.now();
+    final todayPrefix =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     return await db.rawQuery('''
       SELECT
         username,
         COUNT(*) as session_count,
-        MIN(login_time) as first_seen,
+        MIN(login_time) as first_open,
         MAX(last_seen) as last_seen
       FROM user_sessions
+      WHERE substr(login_time, 1, 10) = ?
       GROUP BY username
       ORDER BY last_seen DESC
-    ''');
+    ''', [todayPrefix]);
   }
 
   Future<List<Map<String, dynamic>>> fetchSessionsForUser(String username) async {
@@ -129,6 +134,20 @@ class UserActivityService {
       whereArgs: [username],
       orderBy: 'login_time DESC',
     );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchLatestActivityPerUser() async {
+    final db = await _db;
+    return await db.rawQuery('''
+      SELECT l.username, l.action, l.screen, l.details, l.timestamp
+      FROM user_activity_logs l
+      INNER JOIN (
+        SELECT username, MAX(id) AS max_id
+        FROM user_activity_logs
+        GROUP BY username
+      ) m ON l.id = m.max_id
+      ORDER BY l.timestamp DESC
+    ''');
   }
 
   Future<List<Map<String, dynamic>>> fetchActivityLogs({String? username, int limit = 200}) async {
@@ -147,6 +166,40 @@ class UserActivityService {
       orderBy: 'timestamp DESC',
       limit: limit,
     );
+  }
+
+  // Returns per-day summaries of users with at least 30 seconds of interaction.
+  // Each row: { day, username, session_count, total_seconds }
+  Future<List<Map<String, dynamic>>> fetchDailySummary() async {
+    final db = await _db;
+    final rows = await db.rawQuery('''
+      SELECT
+        date(login_time) AS day,
+        username,
+        COUNT(*) AS session_count,
+        CAST(SUM(
+          MAX(0, (julianday(last_seen) - julianday(login_time)) * 86400)
+        ) AS INTEGER) AS total_seconds
+      FROM user_sessions
+      WHERE (julianday(last_seen) - julianday(login_time)) * 86400 >= 30
+      GROUP BY date(login_time), username
+      ORDER BY day DESC, username ASC
+    ''');
+    return rows;
+  }
+
+  Future<DateTime?> getLastSessionTime(String username) async {
+    final db = await _db;
+    final rows = await db.query(
+      'user_sessions',
+      columns: ['login_time'],
+      where: 'username = ?',
+      whereArgs: [username],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return DateTime.parse(rows.first['login_time'] as String);
   }
 
   Future<void> clearAllLogs() async {

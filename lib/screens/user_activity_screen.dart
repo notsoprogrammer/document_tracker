@@ -15,13 +15,15 @@ class _UserActivityScreenState extends State<UserActivityScreen>
 
   List<Map<String, dynamic>> _userSummaries = [];
   List<Map<String, dynamic>> _allLogs = [];
+  List<Map<String, dynamic>> _latestLogs = [];
+  List<Map<String, dynamic>> _dailySummary = [];
   bool _isLoading = true;
   String? _selectedUser;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -33,12 +35,18 @@ class _UserActivityScreenState extends State<UserActivityScreen>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final summaries = await _service.fetchUserSessions();
-    final logs = await _service.fetchActivityLogs(username: _selectedUser);
+    final results = await Future.wait([
+      _service.fetchUserSessions(),
+      _service.fetchActivityLogs(username: _selectedUser),
+      _service.fetchDailySummary(),
+      _service.fetchLatestActivityPerUser(),
+    ]);
     if (mounted) {
       setState(() {
-        _userSummaries = summaries;
-        _allLogs = logs;
+        _userSummaries = results[0];
+        _allLogs = results[1];
+        _dailySummary = results[2];
+        _latestLogs = results[3];
         _isLoading = false;
       });
     }
@@ -49,13 +57,19 @@ class _UserActivityScreenState extends State<UserActivityScreen>
       _selectedUser = username;
       _isLoading = true;
     });
-    final logs = await _service.fetchActivityLogs(username: username);
+    final results = await Future.wait([
+      _service.fetchActivityLogs(username: username),
+      if (username == null) _service.fetchLatestActivityPerUser()
+          else Future.value(<Map<String, dynamic>>[]),
+    ]);
     if (mounted) {
       setState(() {
-        _allLogs = logs;
+        _allLogs = results[0];
+        if (username == null) _latestLogs = results[1];
         _isLoading = false;
       });
     }
+    if (username != null) _tabController.animateTo(2);
   }
 
   String _formatDateTime(String isoString) {
@@ -125,6 +139,7 @@ class _UserActivityScreenState extends State<UserActivityScreen>
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.people_outline), text: 'Users'),
+            Tab(icon: Icon(Icons.bar_chart), text: 'Daily'),
             Tab(icon: Icon(Icons.timeline), text: 'Activity Log'),
           ],
         ),
@@ -142,6 +157,7 @@ class _UserActivityScreenState extends State<UserActivityScreen>
               controller: _tabController,
               children: [
                 _buildUsersTab(cs),
+                _buildDailySummaryTab(cs),
                 _buildActivityTab(cs),
               ],
             ),
@@ -149,28 +165,43 @@ class _UserActivityScreenState extends State<UserActivityScreen>
   }
 
   Widget _buildUsersTab(ColorScheme cs) {
+    final now = DateTime.now();
+    final todayLabel =
+        '${_monthName(now.month)} ${now.day}, ${now.year}';
+
     if (_userSummaries.isEmpty) {
-      return _emptyState(
-        icon: Icons.people_outline,
-        message: 'No user sessions recorded yet.',
+      return Column(
+        children: [
+          _todayHeader(todayLabel, 0, cs),
+          Expanded(
+            child: _emptyState(
+              icon: Icons.people_outline,
+              message: 'No one has opened the app today yet.',
+            ),
+          ),
+        ],
       );
     }
+
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _userSummaries.length,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        itemCount: _userSummaries.length + 1,
         itemBuilder: (context, i) {
-          final user = _userSummaries[i];
+          if (i == 0) return _todayHeader(todayLabel, _userSummaries.length, cs);
+
+          final user = _userSummaries[i - 1];
           final username = user['username'] as String;
           final sessionCount = user['session_count'] as int;
-          final firstSeen = user['first_seen'] as String;
+          final firstOpen = user['first_open'] as String;
           final lastSeen = user['last_seen'] as String;
+
           return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               leading: CircleAvatar(
                 backgroundColor: cs.primaryContainer,
                 child: Text(
@@ -178,34 +209,15 @@ class _UserActivityScreenState extends State<UserActivityScreen>
                   style: TextStyle(
                     color: cs.onPrimaryContainer,
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 17,
                   ),
                 ),
               ),
-              title: Text(
-                username,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.login, size: 14),
-                      const SizedBox(width: 4),
-                      Text('First seen: ${_formatDateTime(firstSeen)}', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 14),
-                      const SizedBox(width: 4),
-                      Text('Last active: ${_timeAgo(lastSeen)}', style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ],
+              title: Text(username,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              subtitle: Text(
+                'First open: ${_timeOnly(firstOpen)}  ·  Last active: ${_timeAgo(lastSeen)}',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -213,19 +225,16 @@ class _UserActivityScreenState extends State<UserActivityScreen>
                   Text(
                     '$sessionCount',
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: cs.primary,
-                    ),
+                        fontSize: 20, fontWeight: FontWeight.bold, color: cs.primary),
                   ),
                   Text(
-                    sessionCount == 1 ? 'session' : 'sessions',
+                    sessionCount == 1 ? 'open' : 'opens',
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
               onTap: () {
-                _tabController.animateTo(1);
+                _tabController.animateTo(2);
                 _filterByUser(username);
               },
             ),
@@ -233,6 +242,131 @@ class _UserActivityScreenState extends State<UserActivityScreen>
         },
       ),
     );
+  }
+
+  Widget _todayHeader(String dateLabel, int count, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 14, 2, 10),
+      child: Row(
+        children: [
+          Icon(Icons.today, size: 16, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            dateLabel,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: cs.primary),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$count ${count == 1 ? 'user' : 'users'}',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _monthName(int month) {
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return names[month - 1];
+  }
+
+  Widget _buildDailySummaryTab(ColorScheme cs) {
+    if (_dailySummary.isEmpty) {
+      return _emptyState(
+        icon: Icons.bar_chart,
+        message: 'No qualifying sessions yet.',
+      );
+    }
+
+    // Group rows by day
+    final Map<String, List<Map<String, dynamic>>> byDay = {};
+    for (final row in _dailySummary) {
+      final day = row['day'] as String;
+      byDay.putIfAbsent(day, () => []).add(row);
+    }
+    final days = byDay.keys.toList(); // already sorted DESC from query
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: days.length,
+        itemBuilder: (context, i) {
+          final day = days[i];
+          final users = byDay[day]!;
+          final uniqueUserCount = users.length;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                leading: CircleAvatar(
+                  backgroundColor: cs.primaryContainer,
+                  child: Text(
+                    '$uniqueUserCount',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  _dayLabel(day),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                subtitle: Text(
+                  '$uniqueUserCount ${uniqueUserCount == 1 ? 'user' : 'users'} active',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+                children: users.map((u) {
+                  final username = u['username'] as String;
+                  final sessionCount = u['session_count'] as int;
+                  final totalSeconds = u['total_seconds'] as int;
+                  final duration = _formatDuration(totalSeconds);
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                    leading: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: cs.secondaryContainer,
+                      child: Text(
+                        username[0].toUpperCase(),
+                        style: TextStyle(fontSize: 13, color: cs.onSecondaryContainer, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    title: Text(username, style: const TextStyle(fontSize: 14)),
+                    subtitle: Text(
+                      '$sessionCount ${sessionCount == 1 ? 'session' : 'sessions'}  •  $duration total',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    ),
+                    trailing: Icon(Icons.check_circle, color: Colors.green.shade400, size: 18),
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatDuration(int totalSeconds) {
+    if (totalSeconds < 60) return '${totalSeconds}s';
+    final m = totalSeconds ~/ 60;
+    final s = totalSeconds % 60;
+    if (m < 60) return s == 0 ? '${m}m' : '${m}m ${s}s';
+    final h = m ~/ 60;
+    final rm = m % 60;
+    return rm == 0 ? '${h}h' : '${h}h ${rm}m';
   }
 
   Widget _buildActivityTab(ColorScheme cs) {
@@ -268,15 +402,11 @@ class _UserActivityScreenState extends State<UserActivityScreen>
             ),
           ),
         Expanded(
-          child: _allLogs.isEmpty
-              ? _emptyState(
-                  icon: Icons.timeline,
-                  message: 'No activity logs found.',
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: _buildGroupedLogList(cs),
-                ),
+          child: _selectedUser == null
+              ? _buildLatestPerUserList(cs)
+              : (_allLogs.isEmpty
+                  ? _emptyState(icon: Icons.timeline, message: 'No activity logs found.')
+                  : RefreshIndicator(onRefresh: _loadData, child: _buildGroupedLogList(cs))),
         ),
       ],
     );
@@ -306,8 +436,7 @@ class _UserActivityScreenState extends State<UserActivityScreen>
     if (dateKey == today) return 'Today';
     if (dateKey == yKey) return 'Yesterday';
     final dt = DateTime.parse(dateKey);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+    return '${_monthName(dt.month)} ${dt.day}, ${dt.year}';
   }
 
   String _timeOnly(String isoString) {
@@ -319,36 +448,83 @@ class _UserActivityScreenState extends State<UserActivityScreen>
     return '$displayH:$m $amPm';
   }
 
+  Widget _buildLatestPerUserList(ColorScheme cs) {
+    if (_latestLogs.isEmpty) {
+      return _emptyState(icon: Icons.timeline, message: 'No activity logs found.');
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: _latestLogs.length,
+        itemBuilder: (context, i) {
+          final log = _latestLogs[i];
+          final username = log['username'] as String;
+          final action = log['action'] as String;
+          final screen = log['screen'] as String?;
+          final timestamp = log['timestamp'] as String;
+          final color = _actionColor(action, cs);
+          final label = (action == 'Opened screen' && screen != null) ? screen : action;
+
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+            leading: CircleAvatar(
+              radius: 18,
+              backgroundColor: cs.primaryContainer,
+              child: Text(
+                username[0].toUpperCase(),
+                style: TextStyle(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
+              ),
+            ),
+            title: Text(username, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: Row(
+              children: [
+                Icon(_actionIcon(action, screen), size: 12, color: color),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            trailing: Text(_timeAgo(timestamp),
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            onTap: () => _filterByUser(username),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildGroupedLogList(ColorScheme cs) {
     final items = _buildGroupedItems();
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: items.length,
       itemBuilder: (context, i) {
         final item = items[i];
 
+        // Date header
         if (item is String) {
           return Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            padding: const EdgeInsets.only(top: 14, bottom: 6),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _dayLabel(item),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: cs.onPrimaryContainer,
-                    ),
+                Text(
+                  _dayLabel(item),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: Divider(color: cs.outlineVariant)),
+                Expanded(child: Divider(color: cs.outlineVariant, height: 1)),
               ],
             ),
           );
@@ -362,91 +538,51 @@ class _UserActivityScreenState extends State<UserActivityScreen>
         final username = log['username'] as String;
         final color = _actionColor(action, cs);
 
-        // check if next item is also a log (not a header) for the connector line
-        final hasConnector = i < items.length - 1 && items[i + 1] is! String;
+        final label = screen != null && action == 'Opened screen'
+            ? screen
+            : action;
+        final sub = action == 'Opened screen'
+            ? null
+            : (screen ?? details);
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: color.withValues(alpha: 0.15),
-                    child: Icon(_actionIcon(action, screen), size: 16, color: color),
-                  ),
-                  if (hasConnector)
-                    Container(width: 2, height: 28, color: cs.outlineVariant),
-                ],
-              ),
-              const SizedBox(width: 12),
+              Icon(_actionIcon(action, screen), size: 15, color: color),
+              const SizedBox(width: 10),
               Expanded(
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                action,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                              ),
-                            ),
-                            Text(
-                              _timeOnly(timestamp),
-                              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                            ),
-                          ],
-                        ),
-                        if (screen != null || details != null || _selectedUser == null) ...[
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 2,
-                            children: [
-                              if (_selectedUser == null)
-                                _chip(Icons.person, username, cs.primary, cs),
-                              if (screen != null)
-                                _chip(Icons.smartphone, screen, cs.secondary, cs),
-                              if (details != null)
-                                Text(details, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                            ],
-                          ),
-                        ],
-                      ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: 13, color: cs.onSurface),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                    if (sub != null || _selectedUser == null)
+                      Text(
+                        [
+                          if (_selectedUser == null) username,
+                          if (sub != null) sub,
+                        ].join(' · '),
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _timeOnly(timestamp),
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  Widget _chip(IconData icon, String label, Color color, ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 3),
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
-        ],
-      ),
     );
   }
 
