@@ -3,7 +3,6 @@ import '../models/document.dart';
 import 'cached_document_service.dart';
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
-import 'google_drive_service.dart';
 import 'connectivity_service.dart';
 import 'upload_queue_manager.dart';
 import '../utils/date_time_utils.dart';
@@ -96,9 +95,6 @@ class AutoSyncService {
       // Then process any pending file uploads (now that documents exist in Supabase)
       await cachedService.processPendingUploads();
 
-      // Process any new pending uploads that might have been created during sync
-      await cachedService.processPendingUploads();
-
     } catch (e) {
       debugPrint('Error in auto-sync: $e');
     }
@@ -125,38 +121,6 @@ class AutoSyncService {
       debugPrint('Auto-sync to Supabase completed: $successCount/${unsyncedDocuments.length} documents synced');
     } catch (e) {
       debugPrint('Error in auto-sync to Supabase: $e');
-    }
-  }
-
-  /// Sync unsynced documents to Google Drive
-  static Future<void> _syncToGoogleDrive(List<Document> unsyncedDocuments) async {
-    try {
-      debugPrint('Auto-syncing ${unsyncedDocuments.length} documents to Google Drive...');
-
-      int successCount = 0;
-
-      for (final doc in unsyncedDocuments) {
-        try {
-          // Upload file if present
-          if (doc.filePath != null) {
-            final url = await GoogleDriveService.uploadFile(doc.filePath!, doc.incoming, doc.code);
-            if (url != null) {
-              // Update document with the uploaded URL
-              await SQLiteDatabaseService().updateDocument(doc.code, {'file_urls': [url]});
-            }
-          }
-
-          // Note: imageUrls and fileUrls are already uploaded when document is created
-          // This auto-sync is mainly for documents that failed initial upload
-          successCount++;
-        } catch (e) {
-          debugPrint('Failed to sync document ${doc.code} to Google Drive: $e');
-        }
-      }
-
-      debugPrint('Auto-sync to Google Drive completed: $successCount/${unsyncedDocuments.length} documents synced');
-    } catch (e) {
-      debugPrint('Error in auto-sync to Google Drive: $e');
     }
   }
 

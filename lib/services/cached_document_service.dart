@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
 import 'upload_queue_manager.dart';
+import 'connectivity_service.dart';
 import '../models/document.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/auth_service.dart';
@@ -14,11 +14,9 @@ import '../services/auth_service.dart';
 class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
   final SupabaseService _remoteDb = SupabaseService();
-  final Connectivity _connectivity = Connectivity();
 
   Future<bool> get isOnline async {
-    final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    return await ConnectivityService().isOnline;
   }
 
   /// Ensure database schema is up to date by accessing the database
@@ -543,11 +541,13 @@ class CachedDocumentService {
     }
 
     try {
-      // Get all items and filter only status == 'pending' || status == 'failed'
+      // Get all items: process pending ones and failed ones that haven't hit the retry cap
       final allItems = queueManager.getAllItems();
-      final uploadsToProcess = allItems.where((item) =>
-        item['status'] == 'pending' || item['status'] == 'failed'
-      ).toList();
+      final uploadsToProcess = allItems.where((item) {
+        if (item['status'] == 'pending') return true;
+        if (item['status'] == 'failed') return (item['retryCount'] as int? ?? 0) < 3;
+        return false;
+      }).toList();
       bool hasCompletedUploads = false;
       final Set<String> documentsWithUploads = {};
 
