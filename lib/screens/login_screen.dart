@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/auth_service.dart';
+import '../services/user_activity_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -78,6 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+
+      await UserActivityService().logAppOpen(
+        username: username,
+        method: _isLoginMode ? 'login' : 'signup',
+      );
 
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');

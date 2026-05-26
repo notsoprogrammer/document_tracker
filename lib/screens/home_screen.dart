@@ -8,6 +8,8 @@ import '../services/connectivity_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
+import '../services/auth_service.dart';
+import '../services/user_activity_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -19,6 +21,7 @@ import 'delete_history_screen.dart';
 import 'notification_history_screen.dart';
 import 'calendar_screen.dart';
 import 'about_screen.dart';
+import 'user_activity_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +40,14 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDocuments();
     _checkAndRequestNotificationPermission();
+    _logSessionResume();
+  }
+
+  Future<void> _logSessionResume() async {
+    final username = await AuthService.getUsername();
+    if (username != null && username.isNotEmpty) {
+      await UserActivityService().logAppOpen(username: username, method: 'resume');
+    }
   }
 
   @override
@@ -273,16 +284,26 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
+      UserActivityService().logAction(
+        action: 'Updated document status to $newStatus',
+        screen: 'Documents',
+        details: 'Code: ${documents[index].code}, by: $updatedBy',
+      );
       setState(() {});
     } catch (e) {
       print('Error updating document status: $e');
-      // Could show error snackbar here
     }
   }
 
   Future<void> _deleteDocument(int index) async {
+    final docCode = documents[index].code;
     final success = await confirmAndDeleteRecord(context, documents[index], _documentService);
     if (success) {
+      UserActivityService().logAction(
+        action: 'Deleted document',
+        screen: 'Documents',
+        details: 'Code: $docCode',
+      );
       setState(() {
         documents.removeAt(index);
       });
@@ -345,6 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (value == 'sync') {
                 _syncAllDocuments();
               } else if (value == 'calendar') {
+                UserActivityService().logAction(action: 'Opened screen', screen: 'Calendar');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -352,6 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               } else if (value == 'about') {
+                UserActivityService().logAction(action: 'Opened screen', screen: 'About');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -359,6 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               } else if (value == 'delete_history') {
+                UserActivityService().logAction(action: 'Opened screen', screen: 'Delete History');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -366,6 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               } else if (value == 'notification_history') {
+                UserActivityService().logAction(action: 'Opened screen', screen: 'Notification History');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -378,6 +403,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 _checkPermissions();
               } else if (value == 'notification_settings') {
                 _showNotificationSettings();
+              } else if (value == 'user_activity') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UserActivityScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -421,6 +453,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.settings),
                   title: Text('Notification Settings'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'user_activity',
+                child: ListTile(
+                  leading: Icon(Icons.people_outline),
+                  title: Text('User Activity'),
                 ),
               ),
             ],
@@ -496,6 +535,7 @@ body: Container(
                                 colors: [Color(0xFFFFE0B2), Color.fromARGB(255, 245, 183, 90)],
                               ),
                               () {
+                                UserActivityService().logAction(action: 'Opened screen', screen: 'Incoming Documents');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -525,6 +565,7 @@ body: Container(
                                 end: Alignment.bottomRight,
                               ),
                               () {
+                                UserActivityService().logAction(action: 'Opened screen', screen: 'Outgoing Documents');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -554,6 +595,7 @@ body: Container(
                                 colors: [Color(0xFFA8E6CF), Color.fromARGB(255, 129, 211, 137)],
                               ),
                               () {
+                                UserActivityService().logAction(action: 'Opened screen', screen: 'Flag Ceremony');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -582,6 +624,7 @@ body: Container(
                                 colors: [Color(0xFFD4A5FF), Color(0xFF957DAD)],
                               ),
                               () {
+                                UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -769,35 +812,38 @@ Positioned(
  
 
   void _showForm(BuildContext context, bool incoming) async {
+    UserActivityService().logAction(
+      action: 'Opened Add Document screen',
+      screen: incoming ? 'Incoming Documents' : 'Outgoing Documents',
+    );
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddDocumentScreen(incoming: incoming),
       ),
     );
-    // Reload documents since the add screen handles saving and uploads
     await _loadDocuments();
   }
 
   void _showFlagCeremonyForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Flag Ceremony');
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const AddFlagCeremonyScreen(),
       ),
     );
-    // Reload documents since the add screen handles saving and uploads
     await _loadDocuments();
   }
 
   void _showAttendanceMovForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Attendance / MOV');
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const AddAttendanceMovScreen(),
       ),
     );
-    // Reload documents since the add screen handles saving and uploads
     await _loadDocuments();
   }
 
