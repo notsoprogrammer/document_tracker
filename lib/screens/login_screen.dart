@@ -312,6 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       final token = await AuthService.requestPasswordReset(
                         usernameController.text.trim(),
                       );
+                      if (!context.mounted) return;
                       if (token != null) {
                         setState(() {
                           tokenController.text = token;
@@ -321,16 +322,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         SnackbarUtils.showErrorSnackBar(context, 'User not found');
                       }
                     } else {
-                      final deviceToken = await FirebaseMessaging.instance.getToken();
-                      if (deviceToken == null) {
-                        SnackbarUtils.showErrorSnackBar(context, 'Failed to get device token');
-                        return;
+                      String? deviceToken;
+                      try {
+                        deviceToken = await FirebaseMessaging.instance.getToken();
+                      } catch (e) {
+                        debugPrint('Failed to get FCM token during reset: $e');
                       }
                       final success = await AuthService.resetPassword(
                         tokenController.text.trim(),
                         newPasswordController.text.trim(),
                         deviceToken,
                       );
+                      if (!context.mounted) return;
                       if (success) {
                         SnackbarUtils.showSuccessSnackBar(
                           context,
