@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
+import '../services/document_scanner_service.dart';
+import '../services/mlkit_scanner_service.dart';
 import '../services/google_drive_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
@@ -129,6 +132,248 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
         Navigator.pop(context, null); // Document was updated
       }
     }
+  }
+
+  Future<ImageSource?> _chooseWebScanSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text('Scan Document', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Camera'),
+                subtitle: const Text('Scan with device camera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                subtitle: const Text('Choose from photo library'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _takePicture() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      await _scanWithMlKit();
+      return;
+    }
+
+    final ImageSource? source = await _chooseWebScanSource();
+    if (source == null || !mounted) return;
+
+    final int currentImageCount = _selectedImagePaths.where(_isImage).length;
+    if (currentImageCount >= 10) {
+      SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+      return;
+    }
+    setState(() => _isPickingImage = true);
+
+    final XFile? image = await _picker.pickImage(source: source);
+    if (image == null) {
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      SnackbarUtils.showErrorSnackBar(context, 'No image captured');
+      return;
+    }
+
+    final rawBytes = await image.readAsBytes();
+    final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+
+    if (!mounted) return;
+
+    if (kIsWeb) {
+      final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      setState(() {
+        _selectedImagePaths.add(fileName);
+        _selectedImageBytes.add(scannedBytes);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addWebCameraImageToQueue(
+        documentCode: widget.document.code,
+        filePath: fileName,
+        bytes: scannedBytes,
+      );
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await tempFile.writeAsBytes(scannedBytes);
+      if (!mounted) return;
+      setState(() {
+        _selectedImagePaths.add(tempFile.path);
+        _selectedImageBytes.add(null);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addToQueue(
+        documentCode: widget.document.code,
+        filePath: tempFile.path,
+        isImage: true,
+        localPath: tempFile.path,
+      );
+    }
+  }
+
+  Future<void> _scanWithMlKit() async {
+    final int remaining = 10 - _selectedImagePaths.where(_isImage).length;
+    if (remaining <= 0) {
+      SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+      return;
+    }
+
+    final ScanOutputFormat? format = await _chooseScanFormat();
+    if (format == null || !mounted) return;
+
+    setState(() => _isPickingImage = true);
+
+    ScannerOutput? output;
+    try {
+      output = await MlKitScannerService.scanDocument(
+        maxPages: format == ScanOutputFormat.pdf ? 20 : remaining,
+        format: format,
+      );
+    } catch (_) {
+      output = null;
+    }
+
+    if (!mounted) return;
+
+    if (output == null) {
+      setState(() => _isPickingImage = false);
+      final int currentImageCount = _selectedImagePaths.where(_isImage).length;
+      if (currentImageCount >= 10) {
+        SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
+        return;
+      }
+      setState(() => _isPickingImage = true);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      if (image == null) {
+        if (!mounted) return;
+        setState(() => _isPickingImage = false);
+        SnackbarUtils.showErrorSnackBar(context, 'No image captured');
+        return;
+      }
+      final rawBytes = await image.readAsBytes();
+      final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      if (!mounted) return;
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await tempFile.writeAsBytes(scannedBytes);
+      if (!mounted) return;
+      setState(() {
+        _selectedImagePaths.add(tempFile.path);
+        _selectedImageBytes.add(null);
+        _isPickingImage = false;
+      });
+      UploadQueueManager().addToQueue(
+        documentCode: widget.document.code,
+        filePath: tempFile.path,
+        isImage: true,
+        localPath: tempFile.path,
+      );
+      return;
+    }
+
+    if (output.wasCancelled) {
+      setState(() => _isPickingImage = false);
+      return;
+    }
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      if (output.hasPdf) {
+        final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await tempFile.writeAsBytes(output.pdf!);
+        if (!mounted) return;
+        setState(() => _selectedDocumentPaths.add(tempFile.path));
+        UploadQueueManager().addToQueue(
+          documentCode: widget.document.code,
+          filePath: tempFile.path,
+          isImage: false,
+          localPath: tempFile.path,
+        );
+      } else {
+        for (var i = 0; i < output.images.length; i++) {
+          final tempFile = File('${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+          await tempFile.writeAsBytes(output.images[i]);
+          if (!mounted) return;
+          setState(() {
+            _selectedImagePaths.add(tempFile.path);
+            _selectedImageBytes.add(null);
+          });
+          UploadQueueManager().addToQueue(
+            documentCode: widget.document.code,
+            filePath: tempFile.path,
+            isImage: true,
+            localPath: tempFile.path,
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
+    }
+  }
+
+  Future<ScanOutputFormat?> _chooseScanFormat() {
+    return showModalBottomSheet<ScanOutputFormat>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Save scan as…',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, ScanOutputFormat.image),
+                      icon: const Icon(Icons.image_outlined),
+                      label: const Text('Image'),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(ctx, ScanOutputFormat.pdf),
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('PDF'),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<bool> _onWillPop() async {
@@ -652,56 +897,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : () async {
-                                  int currentImageCount = _selectedImagePaths.where(_isImage).length;
-                                  if (currentImageCount >= 10) {
-                                    SnackbarUtils.showErrorSnackBar(context, 'Only 10 image files allowed');
-                                    return;
-                                  }
-                                  setState(() => _isPickingImage = true);
-                                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                                  if (image != null) {
-                                    // For web, read bytes; for mobile, use path
-                                    if (kIsWeb) {
-                                      final bytes = await image.readAsBytes();
-                                      final fileName = 'web_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                                      setState(() {
-                                        _selectedImagePaths.add(fileName);
-                                        _selectedImageBytes.add(bytes);
-                                        _isPickingImage = false;
-                                      });
-                                      // Queue for upload
-                                      final queueManager = UploadQueueManager();
-                                      queueManager.addWebCameraImageToQueue(
-                                        documentCode: widget.document.code,
-                                        filePath: fileName,
-                                        bytes: bytes,
-                                      );
-                                    } else {
-                                      if (image.path.isNotEmpty) {
-                                        setState(() {
-                                          _selectedImagePaths.add(image.path);
-                                          _selectedImageBytes.add(null); // No bytes for mobile
-                                          _isPickingImage = false;
-                                        });
-                                        // Queue for upload
-                                        final queueManager = UploadQueueManager();
-                                        queueManager.addToQueue(
-                                          documentCode: widget.document.code,
-                                          filePath: image.path,
-                                          isImage: true,
-                                          localPath: image.path,
-                                        );
-                                      } else {
-                                        setState(() => _isPickingImage = false);
-                                        SnackbarUtils.showErrorSnackBar(context, 'No image captured or path empty');
-                                      }
-                                    }
-                                  } else {
-                                    setState(() => _isPickingImage = false);
-                                    SnackbarUtils.showErrorSnackBar(context, 'No image captured');
-                                  }
-                                },
+                                onPressed: (_isUploadingImages || _isPickingImage || _isSaving) ? null : _takePicture,
                                 icon: const Icon(Icons.camera_alt),
                                 label: const Text("Take Picture"),
                                 style: ElevatedButton.styleFrom(

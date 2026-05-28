@@ -17,6 +17,7 @@ import '../services/cached_document_service.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import './add_flag_ceremony_screen.dart';
+import './edit_flag_ceremony_screen.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -525,6 +526,27 @@ class _FlagCeremonyDocumentsScreenState
                                       runSpacing: 8,
                                       alignment: WrapAlignment.center,
                                       children: [
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF4EC377),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          onPressed: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => EditFlagCeremonyScreen(document: document),
+                                              ),
+                                            );
+                                            await _refreshDocuments();
+                                            if (widget.onRefresh != null) widget.onRefresh!();
+                                          },
+                                          child: const Icon(Icons.edit),
+                                        ),
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color.fromARGB(255, 218, 87, 78),
