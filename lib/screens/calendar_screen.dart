@@ -345,7 +345,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               rightChevronIcon: Icon(Icons.chevron_right, color: Colors.green.shade400),
             ),
 
-            
+
             onDaySelected: _onDaySelected,
             onFormatChanged: _onFormatChanged,
             onPageChanged: _onPageChanged,
@@ -862,445 +862,505 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  // --- Document details ---
 
   void _showDocumentDetails(BuildContext context, Document doc) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.3,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
+    if (kIsWeb) {
+      showDialog(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setModalState) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+            backgroundColor: Colors.white,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSheetHeader(
+                    'Document Details',
+                    Icons.description_outlined,
+                    Colors.green,
+                    () => Navigator.pop(ctx),
                   ),
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title Card
-                        Card(
-                          elevation: 2,
-                          margin: EdgeInsets.zero,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                left: BorderSide(
-                                  color: doc.calendarDeadline != null ? Colors.green : (doc.status == 'Completed' ? Colors.grey : Colors.red),
-                                  width: 4,
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  doc.title ?? 'No Title',
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () async {
-                                    await Clipboard.setData(ClipboardData(text: doc.code));
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Code copied to clipboard')),
-                                      );
-                                    }
-                                  },
-                                  child: Text(
-                                    'Code: ${doc.code}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontFamily: 'monospace',
-                                      color: Colors.blue,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: doc.calendarDeadline != null ? Colors.green.shade100 : (doc.status == 'Completed' ? Colors.grey.shade100 : Colors.red.shade100),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        doc.type,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: doc.calendarDeadline != null ? Colors.green.shade800 : (doc.status == 'Completed' ? Colors.grey.shade800 : Colors.red.shade800),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Details Card
-                        Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildDetailRow('From/To', doc.fromOrTo),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'Remarks:',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    IconButton(
-                                      color: const Color(0xFF088395),
-                                      icon: const Icon(Icons.edit, size: 18),
-                                      onPressed: () => _editRemarks(context, doc, setState),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minHeight: 36, minWidth: 36),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    Expanded(
-                                      child: Text(
-                                        _cleanRemarks(doc.remarks),
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (doc.calendarDeadline != null)
-                                  _buildDetailRow(
-                                    'Date & Time',
-                                    doc.calendarDeadlineEnd != null
-                                        ? "${DateFormat('MM/dd/yy hh:mm a').format(doc.calendarDeadline!)}  –  ${DateFormat('MM/dd/yy').format(doc.calendarDeadlineEnd!)}"
-                                        : DateFormat('MM/dd/yy | hh:mm a').format(doc.calendarDeadline!),
-                                  ),
-                                if (doc.complianceDeadline != null)
-                                  _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-
-                        // Images Section
-                        if (doc.imageUrls.isNotEmpty) ...[
-                          Card(
-                            elevation: 2,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Images',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  GestureDetector(
-                                    onTap: () => _showImageViewer(context, doc.imageUrls),
-                                    child: CachedNetworkImage(
-                                      imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
-                                      httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                      errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
-                                    ),
-                                  ),
-                                  if (doc.imageUrls.length > 1)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 8),
-                                      child: Text(
-                                        'Tap to view all images',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-
-                        // Files Section
-                        if (doc.fileUrls.isNotEmpty) ...[
-                          Card(
-                            elevation: 2,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Files',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ...doc.fileUrls.asMap().entries.map((entry) {
-                                    final index = entry.key;
-                                    final fileUrl = entry.value;
-                                    final fileName = index < doc.fileNames.length ? doc.fileNames[index] : 'Document.pdf';
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      child: InkWell(
-                                        onTap: () {
-                                          _viewFile(fileUrl);
-                                        },
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.attach_file, color: Colors.blue),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                fileName,
-                                                style: const TextStyle(
-                                                  color: Colors.blue,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildDocumentContent(doc, setModalState),
                     ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showActivityDetails(BuildContext context, Activity activity) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.3,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
                   ),
                 ],
               ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title Card
-                    Card(
-                      elevation: 2,
-                      margin: EdgeInsets.zero,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            left: BorderSide(
-                              color: Colors.blue,
-                              width: 4,
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              activity.title ?? 'No Title',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Activity',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => StatefulBuilder(
+          builder: (context, setModalState) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.5,
+            minChildSize: 0.3,
+            maxChildSize: 0.9,
+            builder: (context, scrollController) => _buildSheetContainer(
+              scrollController,
+              _buildDocumentContent(doc, setModalState),
+            ),
+          ),
+        ),
+      );
+    }
+  }
 
-                    // Details Card
-                    Card(
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                            if (activity.startTime != null)
-                              _buildDetailRow('Date and Time', _formatDateTime(activity.startTime!)),
-                            if (activity.endTime != null)
-                              _buildDetailRow('End Date and Time', _formatDateTime(activity.endTime!)),
-                            _buildDetailRow('Added by', activity.person),
-                            _buildDetailRow('People Involved', activity.peopleInvolved),
-                            if (activity.location != null && activity.location!.isNotEmpty)
-                              _buildDetailRow('Location', activity.location!),
-                            _buildDetailRow('Remarks', activity.remarks),
-                          ],
-                        ),
-                      ),
+  // --- Activity details ---
+
+  void _showActivityDetails(BuildContext context, Activity activity) {
+    if (kIsWeb) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          backgroundColor: Colors.white,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSheetHeader(
+                  'Activity Details',
+                  Icons.event,
+                  Colors.blue,
+                  () => Navigator.pop(ctx),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildActivityContent(ctx, activity),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) => _buildSheetContainer(
+            scrollController,
+            _buildActivityContent(context, activity),
+          ),
+        ),
+      );
+    }
+  }
+
+  // --- Shared sheet helpers ---
+
+  Widget _buildSheetHeader(String title, IconData icon, Color iconColor, VoidCallback onClose) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ),
+          IconButton(icon: const Icon(Icons.close), onPressed: onClose),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSheetContainer(ScrollController scrollController, Widget child) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentContent(Document doc, StateSetter setModalState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title card
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: doc.calendarDeadline != null
+                      ? Colors.green
+                      : (doc.status == 'Completed' ? Colors.grey : Colors.red),
+                  width: 4,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc.title ?? 'No Title',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: doc.code));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Code copied to clipboard')),
+                      );
+                    }
+                  },
+                  child: Text(
+                    'Code: ${doc.code}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontFamily: 'monospace',
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
                     ),
-                    const SizedBox(height: 16),
-                    // Delete Button
-                    Center(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.delete),
-                        label: const Text("Delete Activity"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red[700],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: doc.calendarDeadline != null
+                            ? Colors.green.shade100
+                            : (doc.status == 'Completed' ? Colors.grey.shade100 : Colors.red.shade100),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        doc.type,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: doc.calendarDeadline != null
+                              ? Colors.green.shade800
+                              : (doc.status == 'Completed' ? Colors.grey.shade800 : Colors.red.shade800),
+                          fontWeight: FontWeight.w500,
                         ),
-                        onPressed: () async {
-                          final connectivityResult = await Connectivity().checkConnectivity();
-                          final isOnline = !connectivityResult.contains(ConnectivityResult.none);
-                          if (!isOnline) {
-                            Navigator.of(context).pop(); // Close modal
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Cannot delete activity offline'),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                            return;
-                          }
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Confirm Deletion'),
-                              content: Text('Are you sure you want to delete "${activity.title ?? 'this activity'}"?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red[700],
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true && activity.id != null) {
-                            try {
-                              await SupabaseService().deleteActivity(activity.id!);
-                              if (mounted) {
-                                Navigator.of(context).pop(); // Close modal
-                                _loadCalendarActivities(); // Reload activities
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Activity "${activity.title ?? 'Activity'}" deleted successfully'),
-                                    backgroundColor: Colors.green[700],
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('No internet, please try again later.'),
-                                    backgroundColor: Colors.red[700],
-                                  ),
-                                );
-                              }
-                            }
-                          }
-                        },
                       ),
                     ),
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Details card
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow('From/To', doc.fromOrTo),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Remarks:',
+                      style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      color: const Color(0xFF088395),
+                      icon: const Icon(Icons.edit, size: 18),
+                      onPressed: () => _editRemarks(context, doc, setModalState),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minHeight: 36, minWidth: 36),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _cleanRemarks(doc.remarks),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                if (doc.calendarDeadline != null)
+                  _buildDetailRow(
+                    'Date & Time',
+                    doc.calendarDeadlineEnd != null
+                        ? "${DateFormat('MM/dd/yy hh:mm a').format(doc.calendarDeadline!)}  –  ${DateFormat('MM/dd/yy').format(doc.calendarDeadlineEnd!)}"
+                        : DateFormat('MM/dd/yy | hh:mm a').format(doc.calendarDeadline!),
+                  ),
+                if (doc.complianceDeadline != null)
+                  _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Images
+        if (doc.imageUrls.isNotEmpty) ...[
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => _showImageViewer(context, doc.imageUrls),
+                    child: CachedNetworkImage(
+                      imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
+                      httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                    ),
+                  ),
+                  if (doc.imageUrls.length > 1)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('Tap to view all images', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ),
+                ],
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        // Files
+        if (doc.fileUrls.isNotEmpty) ...[
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  ...doc.fileUrls.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final fileUrl = entry.value;
+                    final fileName = index < doc.fileNames.length ? doc.fileNames[index] : 'Document.pdf';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: InkWell(
+                        onTap: () => _viewFile(fileUrl),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.attach_file, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                fileName,
+                                style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActivityContent(BuildContext context, Activity activity) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title card
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(left: BorderSide(color: Colors.blue, width: 4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  activity.title ?? 'No Title',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Activity', style: TextStyle(fontSize: 14, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Details card
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow('Date and Time', _formatDateTime(activity.startTime)),
+                if (activity.endTime != null)
+                  _buildDetailRow('End Date and Time', _formatDateTime(activity.endTime!)),
+                _buildDetailRow('Added by', activity.person),
+                _buildDetailRow('People Involved', activity.peopleInvolved),
+                if (activity.location != null && activity.location!.isNotEmpty)
+                  _buildDetailRow('Location', activity.location!),
+                _buildDetailRow('Remarks', activity.remarks),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Delete button
+        Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.delete),
+            label: const Text("Delete Activity"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              final connectivityResult = await Connectivity().checkConnectivity();
+              final isOnline = !connectivityResult.contains(ConnectivityResult.none);
+              if (!context.mounted) return;
+              if (!isOnline) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cannot delete activity offline'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Confirm Deletion'),
+                  content: Text('Are you sure you want to delete "${activity.title ?? 'this activity'}"?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+              if (!context.mounted) return;
+              if (confirmed == true && activity.id != null) {
+                try {
+                  await SupabaseService().deleteActivity(activity.id!);
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    _loadCalendarActivities();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Activity "${activity.title ?? 'Activity'}" deleted successfully'),
+                        backgroundColor: Colors.green[700],
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No internet, please try again later.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -1358,15 +1418,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
         }
         // Reload documents
         _loadCalendarDocuments();
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Remarks updated successfully')),
           );
-          // Close the edit dialog
-          Navigator.of(context).pop(); // close edit dialog
+          Navigator.of(context).pop();
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to update remarks: $e')),
           );
@@ -1564,31 +1623,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
     );
-  }
-
-  void _downloadImage(BuildContext context, String imageUrl) async {
-    if (imageUrl.isEmpty) {
-      SnackbarUtils.showErrorSnackBar(context, 'No image to download');
-      return;
-    }
-    try {
-      await ImageDownloadService.downloadAndSave(imageUrl);
-
-      if (context.mounted) {
-        SnackbarUtils.showSuccessSnackBar(
-          context,
-          'Image saved to gallery',
-          duration: const Duration(seconds: 4),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        SnackbarUtils.showErrorSnackBar(
-          context,
-          e.toString().replaceAll('Exception: ', ''),
-        );
-      }
-    }
   }
 
   /// Extract file ID from various Google Drive URL formats
