@@ -934,6 +934,72 @@ class _AttendanceMovsScreenState
                       },
                     ),
 
+                    /// LEFT / RIGHT NAV ARROWS (useful on web where swipe doesn't work)
+                    if (imageUrls.length > 1) ...[
+                      Positioned(
+                        left: 8,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: IconButton(
+                            icon: const Icon(Icons.chevron_left, size: 36, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black45,
+                              shape: const CircleBorder(),
+                            ),
+                            onPressed: currentIndex == 0
+                                ? null
+                                : () {
+                                    pageController.previousPage(
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: IconButton(
+                            icon: const Icon(Icons.chevron_right, size: 36, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black45,
+                              shape: const CircleBorder(),
+                            ),
+                            onPressed: currentIndex == imageUrls.length - 1
+                                ? null
+                                : () {
+                                    pageController.nextPage(
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 16,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${currentIndex + 1} / ${imageUrls.length}',
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+
                     /// TOP RIGHT BUTTONS
                     Positioned(
                       top: 40,
