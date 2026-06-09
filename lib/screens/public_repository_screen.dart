@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/repository_link.dart';
@@ -76,47 +77,66 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           title: Text(isEdit ? 'Edit Repository Link' : 'Add Repository Link'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title *',
-                      border: OutlineInputBorder(),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: titleController,
+                      inputFormatters: [_WordLimitFormatter(15)],
+                      maxLines: null,
+                      minLines: 1,
+                      decoration: const InputDecoration(
+                        labelText: 'Title *',
+                        border: OutlineInputBorder(),
+                      ),
+                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                        final words = titleController.text.trim().isEmpty
+                            ? 0
+                            : titleController.text.trim().split(RegExp(r'\s+')).length;
+                        return Text(
+                          '$words / 15 words',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: words >= 15 ? Colors.orange[700] : Colors.grey,
+                          ),
+                        );
+                      },
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Title is required' : null,
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Title is required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: linkController,
-                    decoration: const InputDecoration(
-                      labelText: 'Drive Link *',
-                      border: OutlineInputBorder(),
-                      hintText: 'https://drive.google.com/...',
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: linkController,
+                      decoration: const InputDecoration(
+                        labelText: 'Drive Link *',
+                        border: OutlineInputBorder(),
+                        hintText: 'https://drive.google.com/...',
+                      ),
+                      keyboardType: TextInputType.url,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Link is required';
+                        if (Uri.tryParse(v.trim()) == null) return 'Enter a valid URL';
+                        return null;
+                      },
                     ),
-                    keyboardType: TextInputType.url,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Link is required';
-                      if (Uri.tryParse(v.trim()) == null) return 'Enter a valid URL';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: descController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
                     ),
-                    maxLines: 3,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -447,5 +467,18 @@ class _LinkCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _WordLimitFormatter extends TextInputFormatter {
+  final int maxWords;
+  _WordLimitFormatter(this.maxWords);
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final words = newValue.text.trim().isEmpty
+        ? 0
+        : newValue.text.trim().split(RegExp(r'\s+')).length;
+    return words > maxWords ? oldValue : newValue;
   }
 }

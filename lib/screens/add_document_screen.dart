@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -810,6 +811,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         TextField(
                           controller: titleController,
                           enabled: !_isSaving,
+                          inputFormatters: [_WordLimitFormatter(20)],
                           decoration: InputDecoration(
                             labelText: "Document Title",
                             border: OutlineInputBorder(),
@@ -820,6 +822,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 ? "Document title is required"
                                 : null,
                           ),
+                          buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                            final words = titleController.text.trim().isEmpty
+                                ? 0
+                                : titleController.text.trim().split(RegExp(r'\s+')).length;
+                            return Text(
+                              '$words / 20 words',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: words >= 20 ? Colors.orange[700] : Colors.grey,
+                              ),
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 16),
@@ -1774,5 +1788,18 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       ),
       ),
     );
+  }
+}
+
+class _WordLimitFormatter extends TextInputFormatter {
+  final int maxWords;
+  _WordLimitFormatter(this.maxWords);
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final words = newValue.text.trim().isEmpty
+        ? 0
+        : newValue.text.trim().split(RegExp(r'\s+')).length;
+    return words > maxWords ? oldValue : newValue;
   }
 }
