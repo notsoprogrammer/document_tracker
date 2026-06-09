@@ -435,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(
                     builder: (context) => const CalendarScreen(),
                   ),
-                );
+                ).then((_) { if (mounted) _loadTodayActivities(); });
               } else if (value == 'about') {
                 UserActivityService().logAction(action: 'Opened screen', screen: 'About');
                 Navigator.push(
@@ -614,7 +614,7 @@ body: Container(
                                       syncAllDocuments: _syncAllDocuments,
                                     ),
                                   ),
-                                );
+                                ).then((_) { if (mounted) _loadTodayActivities(); });
                               },
                             ),
                           ),
@@ -644,7 +644,7 @@ body: Container(
                                       syncAllDocuments: _syncAllDocuments,
                                     ),
                                   ),
-                                );
+                                ).then((_) { if (mounted) _loadTodayActivities(); });
                               },
                             ),
                           ),
@@ -673,7 +673,7 @@ body: Container(
                                       onRefresh: _loadDocuments,
                                     ),
                                   ),
-                                );
+                                ).then((_) { if (mounted) _loadTodayActivities(); });
                               },
                             ),
                           ),
@@ -702,7 +702,7 @@ body: Container(
                                       onRefresh: _loadDocuments,
                                     ),
                                   ),
-                                );
+                                ).then((_) { if (mounted) _loadTodayActivities(); });
                               },
                             ),
                           ),
@@ -836,7 +836,7 @@ Positioned(
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                    );
+                    ).then((_) { if (mounted) _loadTodayActivities(); });
                   },
                   child: Row(
                     children: [
@@ -1106,7 +1106,7 @@ Positioned(
         builder: (context) => AddDocumentScreen(incoming: incoming),
       ),
     );
-    await _loadDocuments();
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
   }
 
   void _showFlagCeremonyForm(BuildContext context) async {
@@ -1117,7 +1117,7 @@ Positioned(
         builder: (context) => const AddFlagCeremonyScreen(),
       ),
     );
-    await _loadDocuments();
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
   }
 
   void _showAttendanceMovForm(BuildContext context) async {
@@ -1128,7 +1128,7 @@ Positioned(
         builder: (context) => const AddAttendanceMovScreen(),
       ),
     );
-    await _loadDocuments();
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
   }
 
   Future<void> _testNotification() async {
