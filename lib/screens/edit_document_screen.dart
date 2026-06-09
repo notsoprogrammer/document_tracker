@@ -61,6 +61,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
   String? _currentUsername;
   bool _isCreator = false;
   DateTime? selectedCalendarDate;
+  DateTime? selectedCalendarEndDate;
 
   @override
   void initState() {
@@ -85,6 +86,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     referenceLinkController.text = widget.document.referenceLink ?? '';
     personController.text = widget.document.person;
     selectedCalendarDate = widget.document.calendarDeadline;
+    selectedCalendarEndDate = widget.document.calendarDeadlineEnd;
 
     // Initialize current attachments
     _currentImageUrls = List.from(widget.document.imageUrls);
@@ -607,55 +609,133 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Document Code + Set to Calendar
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            widget.document.code,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          trailing: ElevatedButton.icon(
-                            onPressed: _isSaving ? null : () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: selectedCalendarDate ?? DateTime.now(),
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime.now().add(const Duration(days: 365)),
-                              );
-                              if (date != null) {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
-                                );
-                                if (time != null) {
-                                  setState(() {
-                                    selectedCalendarDate = DateTime(
-                                      date.year,
-                                      date.month,
-                                      date.day,
-                                      time.hour,
-                                      time.minute,
-                                    );
-                                  });
-                                }
-                              }
-                            },
-                            label: Text(
-                              selectedCalendarDate != null
-                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
-                                  : "Set to Calendar",
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: selectedCalendarDate != null
-                                  ? Colors.green
-                                  : Theme.of(context).colorScheme.primary,
-                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                            ),
+                        // Document Code
+                        Text(
+                          widget.document.code,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        // Start date row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isSaving ? null : () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedCalendarDate ?? DateTime.now(),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                                  );
+                                  if (date == null) return;
+                                  if (!mounted) return;
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay.fromDateTime(
+                                      selectedCalendarDate ?? DateTime(date.year, date.month, date.day, 8, 0),
+                                    ),
+                                  );
+                                  if (time != null) {
+                                    setState(() {
+                                      selectedCalendarDate = DateTime(
+                                        date.year, date.month, date.day,
+                                        time.hour, time.minute,
+                                      );
+                                      if (selectedCalendarEndDate != null &&
+                                          !selectedCalendarEndDate!.isAfter(selectedCalendarDate!)) {
+                                        selectedCalendarEndDate = null;
+                                      }
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.calendar_today, size: 15),
+                                label: Text(
+                                  selectedCalendarDate != null
+                                      ? DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)
+                                      : "Set to Calendar",
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: selectedCalendarDate != null
+                                      ? Colors.green
+                                      : Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                            ),
+                            if (selectedCalendarDate != null)
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                tooltip: 'Clear calendar',
+                                onPressed: () => setState(() {
+                                  selectedCalendarDate = null;
+                                  selectedCalendarEndDate = null;
+                                }),
+                              ),
+                          ],
+                        ),
+                        // End date row (visible only when start is set)
+                        if (selectedCalendarDate != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _isSaving ? null : () async {
+                                    final date = await showDatePicker(
+                                      context: context,
+                                      initialDate: selectedCalendarEndDate ??
+                                          selectedCalendarDate!.add(const Duration(days: 1)),
+                                      firstDate: selectedCalendarDate!,
+                                      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                                    );
+                                    if (date == null) return;
+                                    if (!mounted) return;
+                                    // ignore: use_build_context_synchronously
+                                    final time = await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.fromDateTime(
+                                        selectedCalendarEndDate ??
+                                            DateTime(date.year, date.month, date.day, 17, 0),
+                                      ),
+                                    );
+                                    if (time != null) {
+                                      setState(() {
+                                        selectedCalendarEndDate = DateTime(
+                                          date.year, date.month, date.day,
+                                          time.hour, time.minute,
+                                        );
+                                      });
+                                    }
+                                  },
+                                  icon: Icon(
+                                    Icons.event_available,
+                                    size: 15,
+                                    color: selectedCalendarEndDate != null ? Colors.green : null,
+                                  ),
+                                  label: Text(
+                                    selectedCalendarEndDate != null
+                                        ? "End: ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarEndDate!)}"
+                                        : "Set End Date (optional)",
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: selectedCalendarEndDate != null ? Colors.green : null,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (selectedCalendarEndDate != null)
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  tooltip: 'Clear end date',
+                                  onPressed: () => setState(() => selectedCalendarEndDate = null),
+                                ),
+                            ],
+                          ),
+                        ],
 
                         const Divider(height: 14),
 
@@ -1123,6 +1203,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         'local_image_paths': _selectedImagePaths,
                         'local_file_paths': _selectedDocumentPaths,
                         'calendar_deadline': selectedCalendarDate?.toIso8601String(),
+                        'calendar_deadline_end': selectedCalendarEndDate?.toIso8601String(),
                         'calendar_added': selectedCalendarDate != null,
                       };
 

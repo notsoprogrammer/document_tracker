@@ -19,6 +19,14 @@ import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 
 
+class _RangeInfo {
+  final bool isStart;
+  final bool isEnd;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
+  const _RangeInfo({required this.isStart, required this.isEnd, required this.rangeStart, required this.rangeEnd});
+}
+
 class CalendarScreen extends StatefulWidget {
   final Activity? initialActivity;
   final Document? initialDocument;
@@ -39,6 +47,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Document> _calendarDocuments = [];
   List<Activity> _calendarActivities = [];
+
+  Color _rangeHighlightColor = const Color(0xFF90CAF9); // default: light blue
+
+  static const List<Color> _highlightColorOptions = [
+    Color(0xFF90CAF9), // blue
+    Color(0xFFA5D6A7), // green
+    Color(0xFFFFCC80), // orange
+    Color(0xFFCE93D8), // purple
+    Color(0xFFF48FB1), // pink
+    Color(0xFF80DEEA), // teal
+    Color(0xFFFFEB3B), // yellow
+    Color(0xFFEF9A9A), // red
+  ];
 
   late final ConnectivityService connectivityService;
 
@@ -244,6 +265,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       foregroundColor: const Color.fromARGB(255, 3, 3, 3), // text/icon color
         actions: [
           IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            onPressed: _showColorPicker,
+            tooltip: 'Range Highlight Color',
+          ),
+          IconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: () => _selectMonthYear(context),
             tooltip: 'Select Month/Year',
@@ -324,17 +350,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onFormatChanged: _onFormatChanged,
             onPageChanged: _onPageChanged,
             calendarBuilders: CalendarBuilders(
+              defaultBuilder: (context, date, focusedDay) =>
+                  _buildDayWithRanges(context, date),
+              selectedBuilder: (context, date, focusedDay) =>
+                  _buildDayWithRanges(context, date, isSelected: true),
+              todayBuilder: (context, date, focusedDay) =>
+                  _buildDayWithRanges(context, date, isToday: true),
               markerBuilder: (context, date, events) {
                 if (events.isEmpty) return const SizedBox();
 
-                List<Widget> markers = [];
-                bool hasCalendar = false;
-                bool hasLeave = false;
+                bool hasCalendarDot = false;
+                bool hasLeaveDot = false;
                 bool hasPendingCompliance = false;
-                bool hasCompletedCompliance = false;
-                bool hasActivity = false;
+                bool hasActivityDot = false;
 
-                final markerDay = DateTime(date.year, date.month, date.day);
                 for (var event in events) {
                   if (event is Document) {
                     if (event.calendarDeadline != null) {
@@ -343,80 +372,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final endDay = event.calendarDeadlineEnd != null
                           ? DateTime(event.calendarDeadlineEnd!.year, event.calendarDeadlineEnd!.month, event.calendarDeadlineEnd!.day)
                           : startDay;
-                      if (!markerDay.isBefore(startDay) && !markerDay.isAfter(endDay)) {
-                        if (event.type == 'Leave') {
-                          hasLeave = true;
-                        } else {
-                          hasCalendar = true;
-                        }
+                      // Dot on single-day events, or on start/end of multi-day ranges
+                      final isEndpoint = isSameDay(startDay, endDay) ||
+                          isSameDay(date, startDay) ||
+                          isSameDay(date, endDay);
+                      if (isEndpoint) {
+                        if (event.type == 'Leave') { hasLeaveDot = true; }
+                        else { hasCalendarDot = true; }
                       }
                     }
                     if (event.complianceDeadline != null &&
-                        isSameDay(event.complianceDeadline!, date)) {
-                      if (event.status == 'Completed') {
-                        hasCompletedCompliance = true;
-                      } else {
-                        hasPendingCompliance = true;
-                      }
+                        isSameDay(event.complianceDeadline!, date) &&
+                        event.status != 'Completed') {
+                      hasPendingCompliance = true;
                     }
                   } else if (event is Activity) {
-                    final actStartDay = DateTime(event.startTime.year, event.startTime.month, event.startTime.day);
-                    final actEndDay = event.endTime != null
+                    final startDay = DateTime(event.startTime.year, event.startTime.month, event.startTime.day);
+                    final endDay = event.endTime != null
                         ? DateTime(event.endTime!.year, event.endTime!.month, event.endTime!.day)
-                        : actStartDay;
-                    if (!markerDay.isBefore(actStartDay) && !markerDay.isAfter(actEndDay)) {
-                      hasActivity = true;
-                    }
+                        : startDay;
+                    final isEndpoint = isSameDay(startDay, endDay) ||
+                        isSameDay(date, startDay) ||
+                        isSameDay(date, endDay);
+                    if (isEndpoint) hasActivityDot = true;
                   }
                 }
 
+                final markers = <Widget>[
+                  if (hasLeaveDot) _dotMarker(const Color.fromARGB(255, 255, 126, 203)),
+                  if (hasCalendarDot) _dotMarker(Colors.green),
+                  if (hasPendingCompliance) _dotMarker(Colors.red),
+                  if (hasActivityDot) _dotMarker(Colors.blue),
+                ];
 
-                if (hasLeave) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Color.fromARGB(255, 255, 126, 203),
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasCalendar) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasPendingCompliance) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                if (hasActivity) {
-                  markers.add(Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                  ));
-                }
-                // No indicator for completed compliance, but metadata remains in modal
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: markers,
-                );
+                if (markers.isEmpty) return const SizedBox();
+                return Row(mainAxisAlignment: MainAxisAlignment.center, children: markers);
               },
             ),
           ),
@@ -1317,6 +1307,168 @@ class _CalendarScreenState extends State<CalendarScreen> {
       }
     }
   }
+
+  List<_RangeInfo> _getRangeInfosForDay(DateTime date) {
+    final checkDay = DateTime(date.year, date.month, date.day);
+    final ranges = <_RangeInfo>[];
+
+    for (var activity in _calendarActivities) {
+      final startDay = DateTime(activity.startTime.year, activity.startTime.month, activity.startTime.day);
+      final endDay = activity.endTime != null
+          ? DateTime(activity.endTime!.year, activity.endTime!.month, activity.endTime!.day)
+          : startDay;
+      if (isSameDay(startDay, endDay)) continue;
+      if (!checkDay.isBefore(startDay) && !checkDay.isAfter(endDay)) {
+        ranges.add(_RangeInfo(
+          isStart: isSameDay(checkDay, startDay),
+          isEnd: isSameDay(checkDay, endDay),
+          rangeStart: startDay,
+          rangeEnd: endDay,
+        ));
+      }
+    }
+
+    for (var doc in _calendarDocuments) {
+      final calendarDate = doc.calendarDeadline;
+      if (calendarDate == null) continue;
+      final startDay = DateTime(calendarDate.year, calendarDate.month, calendarDate.day);
+      final endDay = doc.calendarDeadlineEnd != null
+          ? DateTime(doc.calendarDeadlineEnd!.year, doc.calendarDeadlineEnd!.month, doc.calendarDeadlineEnd!.day)
+          : startDay;
+      if (isSameDay(startDay, endDay)) continue;
+      if (!checkDay.isBefore(startDay) && !checkDay.isAfter(endDay)) {
+        ranges.add(_RangeInfo(
+          isStart: isSameDay(checkDay, startDay),
+          isEnd: isSameDay(checkDay, endDay),
+          rangeStart: startDay,
+          rangeEnd: endDay,
+        ));
+      }
+    }
+
+    return ranges;
+  }
+
+  Widget _buildDayWithRanges(BuildContext context, DateTime date, {bool isSelected = false, bool isToday = false}) {
+    // Only highlight ranges where _selectedDay is within the same range as date
+    final activeRanges = <_RangeInfo>[];
+    if (_selectedDay != null) {
+      final selDay = DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
+      for (final info in _getRangeInfosForDay(date)) {
+        if (!selDay.isBefore(info.rangeStart) && !selDay.isAfter(info.rangeEnd)) {
+          activeRanges.add(info);
+        }
+      }
+    }
+
+    final dayCircle = Container(
+      width: 36,
+      height: 36,
+      decoration: isSelected
+          ? BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle)
+          : isToday
+              ? const BoxDecoration(color: Color(0xFFC8E6C9), shape: BoxShape.circle)
+              : null,
+      alignment: Alignment.center,
+      child: Text(
+        '${date.day}',
+        style: TextStyle(
+          color: isSelected ? Colors.white : (isToday ? Colors.green.shade800 : Colors.black87),
+          fontWeight: (isSelected || isToday) ? FontWeight.bold : FontWeight.normal,
+          fontSize: 14,
+        ),
+      ),
+    );
+
+    if (activeRanges.isEmpty) return Center(child: dayCircle);
+
+    final highlight = _rangeHighlightColor.withOpacity(0.35);
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      final bandH = 36.0;
+      final bandTop = (h - bandH) / 2;
+
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final info in activeRanges) ...[
+            // Horizontal band (full-width for middle, half-width for start/end)
+            Positioned(
+              left: info.isStart ? w / 2 : 0,
+              right: info.isEnd ? w / 2 : 0,
+              top: bandTop,
+              height: bandH,
+              child: Container(color: highlight),
+            ),
+            // Filled circle at start/end to create the rounded cap
+            if (info.isStart || info.isEnd)
+              Positioned(
+                top: bandTop,
+                left: (w - bandH) / 2,
+                width: bandH,
+                height: bandH,
+                child: Container(
+                  decoration: BoxDecoration(color: highlight, shape: BoxShape.circle),
+                ),
+              ),
+          ],
+          Center(child: dayCircle),
+        ],
+      );
+    });
+  }
+
+  void _showColorPicker() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Range Highlight Color'),
+        content: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _highlightColorOptions.map((color) {
+            final isSelected = color.toARGB32() == _rangeHighlightColor.toARGB32();
+            return GestureDetector(
+              onTap: () {
+                setState(() => _rangeHighlightColor = color);
+                Navigator.pop(ctx);
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.black87 : Colors.transparent,
+                    width: 2.5,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, size: 18, color: Colors.black54)
+                    : null,
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dotMarker(Color color) => Container(
+    width: 6,
+    height: 6,
+    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
