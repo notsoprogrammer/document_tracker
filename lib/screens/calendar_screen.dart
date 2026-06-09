@@ -96,20 +96,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<dynamic> _getEventsForDay(DateTime day) {
     final events = <dynamic>[];
 
+    final checkDay = DateTime(day.year, day.month, day.day);
+
     // Add documents
     events.addAll(_calendarDocuments.where((doc) {
       final calendarDate = doc.calendarDeadline;
       final complianceDate = doc.complianceDeadline;
 
-      // Check calendar deadline
-      if (calendarDate != null &&
-          calendarDate.year == day.year &&
-          calendarDate.month == day.month &&
-          calendarDate.day == day.day) {
-        return true;
+      // Check calendar deadline (support multi-day range)
+      if (calendarDate != null) {
+        final startDay = DateTime(calendarDate.year, calendarDate.month, calendarDate.day);
+        final endDay = doc.calendarDeadlineEnd != null
+            ? DateTime(doc.calendarDeadlineEnd!.year, doc.calendarDeadlineEnd!.month, doc.calendarDeadlineEnd!.day)
+            : startDay;
+        if (!checkDay.isBefore(startDay) && !checkDay.isAfter(endDay)) {
+          return true;
+        }
       }
 
-      // Check compliance deadline
+      // Check compliance deadline (single day)
       if (complianceDate != null &&
           complianceDate.year == day.year &&
           complianceDate.month == day.month &&
@@ -120,19 +125,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return false;
     }));
 
-    // Add activities (only on start date)
+    // Add activities (across full start–end range)
     events.addAll(_calendarActivities.where((activity) {
       final startDate = activity.startTime;
-
-      // Check start time only
-      if (startDate != null &&
-          startDate.year == day.year &&
-          startDate.month == day.month &&
-          startDate.day == day.day) {
-        return true;
-      }
-
-      return false;
+      final actStartDay = DateTime(startDate.year, startDate.month, startDate.day);
+      final actEndDay = activity.endTime != null
+          ? DateTime(activity.endTime!.year, activity.endTime!.month, activity.endTime!.day)
+          : actStartDay;
+      return !checkDay.isBefore(actStartDay) && !checkDay.isAfter(actEndDay);
     }));
 
     return events;
@@ -334,14 +334,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 bool hasCompletedCompliance = false;
                 bool hasActivity = false;
 
+                final markerDay = DateTime(date.year, date.month, date.day);
                 for (var event in events) {
                   if (event is Document) {
-                    if (event.calendarDeadline != null &&
-                        isSameDay(event.calendarDeadline!, date)) {
-                      if (event.type == 'Leave') {
-                        hasLeave = true;
-                      } else {
-                        hasCalendar = true;
+                    if (event.calendarDeadline != null) {
+                      final s = event.calendarDeadline!;
+                      final startDay = DateTime(s.year, s.month, s.day);
+                      final endDay = event.calendarDeadlineEnd != null
+                          ? DateTime(event.calendarDeadlineEnd!.year, event.calendarDeadlineEnd!.month, event.calendarDeadlineEnd!.day)
+                          : startDay;
+                      if (!markerDay.isBefore(startDay) && !markerDay.isAfter(endDay)) {
+                        if (event.type == 'Leave') {
+                          hasLeave = true;
+                        } else {
+                          hasCalendar = true;
+                        }
                       }
                     }
                     if (event.complianceDeadline != null &&
@@ -353,8 +360,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       }
                     }
                   } else if (event is Activity) {
-                    // Activities are always calendar events
-                    if (event.startTime != null && isSameDay(event.startTime!, date)) {
+                    final actStartDay = DateTime(event.startTime.year, event.startTime.month, event.startTime.day);
+                    final actEndDay = event.endTime != null
+                        ? DateTime(event.endTime!.year, event.endTime!.month, event.endTime!.day)
+                        : actStartDay;
+                    if (!markerDay.isBefore(actStartDay) && !markerDay.isAfter(actEndDay)) {
                       hasActivity = true;
                     }
                   }
@@ -940,7 +950,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   ],
                                 ),
                                 if (doc.calendarDeadline != null)
-                                  _buildDetailRow('Date & Time', DateFormat('MM/dd/yy | hh:mm a').format(doc.calendarDeadline!)),
+                                  _buildDetailRow(
+                                    'Date & Time',
+                                    doc.calendarDeadlineEnd != null
+                                        ? "${DateFormat('MM/dd/yy hh:mm a').format(doc.calendarDeadline!)}  –  ${DateFormat('MM/dd/yy').format(doc.calendarDeadlineEnd!)}"
+                                        : DateFormat('MM/dd/yy | hh:mm a').format(doc.calendarDeadline!),
+                                  ),
                                 if (doc.complianceDeadline != null)
                                   _buildDetailRow('Compliance Deadline', doc.complianceDeadline!.toLocal().toString().split(' ')[0]),
                               ],

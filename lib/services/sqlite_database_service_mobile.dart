@@ -25,7 +25,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 24,
+      version: 25,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -60,6 +60,7 @@ class SQLiteDatabaseService {
         compliance_assignee TEXT,
         category TEXT,
         calendar_deadline TEXT,
+        calendar_deadline_end TEXT,
         calendar_added INTEGER DEFAULT 0,
         attachments TEXT,
         description TEXT,
@@ -406,6 +407,14 @@ class SQLiteDatabaseService {
           created_at TEXT NOT NULL
         )
       ''');
+    }
+    if (oldVersion < 25) {
+      // Add calendar_deadline_end column for multi-day event periods
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN calendar_deadline_end TEXT');
+      } catch (e) {
+        // Column might already exist
+      }
     }
   }
 

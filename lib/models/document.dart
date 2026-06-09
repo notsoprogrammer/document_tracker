@@ -64,6 +64,7 @@ class Document {
   final String? complianceAssignee; // Assignee for compliance status
   final String? category; // Document category (e.g., Attendance, MOVs, Certificates)
   final DateTime? calendarDeadline; // Deadline for calendar entries
+  final DateTime? calendarDeadlineEnd; // End date for multi-day calendar period
   final bool calendarAdded; // Whether added to calendar
   final List<String> attachments; // Combined image and file URLs for calendar
   final String? fileName; // Original file name for display
@@ -98,6 +99,7 @@ class Document {
     this.complianceAssignee,
     this.category,
     this.calendarDeadline,
+    this.calendarDeadlineEnd,
     this.calendarAdded = false,
     List<String>? attachments,
     this.fileName,
@@ -420,6 +422,7 @@ class Document {
       complianceAssignee: json['compliance_assignee'],
       category: json['category'],
       calendarDeadline: json['calendar_deadline'] != null ? DateTime.parse(json['calendar_deadline']) : null,
+      calendarDeadlineEnd: json['calendar_deadline_end'] != null ? DateTime.parse(json['calendar_deadline_end']) : null,
       calendarAdded: json['calendar_added'] == 1 || json['calendar_added'] == true,
       attachments: attachments,
       fileName: json['file_name'],
@@ -469,6 +472,7 @@ class Document {
       'compliance_assignee': complianceAssignee,
       'category': category,
       'calendar_deadline': calendarDeadline?.toIso8601String(),
+      'calendar_deadline_end': calendarDeadlineEnd?.toIso8601String(),
       'calendar_added': calendarAdded,
       'file_name': fileName,
       'receiving_date': receivingDate?.toIso8601String(),
@@ -504,6 +508,7 @@ class Document {
     String? complianceAssignee,
     String? category,
     DateTime? calendarDeadline,
+    DateTime? calendarDeadlineEnd,
     bool? calendarAdded,
     List<String>? attachments,
     String? fileName,
@@ -538,6 +543,7 @@ class Document {
       complianceAssignee: complianceAssignee ?? this.complianceAssignee,
       category: category ?? this.category,
       calendarDeadline: calendarDeadline ?? this.calendarDeadline,
+      calendarDeadlineEnd: calendarDeadlineEnd ?? this.calendarDeadlineEnd,
       calendarAdded: calendarAdded ?? this.calendarAdded,
       attachments: attachments ?? this.attachments,
       fileName: fileName ?? this.fileName,

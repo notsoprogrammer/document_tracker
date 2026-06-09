@@ -89,17 +89,24 @@ class _HomeScreenState extends State<HomeScreen> {
         SupabaseService().fetchCalendarDocuments().then((r) => calendarDocs = r),
       ]);
 
-      final todayActivities = activities.where((a) =>
-          a.startTime.year == today.year &&
-          a.startTime.month == today.month &&
-          a.startTime.day == today.day);
+      final todayDay = DateTime(today.year, today.month, today.day);
+
+      final todayActivities = activities.where((a) {
+        final actStart = DateTime(a.startTime.year, a.startTime.month, a.startTime.day);
+        final actEnd = a.endTime != null
+            ? DateTime(a.endTime!.year, a.endTime!.month, a.endTime!.day)
+            : actStart;
+        return !todayDay.isBefore(actStart) && !todayDay.isAfter(actEnd);
+      });
 
       final todayDocs = calendarDocs.where((d) {
         final cd = d.calendarDeadline;
-        return cd != null &&
-            cd.year == today.year &&
-            cd.month == today.month &&
-            cd.day == today.day;
+        if (cd == null) return false;
+        final startDay = DateTime(cd.year, cd.month, cd.day);
+        final endDay = d.calendarDeadlineEnd != null
+            ? DateTime(d.calendarDeadlineEnd!.year, d.calendarDeadlineEnd!.month, d.calendarDeadlineEnd!.day)
+            : startDay;
+        return !todayDay.isBefore(startDay) && !todayDay.isAfter(endDay);
       });
 
       final combined = <dynamic>[...todayActivities, ...todayDocs]

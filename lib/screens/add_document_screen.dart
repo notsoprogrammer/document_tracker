@@ -39,6 +39,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final assignedToController = TextEditingController();
   String? selectedStatus;
   DateTime? selectedCalendarDate;
+  DateTime? selectedCalendarEndDate;
   DateTime? selectedReceivingDate;
   String? selectedFilePath;
   final remarksController = TextEditingController();
@@ -761,20 +762,26 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now().add(const Duration(days: 365)),
                               );
-                              if (date != null) {
-                              final time = await showTimePicker(
-                                context: context,
-                                initialTime: const TimeOfDay(hour: 8, minute: 0), // 👈 defaults to 8:00 AM
-                              );
-                                if (time != null) {
+                              if (date != null && mounted) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: const TimeOfDay(hour: 8, minute: 0),
+                                );
+                                if (time != null && mounted) {
+                                  final startDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                                  // Ask for optional end date
+                                  final endDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: date,
+                                    firstDate: date,
+                                    lastDate: date.add(const Duration(days: 365)),
+                                    helpText: 'Set end date (optional — cancel to skip)',
+                                  );
                                   setState(() {
-                                    selectedCalendarDate = DateTime(
-                                      date.year,
-                                      date.month,
-                                      date.day,
-                                      time.hour,
-                                      time.minute,
-                                    );
+                                    selectedCalendarDate = startDateTime;
+                                    selectedCalendarEndDate = endDate != null
+                                        ? DateTime(endDate.year, endDate.month, endDate.day, 23, 59)
+                                        : null;
                                   });
                                 }
                               }
@@ -782,7 +789,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
                             label: Text(
                               selectedCalendarDate != null
-                                  ? " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
+                                  ? selectedCalendarEndDate != null
+                                      ? "${DateFormat('MM/dd').format(selectedCalendarDate!)} – ${DateFormat('MM/dd').format(selectedCalendarEndDate!)}"
+                                      : " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
                                   : "Set to Calendar",
                             ),
                             style: ElevatedButton.styleFrom(
@@ -1590,6 +1599,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         localImagePaths: _selectedImagePaths,
                         localFilePaths: _selectedDocumentPaths,
                         calendarDeadline: selectedCalendarDate,
+                        calendarDeadlineEnd: selectedCalendarEndDate,
                         calendarAdded: selectedCalendarDate != null,
                         receivingDate: selectedReceivingDate,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
