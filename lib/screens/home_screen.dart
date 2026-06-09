@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../models/document.dart';
+import '../models/activity.dart';
 import '../services/cached_document_service.dart';
 import '../services/notification_service.dart';
 import '../services/supabase_service.dart';
@@ -35,10 +36,13 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Document> documents = [];
   bool _isLoading = true;
   bool _showPills = false;
+  List<dynamic> _todayEvents = [];
+  bool _isTodayActivitiesLoading = true;
   @override
   void initState() {
     super.initState();
     _loadDocuments();
+    _loadTodayActivities();
     _checkAndRequestNotificationPermission();
     _logSessionResume();
   }
@@ -71,9 +75,56 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _isLoading = false;
       });
-      // Handle error - could show a snackbar
       print('Error loading documents: $e');
     }
+  }
+
+  Future<void> _loadTodayActivities() async {
+    try {
+      final today = DateTime.now();
+      List<Activity> activities = [];
+      List<Document> calendarDocs = [];
+      await Future.wait([
+        SupabaseService().fetchActivities().then((r) => activities = r),
+        SupabaseService().fetchCalendarDocuments().then((r) => calendarDocs = r),
+      ]);
+
+      final todayActivities = activities.where((a) =>
+          a.startTime.year == today.year &&
+          a.startTime.month == today.month &&
+          a.startTime.day == today.day);
+
+      final todayDocs = calendarDocs.where((d) {
+        final cd = d.calendarDeadline;
+        return cd != null &&
+            cd.year == today.year &&
+            cd.month == today.month &&
+            cd.day == today.day;
+      });
+
+      final combined = <dynamic>[...todayActivities, ...todayDocs]
+        ..sort((a, b) {
+          final aTime = a is Activity ? a.startTime : (a as Document).calendarDeadline!;
+          final bTime = b is Activity ? b.startTime : (b as Document).calendarDeadline!;
+          return aTime.compareTo(bTime);
+        });
+
+      setState(() {
+        _todayEvents = combined;
+        _isTodayActivitiesLoading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _isTodayActivitiesLoading = false;
+      });
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour > 12 ? dt.hour - 12 : dt.hour == 0 ? 12 : dt.hour;
+    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $amPm';
   }
 
   // Lists for dropdowns
@@ -515,11 +566,13 @@ body: Container(
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onBackground, // Neutral, classy tone
+                      color: Theme.of(context).colorScheme.onBackground,
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+                  _buildTodayActivitiesSection(),
+                  const SizedBox(height: 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final buttonWidth = (constraints.maxWidth - 16) / 2; // spacing 16, for 2 buttons
@@ -734,6 +787,225 @@ Positioned(
       side: BorderSide(color: Colors.redAccent.withOpacity(0.4)),
       elevation: 2,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    );
+  }
+
+  Widget _buildTodayActivitiesSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBBDEFB), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            child: Row(
+              children: [
+                const Icon(Icons.event_note, size: 16, color: Color(0xFF4988C4)),
+                const SizedBox(width: 7),
+                Text(
+                  "Today's Activities",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.blueGrey[800],
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    UserActivityService().logAction(action: 'Opened screen', screen: 'Calendar');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Text(
+                        'View Calendar',
+                        style: TextStyle(fontSize: 11, color: Colors.blue[400]),
+                      ),
+                      Icon(Icons.arrow_forward_ios, size: 10, color: Colors.blue[300]),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE3F2FD)),
+          // Body
+          if (_isTodayActivitiesLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4988C4)),
+                ),
+              ),
+            )
+          else if (_todayEvents.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: Text(
+                  'No activities scheduled for today',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            )
+          else
+            ...List.generate(_todayEvents.length, (i) => Column(
+              children: [
+                if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: Color(0xFFE3F2FD)),
+                _todayEvents[i] is Activity
+                    ? _buildActivityCard(_todayEvents[i] as Activity)
+                    : _buildDocumentEventCard(_todayEvents[i] as Document),
+              ],
+            )),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityCard(Activity activity) {
+    return InkWell(
+      onTap: () {
+        UserActivityService().logAction(action: 'Viewed activity from home', screen: 'Home');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CalendarScreen(initialActivity: activity),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            // Time badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _formatTime(activity.startTime),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Title + location
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    activity.title ?? 'Activity',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (activity.location != null && activity.location!.isNotEmpty)
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 11, color: Colors.grey[500]),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            activity.location!,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentEventCard(Document doc) {
+    return InkWell(
+      onTap: () {
+        UserActivityService().logAction(action: 'Viewed document event from home', screen: 'Home');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CalendarScreen(initialDocument: doc),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _formatTime(doc.calendarDeadline!),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF2E7D32),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doc.title ?? doc.code,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    doc.type,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
     );
   }
 

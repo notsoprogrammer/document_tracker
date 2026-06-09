@@ -20,7 +20,9 @@ import '../config/supabase_config.dart';
 
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  final Activity? initialActivity;
+  final Document? initialDocument;
+  const CalendarScreen({super.key, this.initialActivity, this.initialDocument});
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -49,6 +51,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedEvents = ValueNotifier(_getEventsForDay(_selectedDay!));
     _loadCalendarDocuments();
     _loadCalendarActivities();
+    if (widget.initialActivity != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showActivityDetails(context, widget.initialActivity!);
+      });
+    }
+    if (widget.initialDocument != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showDocumentDetails(context, widget.initialDocument!);
+      });
+    }
   }
 
   @override
