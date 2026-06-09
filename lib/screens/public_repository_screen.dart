@@ -30,18 +30,18 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
   Future<void> _loadLinks() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch from Supabase first; fall back to local on error
       final remote = await _supabase.fetchRepositoryLinks();
-      if (remote.isNotEmpty) {
-        setState(() {
-          _links = remote;
-          _isLoading = false;
-        });
+      if (remote.isNotEmpty || true) {
+        if (mounted) {
+          setState(() {
+            _links = remote;
+            _isLoading = false;
+          });
+        }
         return;
       }
     } catch (_) {}
 
-    // Fallback to local
     final local = await _sqlite.fetchRepositoryLinks();
     if (mounted) {
       setState(() {
@@ -64,10 +64,11 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
     }
   }
 
-  void _showAddDialog() {
-    final titleController = TextEditingController();
-    final linkController = TextEditingController();
-    final descController = TextEditingController();
+  void _showLinkDialog({RepositoryLink? existing}) {
+    final isEdit = existing != null;
+    final titleController = TextEditingController(text: existing?.title ?? '');
+    final linkController = TextEditingController(text: existing?.driveLink ?? '');
+    final descController = TextEditingController(text: existing?.description ?? '');
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
 
@@ -75,7 +76,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Add Repository Link'),
+          title: Text(isEdit ? 'Edit Repository Link' : 'Add Repository Link'),
           content: SingleChildScrollView(
             child: Form(
               key: formKey,
@@ -131,26 +132,35 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                       if (!formKey.currentState!.validate()) return;
                       setDialogState(() => isSaving = true);
 
-                      final username = await AuthService.getUsername() ?? 'Unknown';
-                      final now = getPhilippineTime();
-
-                      final link = RepositoryLink(
-                        title: titleController.text.trim(),
-                        driveLink: linkController.text.trim(),
-                        description: descController.text.trim(),
-                        addedBy: username,
-                        addedAt: now,
-                        needsSync: true,
-                      );
-
-                      try {
-                        // Save to Supabase
-                        final saved = await _supabase.createRepositoryLink(link);
-                        // Save locally with needs_sync = false
-                        await _sqlite.createRepositoryLink(saved.copyWith(needsSync: false));
-                      } catch (_) {
-                        // Offline — save locally with needs_sync flag
-                        await _sqlite.createRepositoryLink(link);
+                      if (isEdit) {
+                        final updates = {
+                          'title': titleController.text.trim(),
+                          'drive_link': linkController.text.trim(),
+                          'description': descController.text.trim(),
+                        };
+                        try {
+                          await _supabase.updateRepositoryLink(existing.id!, updates);
+                          await _sqlite.updateRepositoryLink(existing.id!, updates);
+                        } catch (_) {
+                          await _sqlite.updateRepositoryLink(existing.id!, updates);
+                        }
+                      } else {
+                        final username = await AuthService.getUsername() ?? 'Unknown';
+                        final now = getPhilippineTime();
+                        final link = RepositoryLink(
+                          title: titleController.text.trim(),
+                          driveLink: linkController.text.trim(),
+                          description: descController.text.trim(),
+                          addedBy: username,
+                          addedAt: now,
+                          needsSync: true,
+                        );
+                        try {
+                          final saved = await _supabase.createRepositoryLink(link);
+                          await _sqlite.createRepositoryLink(saved.copyWith(needsSync: false));
+                        } catch (_) {
+                          await _sqlite.createRepositoryLink(link);
+                        }
                       }
 
                       if (!ctx.mounted) return;
@@ -163,7 +173,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save'),
+                  : Text(isEdit ? 'Update' : 'Save'),
             ),
           ],
         ),
@@ -172,39 +182,101 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
   }
 
   Future<void> _confirmDelete(RepositoryLink link) async {
-    final confirmed = await showDialog<bool>(
+    final inputController = TextEditingController();
+    bool? result;
+
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Link'),
-        content: Text('Remove "${link.title}" from the repository?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final canConfirm = inputController.text.trim().toLowerCase() == 'y';
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.delete_forever, color: Colors.red[700]),
+                const SizedBox(width: 8),
+                const Text('Confirm Deletion'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to delete "${link.title}"?',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: inputController,
+                  decoration: const InputDecoration(
+                    labelText: 'Type "y" to confirm, "n" to cancel',
+                    border: OutlineInputBorder(),
+                    helperText: 'This action cannot be undone',
+                  ),
+                  maxLength: 1,
+                  autofocus: true,
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: canConfirm
+                    ? () {
+                        result = true;
+                        Navigator.of(ctx).pop();
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[700],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Confirm Delete'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (confirmed != true) return;
+    if (result != true || link.id == null) return;
+
+    final username = await AuthService.getUsername() ?? 'Unknown';
 
     try {
-      if (link.id != null) {
-        await _supabase.deleteRepositoryLink(link.id!);
-        await _sqlite.deleteRepositoryLink(link.id!);
+      await _supabase.deleteRepositoryLink(link.id!);
+      await _sqlite.deleteRepositoryLink(link.id!);
+      await _supabase.logDeletedRecord(username, 'REPO-${link.id}', link.title);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${link.title}" deleted successfully'),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        _loadLinks();
       }
     } catch (_) {
-      if (link.id != null) {
-        await _sqlite.deleteRepositoryLink(link.id!);
+      await _sqlite.deleteRepositoryLink(link.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${link.title}" removed locally. Will sync when online.'),
+            backgroundColor: Colors.orange[700],
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        _loadLinks();
       }
     }
-
-    if (mounted) _loadLinks();
   }
 
   @override
@@ -216,7 +288,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
         foregroundColor: Colors.white,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
+        onPressed: () => _showLinkDialog(),
         backgroundColor: const Color(0xFF0D86CD),
         foregroundColor: Colors.white,
         tooltip: 'Add Link',
@@ -252,6 +324,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                     itemBuilder: (_, i) => _LinkCard(
                       link: _links[i],
                       onOpen: () => _openLink(_links[i].driveLink),
+                      onEdit: () => _showLinkDialog(existing: _links[i]),
                       onDelete: () => _confirmDelete(_links[i]),
                     ),
                   ),
@@ -264,11 +337,13 @@ class _LinkCard extends StatelessWidget {
   const _LinkCard({
     required this.link,
     required this.onOpen,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final RepositoryLink link;
   final VoidCallback onOpen;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -294,7 +369,15 @@ class _LinkCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF0D86CD)),
+                  tooltip: 'Edit',
+                  onPressed: onEdit,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.delete_forever, size: 20, color: Colors.red[700]),
                   tooltip: 'Delete',
                   onPressed: onDelete,
                   padding: EdgeInsets.zero,
@@ -351,9 +434,12 @@ class _LinkCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 const Icon(Icons.access_time, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text(
-                  dateStr,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                Expanded(
+                  child: Text(
+                    dateStr,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

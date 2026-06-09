@@ -420,6 +420,12 @@ class SupabaseService {
     return RepositoryLink.fromJson(response);
   }
 
+  Future<void> updateRepositoryLink(int id, Map<String, dynamic> updates) async {
+    updates.remove('id');
+    updates.remove('needs_sync');
+    await _client.from('repository_links').update(updates).eq('id', id);
+  }
+
   Future<void> deleteRepositoryLink(int id) async {
     await _client.from('repository_links').delete().eq('id', id);
   }

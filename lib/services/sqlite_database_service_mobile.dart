@@ -852,6 +852,14 @@ class SQLiteDatabaseService {
     await db.delete('repository_links', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> updateRepositoryLink(int id, Map<String, dynamic> updates) async {
+    final db = await database;
+    if (updates.containsKey('needs_sync')) {
+      updates['needs_sync'] = (updates['needs_sync'] == true || updates['needs_sync'] == 1) ? 1 : 0;
+    }
+    await db.update('repository_links', updates, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> markRepositoryLinkSynced(int id) async {
     final db = await database;
     await db.update('repository_links', {'needs_sync': 0}, where: 'id = ?', whereArgs: [id]);
