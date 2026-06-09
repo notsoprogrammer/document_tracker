@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/repository_link.dart';
 import '../services/sqlite_database_service_mobile.dart';
@@ -18,14 +19,33 @@ class PublicRepositoryScreen extends StatefulWidget {
 class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
   final _sqlite = SQLiteDatabaseService();
   final _supabase = SupabaseService();
+  final _searchController = TextEditingController();
 
   List<RepositoryLink> _links = [];
+  String _searchQuery = '';
   bool _isLoading = true;
+
+  List<RepositoryLink> get _filteredLinks {
+    if (_searchQuery.isEmpty) return _links;
+    final q = _searchQuery.toLowerCase();
+    return _links.where((l) =>
+      l.title.toLowerCase().contains(q) ||
+      l.description.toLowerCase().contains(q) ||
+      l.driveLink.toLowerCase().contains(q) ||
+      l.addedBy.toLowerCase().contains(q),
+    ).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadLinks();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLinks() async {
@@ -164,10 +184,23 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                         } catch (_) {
                           await _sqlite.updateRepositoryLink(existing.id!, updates);
                         }
+                        // Optimistically update the card in the list immediately
+                        if (mounted) {
+                          setState(() {
+                            final idx = _links.indexWhere((l) => l.id == existing.id);
+                            if (idx != -1) {
+                              _links[idx] = existing.copyWith(
+                                title: titleController.text.trim(),
+                                driveLink: linkController.text.trim(),
+                                description: descController.text.trim(),
+                              );
+                            }
+                          });
+                        }
                       } else {
                         final username = await AuthService.getUsername() ?? 'Unknown';
                         final now = getPhilippineTime();
-                        final link = RepositoryLink(
+                        final newLink = RepositoryLink(
                           title: titleController.text.trim(),
                           driveLink: linkController.text.trim(),
                           description: descController.text.trim(),
@@ -175,16 +208,19 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                           addedAt: now,
                           needsSync: true,
                         );
+                        RepositoryLink toAdd = newLink;
                         try {
-                          final saved = await _supabase.createRepositoryLink(link);
-                          await _sqlite.createRepositoryLink(saved.copyWith(needsSync: false));
+                          final saved = await _supabase.createRepositoryLink(newLink);
+                          toAdd = saved.copyWith(needsSync: false);
+                          await _sqlite.createRepositoryLink(toAdd);
                         } catch (_) {
-                          await _sqlite.createRepositoryLink(link);
+                          await _sqlite.createRepositoryLink(newLink);
                         }
+                        // Optimistically prepend new link so it appears immediately
+                        if (mounted) setState(() => _links = [toAdd, ..._links]);
                       }
 
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
+                      if (ctx.mounted) Navigator.pop(ctx);
                       if (mounted) _loadLinks();
                     },
               child: isSaving
@@ -301,11 +337,44 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredLinks;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Public Repository'),
         backgroundColor: const Color(0xFF0D86CD),
         foregroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(color: Colors.black),
+              decoration: InputDecoration(
+                hintText: 'Search title, description, link...',
+                hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showLinkDialog(),
@@ -335,20 +404,31 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _loadLinks,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    itemCount: _links.length,
-                    separatorBuilder: (_, index) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _LinkCard(
-                      link: _links[i],
-                      onOpen: () => _openLink(_links[i].driveLink),
-                      onEdit: () => _showLinkDialog(existing: _links[i]),
-                      onDelete: () => _confirmDelete(_links[i]),
+              : filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No results for "$_searchQuery"',
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadLinks,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _LinkCard(
+                          link: filtered[i],
+                          onOpen: () => _openLink(filtered[i].driveLink),
+                          onEdit: () => _showLinkDialog(existing: filtered[i]),
+                          onDelete: () => _confirmDelete(filtered[i]),
+                          onShare: () => Share.share(
+                            '${filtered[i].title}\n${filtered[i].driveLink}',
+                            subject: filtered[i].title,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
     );
   }
 }
@@ -359,16 +439,19 @@ class _LinkCard extends StatelessWidget {
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
+    required this.onShare,
   });
 
   final RepositoryLink link;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('MMM dd, yyyy  hh:mm a').format(link.addedAt.toLocal());
+    // addedAt is stored as PH time with a UTC flag (from getPhilippineTime()), so skip toLocal()
+    final dateStr = DateFormat('MMM dd, yyyy  hh:mm a').format(link.addedAt);
 
     return Card(
       elevation: 2,
@@ -388,20 +471,40 @@ class _LinkCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF0D86CD)),
-                  tooltip: 'Edit',
-                  onPressed: onEdit,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Tooltip(
+                  message: 'Share',
+                  child: InkWell(
+                    onTap: onShare,
+                    borderRadius: BorderRadius.circular(16),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.share_outlined, size: 18, color: Colors.grey),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.delete_forever, size: 20, color: Colors.red[700]),
-                  tooltip: 'Delete',
-                  onPressed: onDelete,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Edit',
+                  child: InkWell(
+                    onTap: onEdit,
+                    borderRadius: BorderRadius.circular(16),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0D86CD)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Delete',
+                  child: InkWell(
+                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.delete_forever, size: 18, color: Colors.red[700]),
+                    ),
+                  ),
                 ),
               ],
             ),
