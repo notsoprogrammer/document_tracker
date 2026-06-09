@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
+import '../models/repository_link.dart';
 
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -398,5 +399,28 @@ class SupabaseService {
   Future<void> deleteActivity(int activityId) async {
     await _client.from('activities').delete().eq('id', activityId);
     print('Activity $activityId deleted successfully');
+  }
+
+  // Repository links operations
+  Future<List<RepositoryLink>> fetchRepositoryLinks() async {
+    try {
+      final response = await _client.from('repository_links').select('*').order('added_at', ascending: false);
+      return (response as List<dynamic>).map((r) => RepositoryLink.fromJson(r)).toList();
+    } catch (e) {
+      print('Error fetching repository links: $e');
+      return [];
+    }
+  }
+
+  Future<RepositoryLink> createRepositoryLink(RepositoryLink link) async {
+    final data = link.toJson();
+    data.remove('id');
+    data.remove('needs_sync');
+    final response = await _client.from('repository_links').insert(data).select().single();
+    return RepositoryLink.fromJson(response);
+  }
+
+  Future<void> deleteRepositoryLink(int id) async {
+    await _client.from('repository_links').delete().eq('id', id);
   }
 }

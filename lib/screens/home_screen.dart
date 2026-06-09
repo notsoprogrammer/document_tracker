@@ -23,6 +23,7 @@ import 'notification_history_screen.dart';
 import 'calendar_screen.dart';
 import 'about_screen.dart';
 import 'user_activity_screen.dart';
+import 'public_repository_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -473,6 +474,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) => const UserActivityScreen(),
                   ),
                 );
+              } else if (value == 'repository') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PublicRepositoryScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -523,6 +531,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.people_outline),
                   title: Text('User Activity'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'repository',
+                child: ListTile(
+                  leading: Icon(Icons.folder_shared_outlined),
+                  title: Text('Public Repository'),
                 ),
               ),
             ],

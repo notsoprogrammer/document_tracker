@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:convert';
 import '../models/document.dart';
 import '../models/activity.dart';
+import '../models/repository_link.dart';
 import '../utils/date_time_utils.dart';
 
 class SQLiteDatabaseService {
@@ -25,7 +26,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 25,
+      version: 26,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -148,6 +149,19 @@ class SQLiteDatabaseService {
         file_id TEXT NOT NULL,
         document_code TEXT NOT NULL,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    // Public repository links
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS repository_links (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        drive_link TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        added_by TEXT NOT NULL,
+        added_at TEXT NOT NULL,
+        needs_sync INTEGER DEFAULT 0
       )
     ''');
   }
@@ -415,6 +429,20 @@ class SQLiteDatabaseService {
       } catch (e) {
         // Column might already exist
       }
+    }
+    if (oldVersion < 26) {
+      // Create public repository links table
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS repository_links (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          drive_link TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          added_by TEXT NOT NULL,
+          added_at TEXT NOT NULL,
+          needs_sync INTEGER DEFAULT 0
+        )
+      ''');
     }
   }
 
@@ -801,5 +829,31 @@ class SQLiteDatabaseService {
   Future<void> deletePendingDriveDeletionByFileId(String fileId) async {
     final db = await database;
     await db.delete('pending_drive_deletions', where: 'file_id = ?', whereArgs: [fileId]);
+  }
+
+  // Repository links methods
+  Future<List<RepositoryLink>> fetchRepositoryLinks() async {
+    final db = await database;
+    final maps = await db.query('repository_links', orderBy: 'added_at DESC');
+    return maps.map((m) => RepositoryLink.fromJson(m)).toList();
+  }
+
+  Future<RepositoryLink> createRepositoryLink(RepositoryLink link) async {
+    final db = await database;
+    final data = link.toJson();
+    data.remove('id');
+    data['needs_sync'] = (data['needs_sync'] == true || data['needs_sync'] == 1) ? 1 : 0;
+    final id = await db.insert('repository_links', data, conflictAlgorithm: ConflictAlgorithm.replace);
+    return link.copyWith(id: id);
+  }
+
+  Future<void> deleteRepositoryLink(int id) async {
+    final db = await database;
+    await db.delete('repository_links', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> markRepositoryLinkSynced(int id) async {
+    final db = await database;
+    await db.update('repository_links', {'needs_sync': 0}, where: 'id = ?', whereArgs: [id]);
   }
 }
