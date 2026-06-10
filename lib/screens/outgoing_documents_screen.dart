@@ -53,6 +53,11 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
+  static const _ownScreenModes = {
+    'Flag Ceremony', 'Office Function MOVs',
+    'Locational & Zoning', 'SP Documents', 'Reclassification', 'CDC Documents',
+  };
+
   late List<Document> _filteredDocuments;
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
@@ -130,7 +135,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       });
     });
     _filteredDocuments = widget.documents
-        .where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs')
+        .where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode))
         .toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -185,7 +190,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
+        widget.documents.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -200,7 +205,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     setState(() {
       _expandedTiles.clear();
       _filteredDocuments = searchAndFilterDocuments(
-        allDocs.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && doc.mode != 'Flag Ceremony' && doc.mode != 'Office Function MOVs').toList(),
+        allDocs.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
