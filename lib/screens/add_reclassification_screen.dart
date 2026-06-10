@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
@@ -25,9 +27,12 @@ class AddReclassificationScreen extends StatefulWidget {
 
 class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
   final ImagePicker _picker = ImagePicker();
+  final titleController = TextEditingController();
   final codeController = TextEditingController();
   String? selectedType;
   DateTime? selectedDate;
+  DateTime? selectedCalendarDate;
+  DateTime? selectedCalendarEndDate;
   final descriptionController = TextEditingController();
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
@@ -243,6 +248,99 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                   child: Padding(padding: const EdgeInsets.all(16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text("Basic Information", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                     const SizedBox(height: 12),
+                                            
+                        // Document Code + Set to Calendar
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            codeController.text,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          trailing: ElevatedButton.icon(
+                            onPressed: _isSaving ? null : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedCalendarDate ?? DateTime.now(),
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null && mounted) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: const TimeOfDay(hour: 8, minute: 0),
+                                );
+                                if (time != null && mounted) {
+                                  final startDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                                  // Ask for optional end date
+                                  final endDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: date,
+                                    firstDate: date,
+                                    lastDate: date.add(const Duration(days: 365)),
+                                    helpText: 'Set end date (optional — cancel to skip)',
+                                  );
+                                  setState(() {
+                                    selectedCalendarDate = startDateTime;
+                                    selectedCalendarEndDate = endDate != null
+                                        ? DateTime(endDate.year, endDate.month, endDate.day, 23, 59)
+                                        : null;
+                                  });
+                                }
+                              }
+                            },
+
+                            label: Text(
+                              selectedCalendarDate != null
+                                  ? selectedCalendarEndDate != null
+                                      ? "${DateFormat('MM/dd').format(selectedCalendarDate!)} – ${DateFormat('MM/dd').format(selectedCalendarEndDate!)}"
+                                      : " ${DateFormat('MM/dd/yy hh:mm a').format(selectedCalendarDate!)}"
+                                  : "Set to Calendar",
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: selectedCalendarDate != null
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.secondary,
+                              foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                            ),
+                          ),
+
+                          ),
+
+                        const Divider(height: 14),
+
+                        // Title
+                        TextField(
+                          controller: titleController,
+                          enabled: !_isSaving,
+                          inputFormatters: [_WordLimitFormatter(20)],
+                          decoration: InputDecoration(
+                            labelText: "Document Title",
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            errorText: _showValidationErrors &&
+                                    titleController.text.trim().isEmpty
+                                ? "Document title is required"
+                                : null,
+                          ),
+                          buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                            final words = titleController.text.trim().isEmpty
+                                ? 0
+                                : titleController.text.trim().split(RegExp(r'\s+')).length;
+                            return Text(
+                              '$words / 20 words',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: words >= 20 ? Colors.orange[700] : Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: selectedType,
                       decoration: InputDecoration(labelText: "Type *", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface, errorText: _showValidationErrors && selectedType == null ? "Please select a document type" : null),
@@ -255,13 +353,11 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                     InkWell(
                       onTap: _isSaving ? null : () => _selectDate(context),
                       child: InputDecorator(
-                        decoration: InputDecoration(labelText: "Date *", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface, errorText: _showValidationErrors && selectedDate == null ? "Date is required" : null, suffixIcon: const Icon(Icons.calendar_today)),
+                        decoration: InputDecoration(labelText: "Receiving Date *", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface, errorText: _showValidationErrors && selectedDate == null ? "Date is required" : null, suffixIcon: const Icon(Icons.calendar_today)),
                         child: Text(selectedDate != null ? "${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}" : "Select date", style: TextStyle(color: selectedDate != null ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(controller: codeController, readOnly: true, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), decoration: InputDecoration(labelText: "Document Code", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface)),
-                  ])),
+                    const SizedBox(height: 16),])),
                 ),
                 Card(
                   elevation: 4, margin: const EdgeInsets.only(bottom: 16),
@@ -385,5 +481,17 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
         ),
       ),
     );
+  }
+}
+class _WordLimitFormatter extends TextInputFormatter {
+  final int maxWords;
+  _WordLimitFormatter(this.maxWords);
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final words = newValue.text.trim().isEmpty
+        ? 0
+        : newValue.text.trim().split(RegExp(r'\s+')).length;
+    return words > maxWords ? oldValue : newValue;
   }
 }
