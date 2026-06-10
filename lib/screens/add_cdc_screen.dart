@@ -313,7 +313,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () { if (imageFiles.isNotEmpty) { final currentIndex = pageController.page?.round() ?? 0; setState(() { UploadQueueManager().removeFromQueue(codeController.text, imageFiles[currentIndex]); _selectedImagePaths.remove(imageFiles[currentIndex]); }); setStateDialog(() => imageFiles.removeAt(currentIndex)); if (imageFiles.isEmpty) Navigator.pop(context); } }),
+                        IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () { if (imageFiles.isNotEmpty) { final currentIndex = pageController.page?.round() ?? 0; setState(() { UploadQueueManager().removeFromQueue(codeController.text, imageFiles[currentIndex]); _selectedImagePaths.remove(imageFiles[currentIndex]); _webFileBytes.remove(imageFiles[currentIndex]); }); setStateDialog(() => imageFiles.removeAt(currentIndex)); if (imageFiles.isEmpty) Navigator.pop(context); } }),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                       ],
                     ),
@@ -322,10 +322,20 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                         controller: pageController,
                         itemCount: imageFiles.length,
                         itemBuilder: (context, index) {
+                          final path = imageFiles[index];
+                          final webBytes = _webFileBytes[path];
+                          Widget imageWidget;
+                          if (kIsWeb && webBytes != null) {
+                            imageWidget = Image.memory(Uint8List.fromList(webBytes), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')));
+                          } else if (kIsWeb) {
+                            imageWidget = const Center(child: Text('Preview unavailable'));
+                          } else {
+                            imageWidget = Image.file(File(path), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')));
+                          }
                           return Stack(
                             alignment: Alignment.center,
                             children: [
-                              InteractiveViewer(child: Image.file(File(imageFiles[index]), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')))),
+                              InteractiveViewer(child: imageWidget),
                               if (index > 0) Positioned(left: 10, child: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.black54), onPressed: () => pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
                               if (index < imageFiles.length - 1) Positioned(right: 10, child: IconButton(icon: const Icon(Icons.arrow_forward_ios, color: Colors.black54), onPressed: () => pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
                             ],

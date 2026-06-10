@@ -920,8 +920,8 @@ Positioned(
             Expanded(
               child: _buildFolderCard(
                 icon: Icons.map_outlined,
-                title: "Loc. & Zoning",
-                subtitle: "Clearances & certs",
+                title: "Locational & Zoning",
+                subtitle: "Clearances & certificates",
                 count: lzCount,
                 gradient: const LinearGradient(
                   colors: [Color(0xFF4DD0E1), Color(0xFF00838F)],

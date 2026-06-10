@@ -212,14 +212,26 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
         final pageController = PageController();
         return Column(children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () { if (imageFiles.isNotEmpty) { final idx = pageController.page?.round() ?? 0; setState(() { UploadQueueManager().removeFromQueue(codeController.text, imageFiles[idx]); _selectedImagePaths.remove(imageFiles[idx]); }); setStateDialog(() => imageFiles.removeAt(idx)); if (imageFiles.isEmpty) Navigator.pop(context); } }),
+            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () { if (imageFiles.isNotEmpty) { final idx = pageController.page?.round() ?? 0; setState(() { UploadQueueManager().removeFromQueue(codeController.text, imageFiles[idx]); _selectedImagePaths.remove(imageFiles[idx]); _webFileBytes.remove(imageFiles[idx]); }); setStateDialog(() => imageFiles.removeAt(idx)); if (imageFiles.isEmpty) Navigator.pop(context); } }),
             IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
           ]),
-          Expanded(child: PageView.builder(controller: pageController, itemCount: imageFiles.length, itemBuilder: (context, index) => Stack(alignment: Alignment.center, children: [
-            InteractiveViewer(child: Image.file(File(imageFiles[index]), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')))),
-            if (index > 0) Positioned(left: 10, child: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.black54), onPressed: () => pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
-            if (index < imageFiles.length - 1) Positioned(right: 10, child: IconButton(icon: const Icon(Icons.arrow_forward_ios, color: Colors.black54), onPressed: () => pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
-          ]))),
+          Expanded(child: PageView.builder(controller: pageController, itemCount: imageFiles.length, itemBuilder: (context, index) {
+            final path = imageFiles[index];
+            final webBytes = _webFileBytes[path];
+            Widget imageWidget;
+            if (kIsWeb && webBytes != null) {
+              imageWidget = Image.memory(Uint8List.fromList(webBytes), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')));
+            } else if (kIsWeb) {
+              imageWidget = const Center(child: Text('Preview unavailable'));
+            } else {
+              imageWidget = Image.file(File(path), fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')));
+            }
+            return Stack(alignment: Alignment.center, children: [
+              InteractiveViewer(child: imageWidget),
+              if (index > 0) Positioned(left: 10, child: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.black54), onPressed: () => pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
+              if (index < imageFiles.length - 1) Positioned(right: 10, child: IconButton(icon: const Icon(Icons.arrow_forward_ios, color: Colors.black54), onPressed: () => pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut))),
+            ]);
+          })),
         ]);
       }))));
     } else {

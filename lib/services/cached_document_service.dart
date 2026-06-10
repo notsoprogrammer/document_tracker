@@ -299,8 +299,8 @@ class CachedDocumentService {
       // Prevent duplicate "Files Uploaded" history entries
       if (entry.action == 'Files Uploaded') {
         final docs = await _localDb.fetchDocuments();
-        final doc = docs.firstWhere((d) => d.code == documentCode);
-        if (doc.history.isNotEmpty && doc.history.last.action == 'Files Uploaded') {
+        final doc = docs.where((d) => d.code == documentCode).firstOrNull;
+        if (doc != null && doc.history.isNotEmpty && doc.history.last.action == 'Files Uploaded') {
           debugPrint('Skipping duplicate "Files Uploaded" history entry for document $documentCode');
           return;
         }
@@ -564,7 +564,13 @@ class CachedDocumentService {
 
           // Get the document to determine the correct folder
           final docs = await _localDb.fetchDocuments();
-          final doc = docs.firstWhere((d) => d.code == upload['documentCode']);
+          final doc = docs.where((d) => d.code == upload['documentCode']).firstOrNull;
+          if (doc == null) {
+            // Document not saved yet (e.g. auto-sync fired before user tapped Save) — defer
+            debugPrint('Document not in DB yet, deferring upload: ${upload['documentCode']}');
+            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
+            continue;
+          }
           DriveFolder folder;
           if (doc.mode == 'Flag Ceremony') {
             folder = DriveFolder.flagCeremony;
@@ -648,8 +654,9 @@ class CachedDocumentService {
             continue;
           }
 
-          // Check if this is a web file with bytes
-          final bytes = upload['bytes'] as List<int>?;
+          // Check if this is a web file with bytes (fall back to persistent cache)
+          final bytes = (upload['bytes'] as List<int>?) ??
+              queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
           if (kIsWeb && bytes != null) {
             // Web file with bytes - use uploadFileFromBytes
             final extension = upload['localPath'].split('.').last.toLowerCase();
@@ -702,7 +709,12 @@ class CachedDocumentService {
 
             // Get current document to update URLs
             final docs = await _localDb.fetchDocuments();
-            final doc = docs.firstWhere((d) => d.code == documentCode);
+            final doc = docs.where((d) => d.code == documentCode).firstOrNull;
+            if (doc == null) {
+              debugPrint('Document not found for URL update: $documentCode — skipping');
+              queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'completed');
+              continue;
+            }
 
             if (isImage) {
               final updatedUrls = [...doc.imageUrls];
@@ -746,7 +758,8 @@ class CachedDocumentService {
             Future<void> cleanup() async {
               final isImage = upload['isImage'];
               final docs = await _localDb.fetchDocuments();
-              final doc = docs.firstWhere((d) => d.code == documentCode);
+              final doc = docs.where((d) => d.code == documentCode).firstOrNull;
+              if (doc == null) return;
 
               if (isImage) {
                 final updatedLocalPaths = doc.localImagePaths.where((path) => path != upload['localPath']).toList();

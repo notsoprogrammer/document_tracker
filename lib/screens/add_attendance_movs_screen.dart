@@ -477,6 +477,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                                 final queueManager = UploadQueueManager();
                                 queueManager.removeFromQueue(codeController.text, imageFiles[currentIndex]);
                                 _selectedImagePaths.remove(imageFiles[currentIndex]);
+                                _webFileBytes.remove(imageFiles[currentIndex]);
                               });
                               setStateDialog(() {
                                 imageFiles.removeAt(currentIndex);
@@ -502,13 +503,29 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                             alignment: Alignment.center,
                             children: [
                               InteractiveViewer(
-                                child: Image.file(
-                                  File(imageFiles[index]),
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(child: Text('Failed to load image'));
-                                  },
-                                ),
+                                child: () {
+                                  final path = imageFiles[index];
+                                  final webBytes = _webFileBytes[path];
+                                  if (kIsWeb && webBytes != null) {
+                                    return Image.memory(
+                                      Uint8List.fromList(webBytes),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Center(child: Text('Failed to load image'));
+                                      },
+                                    );
+                                  } else if (kIsWeb) {
+                                    return const Center(child: Text('Preview unavailable'));
+                                  } else {
+                                    return Image.file(
+                                      File(path),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Center(child: Text('Failed to load image'));
+                                      },
+                                    );
+                                  }
+                                }(),
                               ),
                               // Left arrow
                               if (index > 0)

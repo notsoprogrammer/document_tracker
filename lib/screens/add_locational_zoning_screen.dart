@@ -433,6 +433,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                               setState(() {
                                 UploadQueueManager().removeFromQueue(codeController.text, imageFiles[currentIndex]);
                                 _selectedImagePaths.remove(imageFiles[currentIndex]);
+                                _webFileBytes.remove(imageFiles[currentIndex]);
                               });
                               setStateDialog(() => imageFiles.removeAt(currentIndex));
                               if (imageFiles.isEmpty) Navigator.pop(context);
@@ -450,17 +451,28 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                         controller: pageController,
                         itemCount: imageFiles.length,
                         itemBuilder: (context, index) {
+                          final path = imageFiles[index];
+                          final webBytes = _webFileBytes[path];
+                          Widget imageWidget;
+                          if (kIsWeb && webBytes != null) {
+                            imageWidget = Image.memory(
+                              Uint8List.fromList(webBytes),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')),
+                            );
+                          } else if (kIsWeb) {
+                            imageWidget = const Center(child: Text('Preview unavailable'));
+                          } else {
+                            imageWidget = Image.file(
+                              File(path),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')),
+                            );
+                          }
                           return Stack(
                             alignment: Alignment.center,
                             children: [
-                              InteractiveViewer(
-                                child: Image.file(
-                                  File(imageFiles[index]),
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Center(child: Text('Failed to load image')),
-                                ),
-                              ),
+                              InteractiveViewer(child: imageWidget),
                               if (index > 0)
                                 Positioned(
                                   left: 10,

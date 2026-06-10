@@ -9,6 +9,8 @@ class UploadQueueManager extends ChangeNotifier {
   UploadQueueManager._internal();
 
   final List<Map<String, dynamic>> _uploadQueue = [];
+  // Persistent bytes cache for web files — survives queue-item status changes
+  final Map<String, List<int>> _webBytesCache = {};
   bool _isProcessing = false;
   bool _isInitialized = false;
 
@@ -66,6 +68,11 @@ class UploadQueueManager extends ChangeNotifier {
     required String localPath,
     List<int>? bytes, // For web compatibility
   }) async {
+    // Persist bytes in cache regardless of duplicate status
+    if (bytes != null) {
+      _webBytesCache['$documentCode:$filePath'] = bytes;
+    }
+
     // Check if file already exists in queue for this document across all statuses
     final alreadyQueued = _uploadQueue.any((item) =>
       item['documentCode'] == documentCode &&
@@ -110,6 +117,9 @@ class UploadQueueManager extends ChangeNotifier {
     required String filePath,
     required List<int> bytes,
   }) {
+    // Persist bytes in cache regardless of duplicate status
+    _webBytesCache['$documentCode:$filePath'] = bytes;
+
     // Check if file already exists in queue across all statuses
     final alreadyQueued = _uploadQueue.any((item) =>
       item['documentCode'] == documentCode &&
@@ -134,11 +144,17 @@ class UploadQueueManager extends ChangeNotifier {
     }
   }
 
+  /// Retrieve cached web bytes for a file (fallback when queue item bytes are null)
+  List<int>? getBytesForFile(String documentCode, String filePath) {
+    return _webBytesCache['$documentCode:$filePath'];
+  }
+
   /// Remove a file from the upload queue
   void removeFromQueue(String documentCode, String filePath) async {
     _uploadQueue.removeWhere(
       (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
     );
+    _webBytesCache.remove('$documentCode:$filePath');
     debugPrint('Removed file from upload queue: $filePath for document $documentCode');
     
     // Remove from SQLite persistence
@@ -228,8 +244,9 @@ class UploadQueueManager extends ChangeNotifier {
       // Update status to completed
       _uploadQueue[index]['status'] = 'completed';
       debugPrint('Marked upload as completed and removing from queue: $filePath for document $documentCode');
-      // Remove the item from the queue
+      // Remove the item from the queue and clear bytes cache
       _uploadQueue.removeAt(index);
+      _webBytesCache.remove('$documentCode:$filePath');
       
       // Remove from SQLite persistence
       if (!kIsWeb) {
