@@ -32,6 +32,7 @@ import 'sp_documents_screen.dart';
 import 'add_sp_documents_screen.dart';
 import 'reclassification_screen.dart';
 import 'add_reclassification_screen.dart';
+import '../services/update_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTodayActivities();
     _checkAndRequestNotificationPermission();
     _logSessionResume();
+    _checkForUpdates();
   }
 
   Future<void> _logSessionResume() async {
@@ -65,6 +67,75 @@ class _HomeScreenState extends State<HomeScreen> {
         DateTime.now().difference(recent).inSeconds < 10;
     if (!isJustLoggedIn) {
       await UserActivityService().logAppOpen(username: username, method: 'App reopened');
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    final update = await UpdateService.checkForUpdate();
+    if (update == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Available'),
+        content: Text(
+          'Version ${update.latestVersion} is available. Update now to get the latest features and fixes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Update Now'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final progressNotifier = ValueNotifier<double>(0.0);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Downloading Update'),
+          content: ValueListenableBuilder<double>(
+            valueListenable: progressNotifier,
+            builder: (context, progress, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(value: progress > 0 ? progress : null),
+                const SizedBox(height: 8),
+                Text(progress > 0 ? '${(progress * 100).toInt()}%' : 'Starting...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await UpdateService.downloadAndInstall(
+        update.downloadUrl,
+        onProgress: (p) => progressNotifier.value = p,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download failed. Please try again later.')),
+        );
+      }
+    } finally {
+      progressNotifier.dispose();
+      if (mounted) Navigator.of(context).pop();
     }
   }
 
