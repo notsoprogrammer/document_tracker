@@ -163,7 +163,11 @@ class _CdcScreenState extends State<CdcScreen> {
     _filteredDocuments = widget.documents
         .where((doc) => doc.mode == 'CDC Documents')
         .toList()
-      ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+      ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
@@ -200,7 +204,11 @@ class _CdcScreenState extends State<CdcScreen> {
         }
         return matchesSearch && matchesDate;
       }).toList()
-        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+        ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 
@@ -226,7 +234,11 @@ class _CdcScreenState extends State<CdcScreen> {
         }
         return matchesSearch && matchesDate;
       }).toList()
-        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+        ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 

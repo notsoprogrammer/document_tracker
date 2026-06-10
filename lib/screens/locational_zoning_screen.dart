@@ -210,7 +210,11 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
     _filteredDocuments = widget.documents
         .where((doc) => doc.mode == 'Locational & Zoning')
         .toList()
-      ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+      ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
@@ -253,7 +257,11 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
 
         return matchesSearch && matchesDate;
       }).toList()
-        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+        ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 
@@ -280,7 +288,11 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
         }
         return matchesSearch && matchesDate;
       }).toList()
-        ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+        ..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 

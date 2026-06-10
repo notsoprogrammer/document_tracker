@@ -114,7 +114,11 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
     super.initState();
     _searchController.text = _searchQuery;
     _searchController.addListener(() { _searchQuery = _searchController.text; _filterDocuments(); });
-    _filteredDocuments = widget.documents.where((doc) => doc.mode == 'SP Documents').toList()..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+    _filteredDocuments = widget.documents.where((doc) => doc.mode == 'SP Documents').toList()..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
@@ -138,7 +142,11 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
           if (_endDate != null && docDate.isAfter(_endDate!)) matchesDate = false;
         }
         return matchesSearch && matchesDate;
-      }).toList()..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+      }).toList()..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 
@@ -156,7 +164,11 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
           if (_endDate != null && docDate.isAfter(_endDate!)) matchesDate = false;
         }
         return matchesSearch && matchesDate;
-      }).toList()..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+      }).toList()..sort((a, b) {
+          final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
+          final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
+          return bDate.compareTo(aDate);
+        });
     });
   }
 
