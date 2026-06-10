@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -180,9 +181,9 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                         };
                         try {
                           await _supabase.updateRepositoryLink(existing.id!, updates);
-                          await _sqlite.updateRepositoryLink(existing.id!, updates);
+                          if (!kIsWeb) await _sqlite.updateRepositoryLink(existing.id!, updates);
                         } catch (_) {
-                          await _sqlite.updateRepositoryLink(existing.id!, updates);
+                          if (!kIsWeb) await _sqlite.updateRepositoryLink(existing.id!, updates);
                         }
                         // Optimistically update the card in the list immediately
                         if (mounted) {
@@ -212,9 +213,9 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
                         try {
                           final saved = await _supabase.createRepositoryLink(newLink);
                           toAdd = saved.copyWith(needsSync: false);
-                          await _sqlite.createRepositoryLink(toAdd);
+                          if (!kIsWeb) await _sqlite.createRepositoryLink(toAdd);
                         } catch (_) {
-                          await _sqlite.createRepositoryLink(newLink);
+                          if (!kIsWeb) await _sqlite.createRepositoryLink(newLink);
                         }
                         // Optimistically prepend new link so it appears immediately
                         if (mounted) setState(() => _links = [toAdd, ..._links]);
@@ -307,7 +308,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
 
     try {
       await _supabase.deleteRepositoryLink(link.id!);
-      await _sqlite.deleteRepositoryLink(link.id!);
+      if (!kIsWeb) await _sqlite.deleteRepositoryLink(link.id!);
       await _supabase.logDeletedRecord(username, 'REPO-${link.id}', link.title);
 
       if (mounted) {
@@ -321,7 +322,7 @@ class _PublicRepositoryScreenState extends State<PublicRepositoryScreen> {
         _loadLinks();
       }
     } catch (_) {
-      await _sqlite.deleteRepositoryLink(link.id!);
+      if (!kIsWeb) await _sqlite.deleteRepositoryLink(link.id!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
