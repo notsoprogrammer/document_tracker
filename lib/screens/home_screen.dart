@@ -26,6 +26,12 @@ import 'user_activity_screen.dart';
 import 'public_repository_screen.dart';
 import 'locational_zoning_screen.dart';
 import 'add_locational_zoning_screen.dart';
+import 'cdc_screen.dart';
+import 'add_cdc_screen.dart';
+import 'sp_documents_screen.dart';
+import 'add_sp_documents_screen.dart';
+import 'reclassification_screen.dart';
+import 'add_reclassification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -629,6 +635,21 @@ Positioned(
                     _showLocationalZoningForm(context);
                     setState(() => _showPills = false);
                   }),
+                  const SizedBox(height: 8),
+                  _buildPill('CDC Documents', '', () {
+                    _showCdcForm(context);
+                    setState(() => _showPills = false);
+                  }),
+                  const SizedBox(height: 8),
+                  _buildPill('SP Documents', '', () {
+                    _showSpDocumentsForm(context);
+                    setState(() => _showPills = false);
+                  }),
+                  const SizedBox(height: 8),
+                  _buildPill('Reclassification', '', () {
+                    _showReclassificationForm(context);
+                    setState(() => _showPills = false);
+                  }),
                 ],
               )
             : const SizedBox.shrink(),
@@ -730,15 +751,24 @@ Positioned(
         d.incoming &&
         d.mode != 'Flag Ceremony' &&
         d.mode != 'Office Function MOVs' &&
-        d.mode != 'Locational & Zoning').length;
+        d.mode != 'Locational & Zoning' &&
+        d.mode != 'CDC Documents' &&
+        d.mode != 'SP Documents' &&
+        d.mode != 'Reclassification').length;
     final outgoingCount = documents.where((d) =>
         !d.incoming &&
         d.mode != 'Flag Ceremony' &&
         d.mode != 'Office Function MOVs' &&
-        d.mode != 'Locational & Zoning').length;
+        d.mode != 'Locational & Zoning' &&
+        d.mode != 'CDC Documents' &&
+        d.mode != 'SP Documents' &&
+        d.mode != 'Reclassification').length;
     final flagCount = documents.where((d) => d.mode == 'Flag Ceremony').length;
     final movsCount = documents.where((d) => d.mode == 'Office Function MOVs').length;
     final lzCount = documents.where((d) => d.mode == 'Locational & Zoning').length;
+    final cdcCount = documents.where((d) => d.mode == 'CDC Documents').length;
+    final spCount = documents.where((d) => d.mode == 'SP Documents').length;
+    final reclassCount = documents.where((d) => d.mode == 'Reclassification').length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,32 +915,134 @@ Positioned(
           ],
         ),
         const SizedBox(height: 12),
-        _buildFolderCardWide(
-          icon: Icons.map_outlined,
-          title: "Locational & Zoning",
-          subtitle: "Reclassification, Clearances and certifications",
-          count: lzCount,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4DD0E1), Color(0xFF00838F)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          onTap: () {
-            UserActivityService().logAction(action: 'Opened screen', screen: 'Locational & Zoning');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => LocalationalZoningScreen(
-                  documents: documents,
-                  transferDocument: _transferDocument,
-                  updateDocumentStatus: _updateDocumentStatus,
-                  deleteDocument: _deleteDocument,
-                  syncDocument: _syncDocument,
-                  onRefresh: _loadDocuments,
+        Row(
+          children: [
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.map_outlined,
+                title: "Loc. & Zoning",
+                subtitle: "Clearances & certs",
+                count: lzCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4DD0E1), Color(0xFF00838F)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Locational & Zoning');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LocalationalZoningScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
               ),
-            ).then((_) { if (mounted) _loadTodayActivities(); });
-          },
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.swap_horizontal_circle_outlined,
+                title: "Reclassification",
+                subtitle: "CLUP zoning docs",
+                count: reclassCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF81C784), Color(0xFF1B5E20)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Reclassification');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReclassificationScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+
+          ],
+        ),
+        
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.gavel_outlined,
+                title: "SP Documents",
+                subtitle: "Resolutions & ordinances",
+                count: spCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7986CB), Color(0xFF283593)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'SP Documents');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SpDocumentsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.groups_outlined,
+                title: "CDC Documents",
+                subtitle: "Council records",
+                count: cdcCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF8A65), Color(0xFFBF360C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'CDC Documents');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CdcScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -979,74 +1111,6 @@ Positioned(
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFolderCardWide({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required int count,
-    required Gradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      borderRadius: BorderRadius.circular(16),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, size: 24, color: Colors.white),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.85), size: 18),
               ],
             ),
           ),
@@ -1417,6 +1481,39 @@ Positioned(
       context,
       MaterialPageRoute(
         builder: (context) => const AddLocationalZoningScreen(),
+      ),
+    );
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
+  }
+
+  void _showCdcForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add CDC Document');
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddCdcScreen(),
+      ),
+    );
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
+  }
+
+  void _showSpDocumentsForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add SP Document');
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddSpDocumentsScreen(),
+      ),
+    );
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
+  }
+
+  void _showReclassificationForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Reclassification');
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddReclassificationScreen(),
       ),
     );
     await Future.wait([_loadDocuments(), _loadTodayActivities()]);

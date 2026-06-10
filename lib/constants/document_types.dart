@@ -29,6 +29,11 @@ const Map<String, String> typeMapping = {
   'Certificate/Attendance': 'CERT',
   'Clean-up Drives': 'CUD',
   'CLUP Zoning Reclassification': 'CLUPZ',
+  'Execom Resolution': 'EXRES',
+  'Supplemental AIP': 'SAIP',
+  'CDC Invitation': 'CDCI',
+  'SP Resolution': 'SPRES',
+  'SP Ordinance': 'SPORD',
   'CSOs': 'CSO',
   'Dept. Heads Meeting': 'DHM',
   'DTR': 'DTR',
@@ -106,6 +111,23 @@ const List<String> locationalZoningTypes = [
   'Locational Clearance',
   'Zoning Clearance',
   'Zoning Certification',
+];
+
+const List<String> cdcTypes = [
+  'CDC – Attendance',
+  'CDC – Minutes',
+  'CDC – Resolution',
+  'Execom Resolution',
+  'Supplemental AIP',
+  'CDC Invitation',
+];
+
+const List<String> spDocumentTypes = [
+  'SP Resolution',
+  'SP Ordinance',
+];
+
+const List<String> reclassificationTypes = [
   'CLUP Zoning Reclassification',
 ];
 

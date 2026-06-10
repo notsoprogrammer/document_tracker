@@ -572,18 +572,31 @@ class CachedDocumentService {
             'Locational Clearance',
             'Zoning Clearance',
             'Zoning Certification',
-            'CLUP Zoning Reclassification',
           ].contains(doc.category)) {
             folder = DriveFolder.locationalZoning;
+          } else if (doc.mode == 'Reclassification' || [
+            'CLUP Zoning Reclassification',
+          ].contains(doc.category)) {
+            folder = DriveFolder.reclassification;
+          } else if (doc.mode == 'CDC Documents' || [
+            'CDC – Attendance',
+            'CDC – Minutes',
+            'CDC – Resolution',
+            'Execom Resolution',
+            'Supplemental AIP',
+            'CDC Invitation',
+          ].contains(doc.category)) {
+            folder = DriveFolder.cdc;
+          } else if (doc.mode == 'SP Documents' || [
+            'SP Resolution',
+            'SP Ordinance',
+          ].contains(doc.category)) {
+            folder = DriveFolder.spDocuments;
           } else if ([
             'Sectoral Plans',
             'Ecological Profile',
             'Research/Studies/Trainings',
-            'CLUP Zoning Reclassification',
             'CSOs',
-            'CDC – Resolution',
-            'CDC – Minutes',
-            'CDC – Attendance',
             'AIP',
             'Barangay – AIP',
             'Barangay– GAD',
