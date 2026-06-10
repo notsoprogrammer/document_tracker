@@ -396,7 +396,9 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
                                   child: const Icon(Icons.map_outlined, color: Colors.white, size: 20),
                                 ),
                                 title: Text(
-                                  document.category ?? document.type,
+                                  (document.title != null && document.title!.isNotEmpty)
+                                      ? '${document.type} - ${document.title}'
+                                      : document.type,
                                   style: const TextStyle(fontWeight: FontWeight.w400),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

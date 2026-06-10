@@ -210,7 +210,14 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                               child: ExpansionTile(
                                 onExpansionChanged: (expanded) { setState(() { if (expanded) _expandedTiles.add(index); else _expandedTiles.remove(index); }); },
                                 leading: CircleAvatar(backgroundColor: const Color(0xFF283593), child: const Icon(Icons.gavel_outlined, color: Colors.white, size: 20)),
-                                title: Text(document.category ?? document.type, style: const TextStyle(fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                title: Text(
+                                  (document.title != null && document.title!.isNotEmpty)
+                                      ? '${document.type} - ${document.title}'
+                                      : document.type,
+                                  style: const TextStyle(fontWeight: FontWeight.w400),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text('${document.code}  '), if (_expandedTiles.contains(index)) IconButton(icon: const Icon(Icons.copy, size: 16), onPressed: () { Clipboard.setData(ClipboardData(text: document.code)); SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard'); }, tooltip: 'Copy Code', padding: EdgeInsets.zero, constraints: const BoxConstraints())]), const SizedBox(height: 4), _buildUploadStatusIndicator(document)]),
                                 children: [
                                   Container(

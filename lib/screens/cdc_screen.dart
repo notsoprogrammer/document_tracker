@@ -308,7 +308,14 @@ class _CdcScreenState extends State<CdcScreen> {
                                   backgroundColor: const Color(0xFFBF360C),
                                   child: const Icon(Icons.groups_outlined, color: Colors.white, size: 20),
                                 ),
-                                title: Text(document.category ?? document.type, style: const TextStyle(fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                title: Text(
+                                  (document.title != null && document.title!.isNotEmpty)
+                                      ? '${document.type} - ${document.title}'
+                                      : document.type,
+                                  style: const TextStyle(fontWeight: FontWeight.w400),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
