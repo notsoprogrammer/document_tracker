@@ -25,7 +25,7 @@ class ImageSaveResult {
   });
 }
 
-enum DriveFolder { incoming, outgoing, flagCeremony, attendance, movs, certificates }
+enum DriveFolder { incoming, outgoing, flagCeremony, attendance, movs, certificates, locationalZoning }
 
 class GoogleDriveService {
   // Use your folder IDs - replace these with your actual Google Drive folder IDs
@@ -35,6 +35,7 @@ class GoogleDriveService {
   static const String _attendanceFolderId = '124-6z-XwOaUtoQWUsqdnt8J2Urns4Cjk';
   static const String _movsFolderId = '1q92hYeqzrZhgoXhu0e8-3BuzFYMdVFPr';
   static const String _certificatesFolderId = '1pEBNcA3CjBeoABvbcAGxTa41Jaml76tn';
+  static const String _locationalZoningFolderId = '10IwsvYcEWCK69OHmQBd0lgqyup8Hgmwo';
 
   // Supabase function URL for secure uploads
   static const String _supabaseFunctionUrl = SupabaseConfig.uploadToDriveFunctionUrl;
@@ -399,7 +400,9 @@ class GoogleDriveService {
                       ? _movsFolderId
                       : folder == DriveFolder.certificates
                           ? _certificatesFolderId
-                          : _incomingFolderId;
+                          : folder == DriveFolder.locationalZoning
+                              ? _locationalZoningFolderId
+                              : _incomingFolderId;
 
       // Convert bytes to base64
       final base64Data = base64Encode(bytes);

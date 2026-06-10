@@ -24,6 +24,8 @@ import 'calendar_screen.dart';
 import 'about_screen.dart';
 import 'user_activity_screen.dart';
 import 'public_repository_screen.dart';
+import 'locational_zoning_screen.dart';
+import 'add_locational_zoning_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -576,155 +578,13 @@ body: Container(
                     height: 34,
                     child: Center(child: _buildUrgentIndicator()),
                   ),
-                  const SizedBox(height: 16),
-                  Image.asset(
-                    'assets/image/officeLogo.png',
-                    height: 80,
-                    width: 80,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "City Planning and Development Coordinator's Office\nFile Tracking System",
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onBackground,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
+                  _buildHeaderCard(),
+                  const SizedBox(height: 14),
                   _buildTodayActivitiesSection(),
                   const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final buttonWidth = (constraints.maxWidth - 16) / 2; // spacing 16, for 2 buttons
-                      return Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: buttonWidth,
-                            child: _buildFolderButton(
-                              context,
-                              Icons.folder,
-                              "Incoming Documents",
-                              LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFFE0B2), Color.fromARGB(255, 245, 183, 90)],
-                              ),
-                              () {
-                                UserActivityService().logAction(action: 'Opened screen', screen: 'Incoming Documents');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => IncomingDocumentsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                      syncAllDocuments: _syncAllDocuments,
-                                    ),
-                                  ),
-                                ).then((_) { if (mounted) _loadTodayActivities(); });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: buttonWidth,
-                            child: _buildFolderButton(
-                              context,
-                              Icons.folder,
-                              "Outgoing Documents",
-                              const LinearGradient(
-                                colors: [Color(0xFF89F7FE), Color(0xFF66A6FF)], 
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              () {
-                                UserActivityService().logAction(action: 'Opened screen', screen: 'Outgoing Documents');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => OutgoingDocumentsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                      syncAllDocuments: _syncAllDocuments,
-                                    ),
-                                  ),
-                                ).then((_) { if (mounted) _loadTodayActivities(); });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: buttonWidth,
-                            child: _buildFolderButton(
-                              context,
-                              Icons.folder,
-                              "Flag Ceremony Docs",
-                              LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFA8E6CF), Color.fromARGB(255, 129, 211, 137)],
-                              ),
-                              () {
-                                UserActivityService().logAction(action: 'Opened screen', screen: 'Flag Ceremony');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => FlagCeremonyDocumentsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                    ),
-                                  ),
-                                ).then((_) { if (mounted) _loadTodayActivities(); });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: buttonWidth,
-                            child: _buildFolderButton(
-                              context,
-                              Icons.folder,
-                              "Office Function MOVs",
-                              LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFD4A5FF), Color(0xFF957DAD)],
-                              ),
-                              () {
-                                UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AttendanceMovsScreen(
-                                      documents: documents,
-                                      transferDocument: _transferDocument,
-                                      updateDocumentStatus: _updateDocumentStatus,
-                                      deleteDocument: _deleteDocument,
-                                      syncDocument: _syncDocument,
-                                      onRefresh: _loadDocuments,
-                                    ),
-                                  ),
-                                ).then((_) { if (mounted) _loadTodayActivities(); });
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                  _buildFoldersSection(),
+                  const SizedBox(height: 88),
                 ],
               ),
             ),
@@ -764,6 +624,11 @@ Positioned(
                     _showAttendanceMovForm(context);
                     setState(() => _showPills = false);
                   }),
+                  const SizedBox(height: 8),
+                  _buildPill('Locational & Zoning', '', () {
+                    _showLocationalZoningForm(context);
+                    setState(() => _showPills = false);
+                  }),
                 ],
               )
             : const SizedBox.shrink(),
@@ -789,6 +654,406 @@ Positioned(
   }
 
 
+
+  Widget _buildHeaderCard() {
+    final urgentCount = documents.where((d) => d.status == 'Urgent').length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBBDEFB), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Image.asset('assets/image/officeLogo.png', height: 48, width: 48),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "CPDCO File Tracking",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Colors.blueGrey[800],
+                  ),
+                ),
+                Text(
+                  "City Planning and Development Coordinator's Office",
+                  style: TextStyle(fontSize: 10, color: Colors.blueGrey[400]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${documents.length}',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: Color(0xFF4988C4)),
+              ),
+              Text('docs', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+            ],
+          ),
+          if (urgentCount > 0) ...[
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$urgentCount',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: Colors.red),
+                ),
+                Text('urgent', style: TextStyle(fontSize: 10, color: Colors.red[300])),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFoldersSection() {
+    final incomingCount = documents.where((d) =>
+        d.incoming &&
+        d.mode != 'Flag Ceremony' &&
+        d.mode != 'Office Function MOVs' &&
+        d.mode != 'Locational & Zoning').length;
+    final outgoingCount = documents.where((d) =>
+        !d.incoming &&
+        d.mode != 'Flag Ceremony' &&
+        d.mode != 'Office Function MOVs' &&
+        d.mode != 'Locational & Zoning').length;
+    final flagCount = documents.where((d) => d.mode == 'Flag Ceremony').length;
+    final movsCount = documents.where((d) => d.mode == 'Office Function MOVs').length;
+    final lzCount = documents.where((d) => d.mode == 'Locational & Zoning').length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            "Document Folders",
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Colors.blueGrey[700],
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.move_to_inbox_outlined,
+                title: "Incoming",
+                subtitle: "Received documents",
+                count: incomingCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFCC80), Color(0xFFF57C00)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Incoming Documents');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => IncomingDocumentsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                        syncAllDocuments: _syncAllDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.outbox_outlined,
+                title: "Outgoing",
+                subtitle: "Sent documents",
+                count: outgoingCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF64B5F6), Color(0xFF1565C0)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Outgoing Documents');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OutgoingDocumentsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                        syncAllDocuments: _syncAllDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.flag_outlined,
+                title: "Flag Ceremony",
+                subtitle: "Ceremony docs",
+                count: flagCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF80CBC4), Color(0xFF00695C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Flag Ceremony');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FlagCeremonyDocumentsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.event_note_outlined,
+                title: "Function MOVs",
+                subtitle: "Office activities",
+                count: movsCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AttendanceMovsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildFolderCardWide(
+          icon: Icons.map_outlined,
+          title: "Locational & Zoning",
+          subtitle: "Reclassification, Clearances and certifications",
+          count: lzCount,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4DD0E1), Color(0xFF00838F)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          onTap: () {
+            UserActivityService().logAction(action: 'Opened screen', screen: 'Locational & Zoning');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LocalationalZoningScreen(
+                  documents: documents,
+                  transferDocument: _transferDocument,
+                  updateDocumentStatus: _updateDocumentStatus,
+                  deleteDocument: _deleteDocument,
+                  syncDocument: _syncDocument,
+                  onRefresh: _loadDocuments,
+                ),
+              ),
+            ).then((_) { if (mounted) _loadTodayActivities(); });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFolderCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required int count,
+    required Gradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      borderRadius: BorderRadius.circular(16),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Ink(
+          height: 108,
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 20, color: Colors.white),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderCardWide({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required int count,
+    required Gradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      borderRadius: BorderRadius.circular(16),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 24, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.85), size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildUrgentIndicator() {
     final urgentCount = documents.where((doc) => doc.status == 'Urgent').length;
@@ -1141,6 +1406,17 @@ Positioned(
       context,
       MaterialPageRoute(
         builder: (context) => const AddAttendanceMovScreen(),
+      ),
+    );
+    await Future.wait([_loadDocuments(), _loadTodayActivities()]);
+  }
+
+  void _showLocationalZoningForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Locational / Zoning');
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddLocationalZoningScreen(),
       ),
     );
     await Future.wait([_loadDocuments(), _loadTodayActivities()]);

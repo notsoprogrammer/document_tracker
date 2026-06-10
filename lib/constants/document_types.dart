@@ -102,6 +102,13 @@ const List<String> otherDocumentTypes = [
   "Zoning Clearance"
 ];
 
+const List<String> locationalZoningTypes = [
+  'Locational Clearance',
+  'Zoning Clearance',
+  'Zoning Certification',
+  'CLUP Zoning Reclassification',
+];
+
 const List<String> coreFunctions = [
   'AIP',
   'Barangay – AIP',

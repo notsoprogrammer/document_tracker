@@ -568,6 +568,13 @@ class CachedDocumentService {
           DriveFolder folder;
           if (doc.mode == 'Flag Ceremony') {
             folder = DriveFolder.flagCeremony;
+          } else if (doc.mode == 'Locational & Zoning' || [
+            'Locational Clearance',
+            'Zoning Clearance',
+            'Zoning Certification',
+            'CLUP Zoning Reclassification',
+          ].contains(doc.category)) {
+            folder = DriveFolder.locationalZoning;
           } else if ([
             'Sectoral Plans',
             'Ecological Profile',
