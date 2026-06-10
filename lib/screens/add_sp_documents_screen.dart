@@ -446,7 +446,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
                     if (selectedType != null && selectedDate != null && personController.text.trim().isNotEmpty) {
                       final doc = Document(
                         code: codeController.text,
-                        title: descriptionController.text.trim().isNotEmpty ? descriptionController.text.trim() : selectedType,
+                        title: titleController.text.trim().isNotEmpty ? titleController.text.trim() : selectedType,
                         description: descriptionController.text.trim().isNotEmpty ? descriptionController.text.trim() : null,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         type: selectedType!,

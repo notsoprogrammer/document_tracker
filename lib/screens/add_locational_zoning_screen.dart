@@ -1000,7 +1000,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
 
                       final doc = Document(
                         code: code,
-                        title: description.isNotEmpty ? description : selectedType,
+                        title: titleController.text.trim().isNotEmpty ? titleController.text.trim() : selectedType,
                         description: description.isNotEmpty ? description : null,
                         referenceLink: referenceLink.isNotEmpty ? referenceLink : null,
                         type: selectedType!,
