@@ -741,33 +741,41 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                         const Divider(height: 14),
 
                         // Title
-                        TextField(
-                          controller: titleController,
-                          enabled: !_isSaving,
-                          inputFormatters: [_WordLimitFormatter(20)],
-                          decoration: InputDecoration(
-                            labelText: "Document Title",
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors &&
-                                    titleController.text.trim().isEmpty
-                                ? "Document title is required"
-                                : null,
-                          ),
-                          buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                            final words = titleController.text.trim().isEmpty
-                                ? 0
-                                : titleController.text.trim().split(RegExp(r'\s+')).length;
-                            return Text(
-                              '$words / 20 words',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: words >= 20 ? Colors.orange[700] : Colors.grey,
+                        Builder(builder: (context) {
+                          final locked = ['Locational & Zoning', 'Reclassification', 'SP Documents'].contains(widget.document.mode);
+                          final label = widget.document.mode == 'SP Documents'
+                              ? 'Ordinance/Resolution Number'
+                              : locked ? 'Applicant Name' : 'Document Title';
+                          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            TextField(
+                              controller: titleController,
+                              enabled: locked ? false : !_isSaving,
+                              inputFormatters: locked ? [] : [_WordLimitFormatter(20)],
+                              decoration: InputDecoration(
+                                labelText: label,
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                suffixIcon: locked ? const Icon(Icons.lock_outline, size: 18, color: Colors.grey) : null,
+                                errorText: !locked && _showValidationErrors && titleController.text.trim().isEmpty
+                                    ? "Document title is required"
+                                    : null,
                               ),
-                            );
-                          },
-                        ),
+                              buildCounter: locked ? null : (context, {required currentLength, required isFocused, maxLength}) {
+                                final words = titleController.text.trim().isEmpty ? 0 : titleController.text.trim().split(RegExp(r'\s+')).length;
+                                return Text('$words / 20 words', style: TextStyle(fontSize: 12, color: words >= 20 ? Colors.orange[700] : Colors.grey));
+                              },
+                            ),
+                            if (locked) ...[
+                              const SizedBox(height: 4),
+                              Row(children: [
+                                Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
+                                const SizedBox(width: 4),
+                                Text('This field cannot be changed after the document is created.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                              ]),
+                            ],
+                          ]);
+                        }),
 
                         const SizedBox(height: 16),
 

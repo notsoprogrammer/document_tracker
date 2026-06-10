@@ -6,11 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/document_scanner_service.dart';
-import '../services/google_drive_service.dart';
 import '../services/mlkit_scanner_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
@@ -59,6 +57,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
   @override
   void initState() {
     super.initState();
+    titleController.addListener(_onTitleChanged);
     codeController.text = _generateCode();
     UploadQueueManager().addListener(_onUploadStatusChanged);
     _loadUsername();
@@ -86,19 +85,27 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    titleController.removeListener(_onTitleChanged);
+    titleController.dispose();
     codeController.dispose(); descriptionController.dispose(); referenceLinkController.dispose(); remarksController.dispose(); personController.dispose();
     super.dispose();
   }
 
+  void _onTitleChanged() {
+    setState(() => codeController.text = _generateCode());
+  }
+
   String _generateCode() {
-    final phTime = DateTime.now().toUtc().add(const Duration(hours: 8));
-    final month = phTime.month.toString().padLeft(2, '0');
-    final day = phTime.day.toString().padLeft(2, '0');
-    final hour = phTime.hour.toString().padLeft(2, '0');
-    final minute = phTime.minute.toString().padLeft(2, '0');
-    final second = phTime.second.toString().padLeft(2, '0');
-    final typeCode = typeMapping[selectedType] ?? 'SPRES';
-    return 'CF-$typeCode-$month$day${phTime.year}-$hour$minute$second';
+    final prefix = typeMapping[selectedType] ?? 'SPRES';
+    final dateRef = selectedDate ?? DateTime.now().toUtc().add(const Duration(hours: 8));
+    final month = dateRef.month.toString().padLeft(2, '0');
+    final day = dateRef.day.toString().padLeft(2, '0');
+    final year = dateRef.year.toString().substring(2);
+    final dateStr = '$month$day$year';
+
+    final cleanTitle = titleController.text.trim().replaceAll(RegExp(r'\s+'), '-');
+    if (cleanTitle.isEmpty) return '$prefix-$dateStr';
+    return '$prefix-$cleanTitle-$dateStr';
   }
 
   void _onTypeChanged(String? value) { setState(() { selectedType = value; codeController.text = _generateCode(); }); }
@@ -327,29 +334,17 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
                         TextField(
                           controller: titleController,
                           enabled: !_isSaving,
-                          inputFormatters: [_WordLimitFormatter(20)],
                           decoration: InputDecoration(
-                            labelText: "Document Title",
+                            labelText: "Ordinance/Resolution Number",
+                            hintText: "e.g. 2024-001",
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
                             errorText: _showValidationErrors &&
                                     titleController.text.trim().isEmpty
-                                ? "Document title is required"
+                                ? "Ordinance/Resolution number is required"
                                 : null,
                           ),
-                          buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                            final words = titleController.text.trim().isEmpty
-                                ? 0
-                                : titleController.text.trim().split(RegExp(r'\s+')).length;
-                            return Text(
-                              '$words / 20 words',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: words >= 20 ? Colors.orange[700] : Colors.grey,
-                              ),
-                            );
-                          },
                         ),
 
                         const SizedBox(height: 16),
@@ -360,7 +355,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
                       onChanged: _isSaving ? null : _onTypeChanged,
                     ),
                     const SizedBox(height: 12),
-                    TextField(controller: descriptionController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Description (optional)", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
+                    TextField(controller: descriptionController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Description (optional)", hintText: "Official title or context of the ordinance/resolution", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                     const SizedBox(height: 12),
                     InkWell(
                       onTap: _isSaving ? null : () => _selectDate(context),
@@ -493,17 +488,5 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
         ),
       ),
     );
-  }
-}
-class _WordLimitFormatter extends TextInputFormatter {
-  final int maxWords;
-  _WordLimitFormatter(this.maxWords);
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final words = newValue.text.trim().isEmpty
-        ? 0
-        : newValue.text.trim().split(RegExp(r'\s+')).length;
-    return words > maxWords ? oldValue : newValue;
   }
 }

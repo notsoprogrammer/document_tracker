@@ -6,11 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/document_scanner_service.dart';
-import '../services/google_drive_service.dart';
 import '../services/mlkit_scanner_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
@@ -59,6 +57,7 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
   @override
   void initState() {
     super.initState();
+    titleController.addListener(_onNameChanged);
     codeController.text = _generateCode();
     UploadQueueManager().addListener(_onUploadStatusChanged);
     _loadUsername();
@@ -86,19 +85,46 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    titleController.removeListener(_onNameChanged);
+    titleController.dispose();
     codeController.dispose(); descriptionController.dispose(); referenceLinkController.dispose(); remarksController.dispose(); personController.dispose();
     super.dispose();
   }
 
+  void _onNameChanged() {
+    setState(() => codeController.text = _generateCode());
+  }
+  
   String _generateCode() {
-    final phTime = DateTime.now().toUtc().add(const Duration(hours: 8));
-    final month = phTime.month.toString().padLeft(2, '0');
-    final day = phTime.day.toString().padLeft(2, '0');
-    final hour = phTime.hour.toString().padLeft(2, '0');
-    final minute = phTime.minute.toString().padLeft(2, '0');
-    final second = phTime.second.toString().padLeft(2, '0');
-    final typeCode = typeMapping[selectedType] ?? 'CLUPZ';
-    return 'CF-$typeCode-$month$day${phTime.year}-$hour$minute$second';
+    final prefix = typeMapping[selectedType] ?? 'CLUPZ';
+    final dateRef = selectedDate ?? DateTime.now().toUtc().add(const Duration(hours: 8));
+    final month = dateRef.month.toString().padLeft(2, '0');
+    final day = dateRef.day.toString().padLeft(2, '0');
+    final year = dateRef.year.toString().substring(2);
+    final dateStr = '$month$day$year';
+
+    final cleanName = titleController.text.replaceAll('.', '').trim();
+    if (cleanName.isEmpty) return '$prefix-$dateStr';
+
+    final words = cleanName.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+
+    if (words.length == 1) return '$prefix-${words[0]}-$dateStr';
+    if (words.length == 2) return '$prefix-${words[0]}-${words[1]}-$dateStr';
+
+    final lastName = words.last;
+    final beforeLast = words.sublist(0, words.length - 1);
+    final midInitialIdx = beforeLast.indexWhere((w) => w.length == 1);
+
+    if (midInitialIdx == -1) {
+      return '$prefix-${beforeLast.join('')}-$lastName-$dateStr';
+    }
+
+    final givenNames = beforeLast.sublist(0, midInitialIdx).join('');
+    final midInitial = beforeLast[midInitialIdx];
+
+    if (givenNames.isEmpty) return '$prefix-$midInitial-$lastName-$dateStr';
+
+    return '$prefix-$givenNames-$midInitial-$lastName-$dateStr';
   }
 
   void _onTypeChanged(String? value) { setState(() { selectedType = value; codeController.text = _generateCode(); }); }
@@ -327,26 +353,23 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                         TextField(
                           controller: titleController,
                           enabled: !_isSaving,
-                          inputFormatters: [_WordLimitFormatter(20)],
+                          inputFormatters: [_NoPeriodFormatter(), _WordLimitFormatter(6)],
                           decoration: InputDecoration(
-                            labelText: "Document Title",
+                            labelText: "Applicant Name",
+                            hintText: "e.g. Maria Clara D. Santos",
                             border: OutlineInputBorder(),
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors &&
-                                    titleController.text.trim().isEmpty
-                                ? "Document title is required"
-                                : null,
                           ),
                           buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
                             final words = titleController.text.trim().isEmpty
                                 ? 0
                                 : titleController.text.trim().split(RegExp(r'\s+')).length;
                             return Text(
-                              '$words / 20 words',
+                              '$words / 6 words',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: words >= 20 ? Colors.orange[700] : Colors.grey,
+                                color: words >= 6 ? Colors.orange[700] : Colors.grey,
                               ),
                             );
                           },
@@ -360,7 +383,7 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                       onChanged: _isSaving ? null : _onTypeChanged,
                     ),
                     const SizedBox(height: 12),
-                    TextField(controller: descriptionController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Description (optional)", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
+                    TextField(controller: descriptionController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Description (optional)", hintText: "Property location, lot number, and land use change details", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                     const SizedBox(height: 12),
                     InkWell(
                       onTap: _isSaving ? null : () => _selectDate(context),
@@ -495,6 +518,16 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
     );
   }
 }
+
+
+class _NoPeriodFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    return newValue.text.contains('.') ? oldValue : newValue;
+  }
+}
+
+
 class _WordLimitFormatter extends TextInputFormatter {
   final int maxWords;
   _WordLimitFormatter(this.maxWords);
