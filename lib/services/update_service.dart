@@ -57,7 +57,13 @@ class UpdateService {
       },
     );
 
-    await OpenFile.open(savePath);
+    final result = await OpenFile.open(
+      savePath,
+      type: 'application/vnd.android.package-archive',
+    );
+    if (result.type != ResultType.done) {
+      throw Exception('Could not open installer: ${result.message}');
+    }
   }
 
   static bool _isNewer(String latest, String current) {
