@@ -18,6 +18,7 @@ import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class ReclassificationScreen extends StatefulWidget {
   final List<Document> documents;
@@ -276,7 +277,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
                                         if (_username == document.person) ElevatedButton.icon(icon: const Icon(Icons.edit), label: const SizedBox.shrink(), onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EditDocumentScreen(document: document))).then((_) { if (widget.onRefresh != null) widget.onRefresh!(); }); }, style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 78, 127, 218), minimumSize: const Size(48, 40), padding: const EdgeInsets.only(left: 10), alignment: Alignment.center, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                                         if (_username == document.person) ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 218, 87, 78), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), onPressed: () async { final deleted = await confirmAndDeleteRecord(context, document, CachedDocumentService()); if (deleted && mounted) { setState(() => _filteredDocuments.removeAt(index)); if (widget.onRefresh != null) widget.onRefresh!(); } }, child: const Icon(Icons.delete)),
                                         if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty) ElevatedButton(onPressed: () => _showImageDialog(context, document.imageUrls.isNotEmpty ? document.imageUrls : document.localImagePaths), style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.image)),
-                                        if (document.filePath != null || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () { final allFiles = <String>[]; if (document.filePath != null) allFiles.add(document.filePath!); allFiles.addAll(document.fileUrls); if (allFiles.length == 1) _viewFile(allFiles[0]); else _showFileDialog(context, document); }, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.attach_file)),
+                                        if (document.filePath != null || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () { final allFiles = <String>[]; if (document.filePath != null) allFiles.add(document.filePath!); allFiles.addAll(document.fileUrls); if (allFiles.length == 1) _viewFile(allFiles[0], title: document.title ?? document.type); else _showFileDialog(context, document); }, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.attach_file)),
                                         if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () => _shareDocument(document), style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.share)),
                                       ]),
                                     ]),
@@ -362,7 +363,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     final allFiles = <String>[]; final allNames = <String>[];
     if (document.filePath != null) { allFiles.add(document.filePath!); allNames.add(document.fileName ?? document.filePath!.split('/').last.split('\\').last); }
     for (int i = 0; i < document.fileUrls.length; i++) { allFiles.add(document.fileUrls[i]); allNames.add(i < document.fileNames.length ? document.fileNames[i] : document.fileUrls[i].split('/').last.split('\\').last); }
-    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Select File to View'), content: SizedBox(width: double.maxFinite, child: ListView.builder(shrinkWrap: true, itemCount: allFiles.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.attach_file), title: Text(allNames[index]), onTap: () { Navigator.pop(context); _viewFile(allFiles[index]); }))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))]));
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Select File to View'), content: SizedBox(width: double.maxFinite, child: ListView.builder(shrinkWrap: true, itemCount: allFiles.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.attach_file), title: Text(allNames[index]), onTap: () { Navigator.pop(context); _viewFile(allFiles[index], title: document.title ?? document.type); }))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))]));
   }
 
   void _showFilterDialog(BuildContext context, StateSetter setState) {
@@ -385,13 +386,34 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     return null;
   }
 
-  void _viewFile(String filePath) async {
+  void _viewFile(String filePath, {String title = 'Document'}) async {
     try {
       final fileId = _extractFileId(filePath);
-      if (fileId == null) { SnackbarUtils.showErrorSnackBar(context, 'Invalid file format'); return; }
-      final uri = Uri.parse(kIsWeb ? 'https://drive.google.com/uc?id=$fileId&export=download' : 'https://drive.google.com/file/d/$fileId/view?usp=sharing');
-      if (await canLaunchUrl(uri)) { await launchUrl(uri); } else { SnackbarUtils.showErrorSnackBar(context, 'Could not open file'); }
-    } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Could not open file'); }
+      if (fileId == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
+        return;
+      }
+      if (kIsWeb) {
+        final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
+        final canLaunch = await canLaunchUrl(uri);
+        if (!mounted) return;
+        if (canLaunch) {
+          await launchUrl(uri);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+        }
+        return;
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(fileId: fileId, fileName: title),
+        ),
+      );
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+    }
   }
 
   Future<void> _loadUsername() async {

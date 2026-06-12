@@ -18,6 +18,7 @@ import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class CdcScreen extends StatefulWidget {
   final List<Document> documents;
@@ -456,7 +457,7 @@ class _CdcScreenState extends State<CdcScreen> {
                                                   final allFiles = <String>[];
                                                   if (document.filePath != null) allFiles.add(document.filePath!);
                                                   allFiles.addAll(document.fileUrls);
-                                                  if (allFiles.length == 1) _viewFile(allFiles[0]); else _showFileDialog(context, document);
+                                                  if (allFiles.length == 1) _viewFile(allFiles[0], title: document.title ?? document.type); else _showFileDialog(context, document);
                                                 },
                                                 style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                                                 child: const Icon(Icons.attach_file),
@@ -579,7 +580,7 @@ class _CdcScreenState extends State<CdcScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Select File to View'),
-        content: SizedBox(width: double.maxFinite, child: ListView.builder(shrinkWrap: true, itemCount: allFiles.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.attach_file), title: Text(allNames[index]), onTap: () { Navigator.pop(context); _viewFile(allFiles[index]); }))),
+        content: SizedBox(width: double.maxFinite, child: ListView.builder(shrinkWrap: true, itemCount: allFiles.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.attach_file), title: Text(allNames[index]), onTap: () { Navigator.pop(context); _viewFile(allFiles[index], title: document.title ?? document.type); }))),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
       ),
     );
@@ -625,14 +626,34 @@ class _CdcScreenState extends State<CdcScreen> {
     return null;
   }
 
-  void _viewFile(String filePath) async {
+  void _viewFile(String filePath, {String title = 'Document'}) async {
     try {
       final fileId = _extractFileId(filePath);
-      if (fileId == null) { SnackbarUtils.showErrorSnackBar(context, 'Invalid file format'); return; }
-      final urlToLaunch = kIsWeb ? 'https://drive.google.com/uc?id=$fileId&export=download' : 'https://drive.google.com/file/d/$fileId/view?usp=sharing';
-      final uri = Uri.parse(urlToLaunch);
-      if (await canLaunchUrl(uri)) { await launchUrl(uri); } else { SnackbarUtils.showErrorSnackBar(context, 'Could not open file'); }
-    } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Could not open file'); }
+      if (fileId == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
+        return;
+      }
+      if (kIsWeb) {
+        final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
+        final canLaunch = await canLaunchUrl(uri);
+        if (!mounted) return;
+        if (canLaunch) {
+          await launchUrl(uri);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+        }
+        return;
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(fileId: fileId, fileName: title),
+        ),
+      );
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+    }
   }
 
   Future<void> _loadUsername() async {

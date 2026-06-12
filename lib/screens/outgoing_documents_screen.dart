@@ -23,6 +23,7 @@ import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
 import 'add_document_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -594,7 +595,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 title: Text(fileName),
                 onTap: () {
                   Navigator.pop(context);
-                  _viewFile(filePath);
+                  _viewFile(filePath, title: document.title ?? document.type);
                 },
               );
             },
@@ -633,39 +634,31 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     return null;
   }
 
-  /// Build download URL for web platform
-  String _buildDownloadUrl(String fileId) {
-    return 'https://drive.google.com/uc?id=$fileId&export=download';
-  }
-
-  /// Build preview URL for mobile/desktop platforms
-  String _buildPreviewUrl(String fileId) {
-    return 'https://drive.google.com/file/d/$fileId/view?usp=sharing';
-  }
-
-  void _viewFile(String filePath) async {
+  void _viewFile(String filePath, {String title = 'Document'}) async {
     try {
       final fileId = _extractFileId(filePath);
       if (fileId == null) {
         SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
         return;
       }
-
-      String urlToLaunch;
       if (kIsWeb) {
-        // Web: Use direct download link
-        urlToLaunch = _buildDownloadUrl(fileId);
-      } else {
-        // Mobile/Desktop: Use Drive preview link
-        urlToLaunch = _buildPreviewUrl(fileId);
+        final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
+        final canLaunch = await canLaunchUrl(uri);
+        if (!mounted) return;
+        if (canLaunch) {
+          await launchUrl(uri);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+        }
+        return;
       }
-
-      final uri = Uri.parse(urlToLaunch);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
-      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(fileId: fileId, fileName: title),
+        ),
+      );
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
@@ -1792,7 +1785,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             }
                                             allFiles.addAll(doc.fileUrls);
                                             if (allFiles.length == 1) {
-                                              _viewFile(allFiles[0]);
+                                              _viewFile(allFiles[0], title: doc.title ?? doc.type);
                                             } else {
                                               _showFileDialog(context, doc);
                                             }

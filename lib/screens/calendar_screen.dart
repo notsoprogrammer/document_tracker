@@ -11,12 +11,13 @@ import '../services/supabase_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
-import '../services/image_download_service.dart';
+import '../widgets/scrollable_image_viewer.dart';
 import '../utils/snackbar_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_activity_screen.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
+import 'pdf_viewer_screen.dart';
 
 
 class _RangeInfo {
@@ -610,256 +611,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showImageViewer(BuildContext context, List<String> imageUrls) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (dialogContext) {
-        int currentIndex = 0;
-        bool isDownloading = false;
-        bool isSuccess = false;
-        final PageController pageController = PageController();
-
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              insetPadding: const EdgeInsets.all(14),
-              child: SizedBox.expand(
-                child: Stack(
-                  children: [
-
-                    /// IMAGE VIEWER
-                    PageView.builder(
-                      controller: pageController,
-                      itemCount: imageUrls.length,
-                      onPageChanged: (index) {
-                        setState(() => currentIndex = index);
-                      },
-                      itemBuilder: (context, index) {
-                        String imageUrl = imageUrls[index];
-                        String proxyUrl;
-
-                        if (imageUrl.contains('drive.google.com/uc?id=')) {
-                          final uri = Uri.parse(imageUrl);
-                          final fileId = uri.queryParameters['id'];
-                          proxyUrl = fileId != null
-                              ? GoogleDriveService.generateProxyUrl(fileId)
-                              : imageUrl;
-                        } else {
-                          proxyUrl =
-                              GoogleDriveService.generateProxyUrl(imageUrl);
-                        }
-
-                        return InteractiveViewer(
-                          child: Center(
-                            child: CachedNetworkImage(
-                              imageUrl: proxyUrl,
-                              httpHeaders: {
-                                'Authorization':
-                                    'Bearer ${SupabaseConfig.supabaseAnonKey}'
-                              },
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'wait la po...',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              errorWidget: (context, url, error) =>
-                                  const Center(
-                                child: Text('Failed to load image'),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    /// LEFT / RIGHT NAV ARROWS (useful on web where swipe doesn't work)
-                    if (imageUrls.length > 1) ...[
-                      Positioned(
-                        left: 8,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: IconButton(
-                            icon: const Icon(Icons.chevron_left, size: 36, color: Colors.white),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.black45,
-                              shape: const CircleBorder(),
-                            ),
-                            onPressed: currentIndex == 0
-                                ? null
-                                : () {
-                                    pageController.previousPage(
-                                      duration: const Duration(milliseconds: 250),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: IconButton(
-                            icon: const Icon(Icons.chevron_right, size: 36, color: Colors.white),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.black45,
-                              shape: const CircleBorder(),
-                            ),
-                            onPressed: currentIndex == imageUrls.length - 1
-                                ? null
-                                : () {
-                                    pageController.nextPage(
-                                      duration: const Duration(milliseconds: 250),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${currentIndex + 1} / ${imageUrls.length}',
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-
-
-                    /// TOP RIGHT BUTTONS
-                    Positioned(
-                      top: 40,
-                      right: 20,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.download,
-                              color: Colors.black,
-                              size: 30,
-                            ),
-                            onPressed: isDownloading
-                                ? null
-                                : () async {
-                                    setState(() {
-                                      isDownloading = true;
-                                      isSuccess = false;
-                                    });
-
-                                    try {
-                                      await ImageDownloadService
-                                          .downloadAndSave(
-                                              imageUrls[currentIndex]);
-
-                                      if (context.mounted) {
-                                        setState(() {
-                                          isDownloading = false;
-                                          isSuccess = true;
-                                        });
-
-                                        // Auto hide success after 1.5 seconds
-                                        await Future.delayed(
-                                            const Duration(milliseconds: 1500));
-
-                                        if (context.mounted) {
-                                          setState(() {
-                                            isSuccess = false;
-                                          });
-                                        }
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        setState(() {
-                                          isDownloading = false;
-                                        });
-
-                                        SnackbarUtils.showErrorSnackBar(
-                                          context,
-                                          e
-                                              .toString()
-                                              .replaceAll('Exception: ', ''),
-                                        );
-                                      }
-                                    }
-                                  },
-                            tooltip: 'Download Image',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close,
-                                color: Colors.black, size: 30),
-                            onPressed: () =>
-                                Navigator.pop(dialogContext),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (isDownloading || isSuccess)
-                      Container(
-                        color: Colors.black.withOpacity(0.4),
-                        child: Center(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: isDownloading
-                                ? const CircularProgressIndicator(
-                                    key: ValueKey('loading'),
-                                    color: Colors.white,
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.check, color: Colors.green, size: 48),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Saved!',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+    ScrollableImageViewer.show(context, imageUrls: imageUrls);
   }
 
   // --- Document details ---
@@ -1212,7 +964,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: InkWell(
-                        onTap: () => _viewFile(fileUrl),
+                        onTap: () => _viewFile(fileUrl, title: doc.title ?? doc.type),
                         child: Row(
                           children: [
                             const Icon(Icons.attach_file, color: Colors.blue),
@@ -1648,39 +1400,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return null;
   }
 
-  /// Build download URL for web platform
-  String _buildDownloadUrl(String fileId) {
-    return 'https://drive.google.com/uc?id=$fileId&export=download';
-  }
-
-  /// Build preview URL for mobile/desktop platforms
-  String _buildPreviewUrl(String fileId) {
-    return 'https://drive.google.com/file/d/$fileId/view?usp=sharing';
-  }
-
-  void _viewFile(String filePath) async {
+  void _viewFile(String filePath, {String title = 'Document'}) async {
     try {
       final fileId = _extractFileId(filePath);
       if (fileId == null) {
         SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
         return;
       }
-
-      String urlToLaunch;
       if (kIsWeb) {
-        // Web: Use direct download link
-        urlToLaunch = _buildDownloadUrl(fileId);
-      } else {
-        // Mobile/Desktop: Use Drive preview link
-        urlToLaunch = _buildPreviewUrl(fileId);
+        final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
+        final canLaunch = await canLaunchUrl(uri);
+        if (!mounted) return;
+        if (canLaunch) {
+          await launchUrl(uri);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+        }
+        return;
       }
-
-      final uri = Uri.parse(urlToLaunch);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
-      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(fileId: fileId, fileName: title),
+        ),
+      );
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }

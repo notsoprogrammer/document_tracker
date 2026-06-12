@@ -17,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import './add_flag_ceremony_screen.dart';
 import './edit_flag_ceremony_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1034,12 +1035,52 @@ class _FlagCeremonyDocumentsScreenState
     );
   }
 
-  void _viewFile(String filePath) async {
-    final uri = Uri.parse(filePath);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      // Handle error
+  String? _extractFileId(String url) {
+    if (url.contains('drive.google.com')) {
+      final uri = Uri.parse(url);
+      if (url.contains('/file/d/')) {
+        final segments = uri.pathSegments;
+        final fileIndex = segments.indexOf('d');
+        if (fileIndex != -1 && fileIndex + 1 < segments.length) {
+          return segments[fileIndex + 1];
+        }
+      } else if (url.contains('uc?id=')) {
+        return uri.queryParameters['id'];
+      }
+    }
+    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) {
+      return url;
+    }
+    return null;
+  }
+
+  void _viewFile(String filePath, {String title = 'Document'}) async {
+    try {
+      final fileId = _extractFileId(filePath);
+      if (fileId == null) {
+        SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
+        return;
+      }
+      if (kIsWeb) {
+        final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
+        final canLaunch = await canLaunchUrl(uri);
+        if (!mounted) return;
+        if (canLaunch) {
+          await launchUrl(uri);
+        } else {
+          SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
+        }
+        return;
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(fileId: fileId, fileName: title),
+        ),
+      );
+    } catch (e) {
+      SnackbarUtils.showErrorSnackBar(context, 'Could not open file');
     }
   }
 
