@@ -54,10 +54,13 @@ class CachedDocumentService {
           // Add all remote documents
           mergedDocuments.addAll(remoteDocuments);
 
-          // Add local documents that don't exist remotely (offline additions)
+          // Add local documents that don't exist remotely (offline additions only)
           for (var localDoc in localDocuments) {
             if (!remoteMap.containsKey(localDoc.code)) {
-              mergedDocuments.add(localDoc);
+              // Only keep if pending offline creation — otherwise it was deleted remotely
+              if (localDoc.needsSync) {
+                mergedDocuments.add(localDoc);
+              }
             } else {
               // If local document exists in remote and is marked as needing sync, mark as synced
               if (localDoc.needsSync) {

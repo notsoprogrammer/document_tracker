@@ -18,6 +18,7 @@ import '../services/upload_queue_manager.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/date_time_utils.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
@@ -123,6 +124,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   final Set<int> _expandedTiles = {};
   late final TextEditingController _searchController = TextEditingController();
   String? _username;
+  RealtimeChannel? _docsChannel;
 
   @override
   void initState() {
@@ -153,6 +155,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       }
     });
     _loadUsername();
+    _subscribeToDocumentChanges();
   }
 
   Future<void> _loadUsername() async {
@@ -170,8 +173,33 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
 
   @override
   void dispose() {
+    _docsChannel?.unsubscribe();
     _uploadQueueManager.removeListener(_onUploadChanged);
     super.dispose();
+  }
+
+  void _subscribeToDocumentChanges() {
+    _docsChannel = Supabase.instance.client
+        .channel('documents:outgoing')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .subscribe();
   }
 
   @override

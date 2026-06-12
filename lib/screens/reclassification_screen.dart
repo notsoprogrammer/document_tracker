@@ -17,6 +17,7 @@ import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import 'edit_document_screen.dart';
@@ -54,6 +55,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
   String? _username;
+  RealtimeChannel? _docsChannel;
 
   DateTime _parseDate(String dateStr) {
     try {
@@ -122,13 +124,42 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
+    _subscribeToDocumentChanges();
     Future.delayed(const Duration(milliseconds: 500), () { if (mounted) setState(() => _isLoading = false); });
   }
 
   void _onUploadChanged() { setState(() {}); }
 
   @override
-  void dispose() { _uploadQueueManager.removeListener(_onUploadChanged); super.dispose(); }
+  void dispose() {
+    _docsChannel?.unsubscribe();
+    _uploadQueueManager.removeListener(_onUploadChanged);
+    super.dispose();
+  }
+
+  void _subscribeToDocumentChanges() {
+    _docsChannel = Supabase.instance.client
+        .channel('documents:reclassification')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .subscribe();
+  }
 
   void _filterDocuments() {
     setState(() {

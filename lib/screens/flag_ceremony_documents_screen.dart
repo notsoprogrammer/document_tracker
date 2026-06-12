@@ -14,6 +14,7 @@ import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import './add_flag_ceremony_screen.dart';
@@ -57,6 +58,7 @@ class _FlagCeremonyDocumentsScreenState
   late final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
+  RealtimeChannel? _docsChannel;
 
   DateTime _parseDate(String dateStr) {
     try {
@@ -225,6 +227,7 @@ class _FlagCeremonyDocumentsScreenState
       ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
+    _subscribeToDocumentChanges();
     // Simulate loading for better UX
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -241,8 +244,33 @@ class _FlagCeremonyDocumentsScreenState
 
   @override
   void dispose() {
+    _docsChannel?.unsubscribe();
     _uploadQueueManager.removeListener(_onUploadChanged);
     super.dispose();
+  }
+
+  void _subscribeToDocumentChanges() {
+    _docsChannel = Supabase.instance.client
+        .channel('documents:flag-ceremony')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .subscribe();
   }
 
   void _filterDocuments() {

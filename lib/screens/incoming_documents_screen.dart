@@ -18,6 +18,7 @@ import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/date_time_utils.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
@@ -63,6 +64,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
   String? _username;
+  RealtimeChannel? _docsChannel;
 
   @override
   void initState() {
@@ -75,6 +77,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       });
     });
     _filteredDocuments = widget.documents.where((doc) => doc.flowStage == 'incoming').toList();
+    _subscribeToDocumentChanges();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
       final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
@@ -101,8 +104,33 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
 
   @override
   void dispose() {
+    _docsChannel?.unsubscribe();
     _uploadQueueManager.removeListener(_onUploadChanged);
     super.dispose();
+  }
+
+  void _subscribeToDocumentChanges() {
+    _docsChannel = Supabase.instance.client
+        .channel('documents:incoming')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) { if (mounted) _refreshDocuments(); },
+        )
+        .subscribe();
   }
 
   @override
