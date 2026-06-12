@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/scrollable_image_viewer.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -7,8 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../services/image_download_service.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
 import '../models/document.dart';
 import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
@@ -22,7 +21,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/date_time_utils.dart';
 import '../widgets/move_document_dialog.dart';
 import '../services/google_drive_service.dart';
-import '../config/supabase_config.dart';
 import 'edit_document_screen.dart';
 import 'add_document_screen.dart';
 
@@ -843,233 +841,10 @@ Widget _buildUploadStatusIndicator(Document doc) {
   }
 
   void _showImageDialog(BuildContext context, Document document) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (dialogContext) {
-        int currentIndex = 0;
-        bool isDownloading = false;
-        bool isSuccess = false;
-        final PageController pageController = PageController();
-
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              insetPadding: const EdgeInsets.all(14),
-              child: SizedBox.expand(
-                child: Stack(
-                  children: [
-                    /// IMAGE VIEWER
-                    PageView.builder(
-                      controller: pageController,
-                      itemCount: document.imageUrls.length,
-                      onPageChanged: (index) {
-                        setState(() => currentIndex = index);
-                      },
-                      itemBuilder: (context, index) {
-                        String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
-                        String imageUrl = document.imageUrls[index];
-                        String proxyUrl;
-
-                        if (imageUrl.contains('drive.google.com/uc?id=')) {
-                          final uri = Uri.parse(imageUrl);
-                          final fileId = uri.queryParameters['id'];
-                          proxyUrl = fileId != null
-                              ? GoogleDriveService.generateProxyUrl(fileId)
-                              : imageUrl;
-                        } else {
-                          proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                        }
-
-                        return Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                fileName,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            Expanded(
-                              child: InteractiveViewer(
-                                child: Center(
-                                  child: CachedNetworkImage(
-                                    imageUrl: proxyUrl,
-                                    httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                                    fit: BoxFit.contain,
-                                    placeholder: (context, url) => const Center(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          CircularProgressIndicator(),
-                                          SizedBox(height: 16),
-                                          Text(
-                                            'Please wait...',
-                                            style: TextStyle(
-                                              color: Color.fromARGB(255, 56, 56, 56),
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    errorWidget: (context, url, error) => const Center(
-                                      child: Text('Failed to load image'),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    /// NAVIGATION ARROWS
-                    if (document.imageUrls.length > 1) ...[
-                      Positioned(
-                        left: 10,
-                        top: MediaQuery.of(context).size.height * 0.5 - 25,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 30),
-                          onPressed: () {
-                            if (pageController.page! > 0) {
-                              pageController.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                      Positioned(
-                        right: 10,
-                        top: MediaQuery.of(context).size.height * 0.5 - 25,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 30),
-                          onPressed: () {
-                            if (pageController.page! < document.imageUrls.length - 1) {
-                              pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-
-                    /// TOP RIGHT BUTTONS
-                    Positioned(
-                      top: 40,
-                      right: 20,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.download,
-                              color: Colors.black,
-                              size: 30,
-                            ),
-                            onPressed: isDownloading
-                                ? null
-                                : () async {
-                                    setState(() {
-                                      isDownloading = true;
-                                      isSuccess = false;
-                                    });
-
-                                    try {
-                                      await ImageDownloadService.downloadAndSave(
-                                          document.imageUrls[currentIndex]);
-
-                                      if (context.mounted) {
-                                        setState(() {
-                                          isDownloading = false;
-                                          isSuccess = true;
-                                        });
-
-                                        // Auto hide success after 1.5 seconds
-                                        await Future.delayed(
-                                            const Duration(milliseconds: 1500));
-
-                                        if (context.mounted) {
-                                          setState(() {
-                                            isSuccess = false;
-                                          });
-                                        }
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        setState(() {
-                                          isDownloading = false;
-                                        });
-
-                                        SnackbarUtils.showErrorSnackBar(
-                                          context,
-                                          e.toString().replaceAll('Exception: ', ''),
-                                        );
-                                      }
-                                    }
-                                  },
-                            tooltip: 'Download Image',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close,
-                                color: Colors.black, size: 30),
-                            onPressed: () =>
-                                Navigator.pop(dialogContext),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    /// LOADING / SUCCESS OVERLAY
-                    if (isDownloading || isSuccess)
-                      Container(
-                        color: Colors.black.withOpacity(0.4),
-                        child: Center(
-                          child: AnimatedSwitcher(
-                            duration:
-                                const Duration(milliseconds: 300),
-                            child: isDownloading
-                                ? const CircularProgressIndicator(
-                                    key: ValueKey('loading'),
-                                    color: Colors.white,
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.check, color: Colors.green, size: 48),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Saved!',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    ScrollableImageViewer.show(
+      context,
+      imageUrls: document.imageUrls,
+      fileNames: document.fileNames,
     );
   }
 

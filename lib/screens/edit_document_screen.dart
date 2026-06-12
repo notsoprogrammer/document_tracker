@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/scrollable_image_viewer.dart';
+import '../widgets/scrollable_local_image_viewer.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/document_scanner_service.dart';
@@ -416,105 +418,16 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     }).toList();
 
     if (imageFiles.isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          insetPadding: EdgeInsets.all(16),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: StatefulBuilder(
-              builder: (context, setStateDialog) {
-                final PageController _pageController = PageController();
-
-                return Column(
-                  children: [
-                    // Top row with Delete (left) and Close (right)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            if (imageFiles.isNotEmpty) {
-                              final currentIndex = _pageController.page?.round() ?? 0;
-                              setState(() {
-                                // Remove from upload queue
-                                final queueManager = UploadQueueManager();
-                                queueManager.removeFromQueue(widget.document.code, imageFiles[currentIndex]);
-                                _selectedImagePaths.remove(imageFiles[currentIndex]);
-                              });
-                              setStateDialog(() {
-                                imageFiles.removeAt(currentIndex);
-                              });
-                              if (imageFiles.isEmpty) {
-                                Navigator.pop(context);
-                              }
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    Expanded(
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: imageFiles.length,
-                        itemBuilder: (context, index) {
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              InteractiveViewer(
-                                child: Image.file(
-                                  File(imageFiles[index]),
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(child: Text('Failed to load image'));
-                                  },
-                                ),
-                              ),
-                              // Left arrow
-                              if (index > 0)
-                                Positioned(
-                                  left: 10,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
-                                    onPressed: () {
-                                      _pageController.previousPage(
-                                        duration: const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              // Right arrow
-                              if (index < imageFiles.length - 1)
-                                Positioned(
-                                  right: 10,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.black54),
-                                    onPressed: () {
-                                      _pageController.nextPage(
-                                        duration: const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                      );
-                                    },
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
+      ScrollableLocalImageViewer.show(
+        context,
+        imagePaths: imageFiles,
+        onDelete: (path) {
+          final queueManager = UploadQueueManager();
+          queueManager.removeFromQueue(widget.document.code, path);
+          setState(() {
+            _selectedImagePaths.remove(path);
+          });
+        },
       );
     }
 
@@ -1333,128 +1246,11 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
   }
 
   void _viewExistingImage(BuildContext context, Document document, int index) {
-    final PageController pageController = PageController(initialPage: index);
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (_) => Dialog(
-        backgroundColor: Colors.black.withOpacity(0.8),
-        insetPadding: const EdgeInsets.all(16),
-        child: SizedBox.expand(
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: pageController,
-                itemCount: document.imageUrls.length,
-                itemBuilder: (context, index) {
-                  String fileName = index < document.fileNames.length ? document.fileNames[index] : 'Image ${index + 1}';
-
-                  // Handle both fileId and Google Drive URL formats
-                  String imageUrl = document.imageUrls[index];
-                  String proxyUrl;
-                  if (imageUrl.contains('drive.google.com/uc?id=')) {
-                    // Legacy: extract fileId from Google Drive URL
-                    final uri = Uri.parse(imageUrl);
-                    final fileId = uri.queryParameters['id'];
-                    proxyUrl = fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
-                  } else {
-                    // New: assume it's already a fileId
-                    proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl);
-                  }
-
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      Expanded(
-                        child: InteractiveViewer(
-                          child: Center(
-                            child: CachedNetworkImage(
-                              imageUrl: proxyUrl,
-                              httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Please wait...',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              errorWidget: (context, url, error) => const Center(
-                                child: Text('Failed to load image'),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              if (document.imageUrls.length > 1) ...[
-                Positioned(
-                  left: 10,
-                  top: MediaQuery.of(context).size.height * 0.4 - 25,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF0992C2), size: 30),
-                    onPressed: () {
-                      if (pageController.page! > 0) {
-                        pageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: MediaQuery.of(context).size.height * 0.4 - 25,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF0992C2), size: 30),
-                    onPressed: () {
-                      if (pageController.page! < document.imageUrls.length - 1) {
-                        pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-              Positioned(
-                top: 40,
-                right: 20,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    ScrollableImageViewer.show(
+      context,
+      imageUrls: document.imageUrls,
+      fileNames: document.fileNames,
+      initialIndex: index,
     );
   }
 
