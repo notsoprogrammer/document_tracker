@@ -33,6 +33,7 @@ import 'add_sp_documents_screen.dart';
 import 'reclassification_screen.dart';
 import 'add_reclassification_screen.dart';
 import '../services/update_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showPills = false;
   List<dynamic> _todayEvents = [];
   bool _isTodayActivitiesLoading = true;
+  RealtimeChannel? _docsChannel;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkAndRequestNotificationPermission();
     _logSessionResume();
     _checkForUpdates();
+    _subscribeToDocumentChanges();
   }
 
   Future<void> _logSessionResume() async {
@@ -139,8 +143,44 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _subscribeToDocumentChanges() {
+    _docsChannel = Supabase.instance.client
+        .channel('public:documents')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) {
+            if (!mounted) return;
+            final code = payload.oldRecord['code'] as String?;
+            if (code != null) {
+              setState(() => documents.removeWhere((d) => d.code == code));
+            }
+            _loadDocuments();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) {
+            if (mounted) _loadDocuments();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'documents',
+          callback: (payload) {
+            if (mounted) _loadDocuments();
+          },
+        )
+        .subscribe();
+  }
+
   @override
   void dispose() {
+    _docsChannel?.unsubscribe();
     super.dispose();
   }
 
