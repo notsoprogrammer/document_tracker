@@ -23,14 +23,11 @@ class ScrollableImageViewer extends StatefulWidget {
     List<String>? fileNames,
     int initialIndex = 0,
   }) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.all(14),
-        child: ScrollableImageViewer(
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ScrollableImageViewer(
           imageUrls: imageUrls,
           fileNames: fileNames,
           initialIndex: initialIndex,
@@ -53,8 +50,8 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
     if (widget.initialIndex > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
-          final itemHeight = MediaQuery.of(context).size.height * 0.6 + 120;
-          final offset = (widget.initialIndex * itemHeight)
+          final cardHeight = MediaQuery.of(context).size.height * 0.55 + 80.0;
+          final offset = (widget.initialIndex * cardHeight)
               .clamp(0.0, _scrollController.position.maxScrollExtent);
           _scrollController.jumpTo(offset);
         }
@@ -72,67 +69,169 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
     if (imageUrl.contains('drive.google.com/uc?id=')) {
       final uri = Uri.parse(imageUrl);
       final fileId = uri.queryParameters['id'];
-      return fileId != null ? GoogleDriveService.generateProxyUrl(fileId) : imageUrl;
+      return fileId != null
+          ? GoogleDriveService.generateProxyUrl(fileId)
+          : imageUrl;
     }
     return GoogleDriveService.generateProxyUrl(imageUrl);
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${widget.imageUrls.length} file${widget.imageUrls.length != 1 ? 's' : ''}',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+    final proxyUrls = widget.imageUrls.map(_proxyUrl).toList();
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          '${widget.imageUrls.length} image${widget.imageUrls.length != 1 ? 's' : ''}',
+          style: const TextStyle(fontSize: 14, color: Colors.white),
+        ),
+      ),
+      body: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        itemCount: widget.imageUrls.length,
+        separatorBuilder: (_, _) =>
+            const Divider(color: Colors.white24, height: 24),
+        itemBuilder: (context, index) {
+          final name = (widget.fileNames != null &&
+                  index < widget.fileNames!.length)
+              ? widget.fileNames![index]
+              : 'Image ${index + 1}';
+          return _ImageListCard(
+            imageUrl: widget.imageUrls[index],
+            proxyUrl: proxyUrls[index],
+            fileName: name,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _ImageZoomPage(
+                  imageUrls: widget.imageUrls,
+                  proxyUrls: proxyUrls,
+                  fileNames: widget.fileNames,
+                  initialIndex: index,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.separated(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              itemCount: widget.imageUrls.length,
-              separatorBuilder: (_, i) => const Divider(height: 32, thickness: 1),
-              itemBuilder: (context, index) {
-                final url = widget.imageUrls[index];
-                final name = (widget.fileNames != null && index < widget.fileNames!.length)
-                    ? widget.fileNames![index]
-                    : 'Image ${index + 1}';
-                return _NetworkImageCard(
-                  imageUrl: url,
-                  proxyUrl: _proxyUrl(url),
-                  fileName: name,
-                );
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 }
 
-class _NetworkImageCard extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// Full-screen zoom page — PageView so user can swipe between images
+// ---------------------------------------------------------------------------
+
+class _ImageZoomPage extends StatefulWidget {
+  final List<String> imageUrls;
+  final List<String> proxyUrls;
+  final List<String>? fileNames;
+  final int initialIndex;
+
+  const _ImageZoomPage({
+    required this.imageUrls,
+    required this.proxyUrls,
+    this.fileNames,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_ImageZoomPage> createState() => _ImageZoomPageState();
+}
+
+class _ImageZoomPageState extends State<_ImageZoomPage> {
+  late int _currentIndex;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  String _nameFor(int i) {
+    if (widget.fileNames != null && i < widget.fileNames!.length) {
+      return widget.fileNames![i];
+    }
+    return 'Image ${i + 1}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          '${_nameFor(_currentIndex)}  ${_currentIndex + 1}/${widget.imageUrls.length}',
+          style: const TextStyle(fontSize: 13, color: Colors.white),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+        ),
+        actions: [
+          _DownloadButton(imageUrl: widget.imageUrls[_currentIndex]),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.imageUrls.length,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (context, index) => InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 6.0,
+          child: Center(
+            child: CachedNetworkImage(
+              imageUrl: widget.proxyUrls[index],
+              httpHeaders: {
+                'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
+              },
+              fit: BoxFit.contain,
+              placeholder: (_, _) => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+              errorWidget: (_, _, _) => const Center(
+                child: Text(
+                  'Failed to load image',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scroll-list card — thumbnail + tap hint + download
+// ---------------------------------------------------------------------------
+
+class _ImageListCard extends StatelessWidget {
   final String imageUrl;
   final String proxyUrl;
   final String fileName;
+  final VoidCallback onTap;
 
-  const _NetworkImageCard({
+  const _ImageListCard({
     required this.imageUrl,
     required this.proxyUrl,
     required this.fileName,
+    required this.onTap,
   });
 
   @override
@@ -140,50 +239,60 @@ class _NetworkImageCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          fileName,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Text(
+            fileName,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.white70),
+            textAlign: TextAlign.center,
+          ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: InteractiveViewer(
-            clipBehavior: Clip.hardEdge,
-            child: Center(
-              child: CachedNetworkImage(
-                imageUrl: proxyUrl,
-                httpHeaders: {
-                  'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
-                },
-                fit: BoxFit.contain,
-                placeholder: (_, url) => const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Please wait...',
-                        style: TextStyle(color: Color(0xFF383838), fontSize: 16),
-                      ),
-                    ],
-                  ),
+        GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.55,
+            child: CachedNetworkImage(
+              imageUrl: proxyUrl,
+              httpHeaders: {
+                'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
+              },
+              fit: BoxFit.contain,
+              placeholder: (_, _) => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+              errorWidget: (_, _, _) => const Center(
+                child: Text(
+                  'Failed to load image',
+                  style: TextStyle(color: Colors.white),
                 ),
-                errorWidget: (_, url, err) =>
-                    const Center(child: Text('Failed to load image')),
               ),
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: _DownloadButton(imageUrl: imageUrl),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 12, top: 4),
+              child: Text(
+                'Tap to zoom',
+                style: TextStyle(fontSize: 11, color: Colors.white38),
+              ),
+            ),
+            _DownloadButton(imageUrl: imageUrl),
+          ],
         ),
       ],
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Download button (shared)
+// ---------------------------------------------------------------------------
 
 class _DownloadButton extends StatefulWidget {
   final String imageUrl;
@@ -211,11 +320,11 @@ class _DownloadButtonState extends State<_DownloadButton> {
           _success = true;
         });
         await Future.delayed(const Duration(milliseconds: 1500));
-        if (mounted) setState(() { _success = false; });
+        if (mounted) setState(() => _success = false);
       }
     } catch (e) {
       if (mounted) {
-        setState(() { _downloading = false; });
+        setState(() => _downloading = false);
         SnackbarUtils.showErrorSnackBar(
           context,
           e.toString().replaceAll('Exception: ', ''),
@@ -230,9 +339,9 @@ class _DownloadButtonState extends State<_DownloadButton> {
       return const Padding(
         padding: EdgeInsets.all(12),
         child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
         ),
       );
     }
@@ -242,15 +351,15 @@ class _DownloadButtonState extends State<_DownloadButton> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check, color: Colors.green, size: 20),
+            Icon(Icons.check, color: Colors.green, size: 18),
             SizedBox(width: 4),
-            Text('Saved', style: TextStyle(color: Colors.green, fontSize: 13)),
+            Text('Saved', style: TextStyle(color: Colors.green, fontSize: 12)),
           ],
         ),
       );
     }
     return IconButton(
-      icon: const Icon(Icons.download_outlined, color: Colors.black54),
+      icon: const Icon(Icons.download_outlined, color: Colors.white70),
       tooltip: 'Download',
       onPressed: _download,
     );
