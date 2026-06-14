@@ -10,6 +10,7 @@ import 'connectivity_service.dart';
 import '../models/document.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/auth_service.dart';
+import '../services/attachment_view_service.dart';
 
 class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
@@ -199,7 +200,10 @@ class CachedDocumentService {
 
           // Delete from remote first
           await _remoteDb.deleteDocument(documentCode);
-          
+
+          // Clean up attachment view records for this document
+          await AttachmentViewService.deleteAllViews(documentCode);
+
           // Log the deletion to Supabase
           if (username != null) {
             await _remoteDb.logDeletedRecord(username, documentCode, document.title ?? documentCode);
@@ -273,7 +277,10 @@ class CachedDocumentService {
 
           // Delete from Supabase
           await _remoteDb.deleteDocument(docCode);
-          
+
+          // Clean up attachment view records for this document
+          await AttachmentViewService.deleteAllViews(docCode);
+
           // Log the deletion to Supabase
           await _remoteDb.logDeletedRecord(deletedBy, docCode, title);
           
@@ -870,6 +877,14 @@ class CachedDocumentService {
         if (await isOnline) {
           await _remoteDb.updateDocument(doc.code, {'file_urls': updatedUrls});
         }
+      }
+
+      // Delete view records when the last attachment of this type is removed
+      if (updatedUrls.isEmpty) {
+        await AttachmentViewService.deleteViews(
+          documentCode: doc.code,
+          attachmentType: isImage ? 'image' : 'pdf',
+        );
       }
 
       // Remove corresponding file name if it exists

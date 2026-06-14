@@ -32,6 +32,32 @@ class AttachmentViewService {
     }
   }
 
+  /// Deletes all view records for a document's attachment type.
+  /// Call when the last attachment of that type is removed.
+  static Future<void> deleteViews({
+    required String documentCode,
+    required String attachmentType,
+  }) async {
+    try {
+      await _db
+          .from('document_attachment_views')
+          .delete()
+          .eq('document_code', documentCode)
+          .eq('attachment_type', attachmentType);
+    } catch (_) {}
+  }
+
+  /// Deletes all view records for a document (all attachment types).
+  /// Call when the entire document is deleted.
+  static Future<void> deleteAllViews(String documentCode) async {
+    try {
+      await _db
+          .from('document_attachment_views')
+          .delete()
+          .eq('document_code', documentCode);
+    } catch (_) {}
+  }
+
   /// Returns viewers sorted by most recent first, deduplicated by username+type
   /// (keeps only the latest view per username per type).
   static Future<List<AttachmentViewEntry>> getViewers(String documentCode) async {
