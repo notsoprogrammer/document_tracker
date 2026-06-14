@@ -5,6 +5,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/supabase_service.dart';
+import '../models/activity.dart';
+import '../models/document.dart';
+import '../utils/web_notif.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -21,6 +24,13 @@ class NotificationService {
   static const String _channelName = 'Compliance Notifications';
   static const String _channelDesc =
       'Notifications for document compliance deadlines';
+
+  /// Preference keys
+  static const String _prefImmediate = 'immediate_notifications';
+  static const String _prefNineAM = 'nine_am_notifications';
+  static const String _prefOverdue = 'overdue_notifications';
+  static const String _prefActivity = 'activity_notifications';
+  static const String _prefActivityLastShown = 'activity_notification_last_shown';
 
   /* -----------------------------------------------------------
    * INITIALIZATION
@@ -47,8 +57,6 @@ class NotificationService {
 
     // Initialize FCM
     await _initializeFCM();
-
-    debugPrint('🔔 NotificationService initialized with FCM');
   }
 
   /* -----------------------------------------------------------
@@ -107,7 +115,6 @@ class NotificationService {
         }
       }
     } catch (e) {
-      debugPrint('Failed to get FCM token: $e');
       // Continue initialization even if token retrieval fails
     }
 
@@ -164,8 +171,7 @@ class NotificationService {
     required String body,
   }) async {
     if (kIsWeb) {
-      // On web, rely on browser push notifications via FCM
-      debugPrint('Web notification: $title - $body');
+      await showBrowserNotification(title, body);
       return;
     }
 
@@ -224,25 +230,86 @@ class NotificationService {
   }
 
   /* -----------------------------------------------------------
+   * ACTIVITY NOTIFICATION
+   * ---------------------------------------------------------*/
+  /// Shows a local notification summarising today's activities and calendar events.
+  /// Fires at most once per calendar day (guarded by SharedPreferences).
+  Future<void> showTodayActivityNotification({
+    required List<Activity> activities,
+    required List<Document> calendarDocs,
+  }) async {
+    final prefs = await getNotificationPreferences();
+    if (!(prefs['activityNotifications'] ?? true)) return;
+
+    final today = DateTime.now();
+    final todayDay = DateTime(today.year, today.month, today.day);
+
+    final todayActivities = activities.where((a) {
+      final start = DateTime(a.startTime.year, a.startTime.month, a.startTime.day);
+      final end = a.endTime != null
+          ? DateTime(a.endTime!.year, a.endTime!.month, a.endTime!.day)
+          : start;
+      return !todayDay.isBefore(start) && !todayDay.isAfter(end);
+    }).toList();
+
+    final todayDocs = calendarDocs.where((d) {
+      final cd = d.calendarDeadline;
+      if (cd == null) return false;
+      final start = DateTime(cd.year, cd.month, cd.day);
+      final end = d.calendarDeadlineEnd != null
+          ? DateTime(d.calendarDeadlineEnd!.year, d.calendarDeadlineEnd!.month, d.calendarDeadlineEnd!.day)
+          : start;
+      return !todayDay.isBefore(start) && !todayDay.isAfter(end);
+    }).toList();
+
+    final total = todayActivities.length + todayDocs.length;
+    if (total == 0) return;
+
+    // Only show once per day
+    final appPrefs = await SharedPreferences.getInstance();
+    final todayStr = '${today.year}-${today.month}-${today.day}';
+    if (appPrefs.getString(_prefActivityLastShown) == todayStr) return;
+    await appPrefs.setString(_prefActivityLastShown, todayStr);
+
+    final title = total == 1 ? '1 Event Today' : '$total Events Today';
+
+    String firstLabel;
+    if (todayActivities.isNotEmpty) {
+      firstLabel = todayActivities.first.title ?? 'Activity';
+    } else {
+      firstLabel = todayDocs.first.title ?? 'Event';
+    }
+    final body = total == 1 ? firstLabel : '$firstLabel and ${total - 1} more';
+
+    await _showLocalNotification(title: title, body: body);
+  }
+
+  /* -----------------------------------------------------------
    * NOTIFICATION PREFERENCES
    * ---------------------------------------------------------*/
   Future<void> setNotificationPreferences({
     bool? immediateNotifications,
     bool? nineAMNotifications,
     bool? overdueNotifications,
+    bool? activityNotifications,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (immediateNotifications != null) {
-      await prefs.setBool('immediate_notifications', immediateNotifications);
+      await prefs.setBool(_prefImmediate, immediateNotifications);
     }
     if (nineAMNotifications != null) {
-      await prefs.setBool('nine_am_notifications', nineAMNotifications);
+      await prefs.setBool(_prefNineAM, nineAMNotifications);
     }
     if (overdueNotifications != null) {
-      await prefs.setBool('overdue_notifications', overdueNotifications);
+      await prefs.setBool(_prefOverdue, overdueNotifications);
+    }
+    if (activityNotifications != null) {
+      await prefs.setBool(_prefActivity, activityNotifications);
     }
 
-    // If any notification preference is enabled, attempt to get and save FCM token
+    // Sync preferences to Supabase so the backend can filter per device
+    await _syncPreferencesToDevice();
+
     if ((immediateNotifications == true) || (nineAMNotifications == true) || (overdueNotifications == true)) {
       await _getAndSaveToken();
     }
@@ -251,18 +318,16 @@ class NotificationService {
   Future<Map<String, bool>> getNotificationPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      'immediateNotifications': prefs.getBool('immediate_notifications') ?? false,
-      'nineAMNotifications': prefs.getBool('nine_am_notifications') ?? true,
-      'overdueNotifications': prefs.getBool('overdue_notifications') ?? true,
+      'immediateNotifications': prefs.getBool(_prefImmediate) ?? false,
+      'nineAMNotifications': prefs.getBool(_prefNineAM) ?? true,
+      'overdueNotifications': prefs.getBool(_prefOverdue) ?? true,
+      'activityNotifications': prefs.getBool(_prefActivity) ?? true,
     };
   }
 
   Future<bool> _shouldShowNotification(RemoteMessage message) async {
     final prefs = await getNotificationPreferences();
-
-    // Check notification type from message data
-    final data = message.data;
-    final notificationType = data['type'] ?? 'immediate'; // Default to immediate if not specified
+    final notificationType = message.data['type'] ?? 'immediate';
 
     switch (notificationType) {
       case 'immediate':
@@ -272,21 +337,19 @@ class NotificationService {
         return prefs['nineAMNotifications'] ?? true;
       case 'overdue':
         return prefs['overdueNotifications'] ?? true;
+      case 'activity':
+        return prefs['activityNotifications'] ?? true;
       default:
-        // For unknown types, show if immediate notifications are enabled
         return prefs['immediateNotifications'] ?? true;
     }
   }
 
   Future<Map<String, bool>> checkPermissions() async {
     final notificationGranted = await Permission.notification.isGranted;
-
     return {
       'notification': notificationGranted,
     };
   }
-
-
 
   Future<String?> _getCurrentUsername() async {
     final prefs = await SharedPreferences.getInstance();
@@ -303,6 +366,19 @@ class NotificationService {
       } else {
         debugPrint('No username found, skipping device token save');
       }
+    }
+  }
+
+  /// Pushes the current device's notification preferences to Supabase so the
+  /// backend edge function can skip sending FCM to devices that have opted out.
+  Future<void> _syncPreferencesToDevice() async {
+    try {
+      final token = await _firebaseMessaging.getToken();
+      if (token == null) return;
+      final prefs = await getNotificationPreferences();
+      await SupabaseService().saveDeviceNotificationPreferences(token, prefs);
+    } catch (_) {
+      // Non-blocking: device falls back to local preference filtering
     }
   }
 }

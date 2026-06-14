@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
@@ -25,7 +26,7 @@ class SupabaseService {
 
       return documents;
     } catch (e) {
-      print('Error fetching documents: $e');
+      debugPrint('Error fetching documents: $e');
       return [];
     }
   }
@@ -43,7 +44,7 @@ class SupabaseService {
       }
       return document;
     } catch (e) {
-      print('Error fetching document by code: $e');
+      debugPrint('Error fetching document by code: $e');
       return null;
     }
   }
@@ -110,7 +111,7 @@ class SupabaseService {
       'personnel': personnel ?? entry.person,
       ...entry.toJson(),
     });
-    print('History entry added to database for document $documentCode: ${entry.action}');
+    debugPrint('History entry added to database for document $documentCode: ${entry.action}');
   }
 
   Future<List<HistoryEntry>> fetchHistory(String documentCode) async {
@@ -123,7 +124,7 @@ class SupabaseService {
       final response = await _client.from('deleted_records').select('*').order('deleted_at', ascending: false);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error fetching deleted records: $e');
+      debugPrint('Error fetching deleted records: $e');
       return [];
     }
   }
@@ -143,12 +144,12 @@ class SupabaseService {
       'scheduled_time': scheduledTime.toIso8601String(),
       'status': status,
     });
-    print('Notification history added for document $documentCode: $notificationType');
+    debugPrint('Notification history added for document $documentCode: $notificationType');
   }
 
   Future<List<Map<String, dynamic>>> fetchNotificationsHistory() async {
     try {
-      print('Fetching notification history from Supabase...');
+      debugPrint('Fetching notification history from Supabase...');
       // Join with documents table to get title and compliance_assignee
       // Group by document_code and get the most recent notification per document
       final response = await _client
@@ -168,14 +169,14 @@ class SupabaseService {
       final result = grouped.values.toList();
       return result;
     } catch (e) {
-      print('Error fetching notification history: $e');
+      debugPrint('Error fetching notification history: $e');
       return [];
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchOverdueComplianceDocuments() async {
     try {
-      print('Fetching overdue compliance documents from Supabase...');
+      debugPrint('Fetching overdue compliance documents from Supabase...');
       final now = DateTime.now();
 
       final response = await _client
@@ -187,7 +188,7 @@ class SupabaseService {
           .order('compliance_deadline', ascending: true);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error fetching overdue compliance documents: $e');
+      debugPrint('Error fetching overdue compliance documents: $e');
       return [];
     }
   }
@@ -197,7 +198,7 @@ class SupabaseService {
       'status': status,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('notification_id', notificationId);
-    print('Notification $notificationId status updated to $status');
+    debugPrint('Notification $notificationId status updated to $status');
   }
 
   Future<void> updateNotificationsStatusByDocumentCode(String documentCode, String status) async {
@@ -205,13 +206,13 @@ class SupabaseService {
       'status': status,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('document_code', documentCode);
-    print('All notifications for document $documentCode updated to $status');
+    debugPrint('All notifications for document $documentCode updated to $status');
   }
 
   Future<void> deleteOldNotifications() async {
     final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
     await _client.from('notifications_history').delete().lt('created_at', cutoffDate.toIso8601String());
-    print('Deleted notification history older than 30 days');
+    debugPrint('Deleted notification history older than 30 days');
   }
 
   Future<void> deleteNotificationsByDocumentCodeAndType(String documentCode, String notificationType) async {
@@ -219,7 +220,7 @@ class SupabaseService {
         .delete()
         .eq('document_code', documentCode)
         .eq('notification_type', notificationType);
-    print('Deleted $notificationType notifications for document $documentCode');
+    debugPrint('Deleted $notificationType notifications for document $documentCode');
   }
 
   Future<void> updateComplianceNotifications(String documentCode, DateTime deadline, String? assignee) async {
@@ -235,14 +236,14 @@ class SupabaseService {
       'scheduled_time': deadline.toIso8601String(),
       'status': 'updated',
     });
-    print('Inserted updated immediate notification for document $documentCode');
+    debugPrint('Inserted updated immediate notification for document $documentCode');
 
     // Delete old scheduled notifications
     await _client.from('notifications_history').delete()
         .eq('document_code', documentCode)
         .or('notification_type.eq.1_day_reminder,notification_type.eq.6_hours_reminder,notification_type.eq.due_soon,notification_type.eq.overdue_hours,notification_type.eq.overdue_days')
         .eq('status', 'scheduled');
-    print('Deleted old scheduled notifications for document $documentCode');
+    debugPrint('Deleted old scheduled notifications for document $documentCode');
 
     // Insert new scheduled notifications based on deadline
     if (hoursDiff > 48) {
@@ -256,7 +257,7 @@ class SupabaseService {
         'scheduled_time': reminderTime.toIso8601String(),
         'status': 'scheduled',
       });
-      print('Inserted 1_day_reminder for document $documentCode');
+      debugPrint('Inserted 1_day_reminder for document $documentCode');
     } else if (hoursDiff > 6) {
       if (hoursDiff <= 24) {
         // Schedule 6_hours_reminder
@@ -267,7 +268,7 @@ class SupabaseService {
           'scheduled_time': deadline.toIso8601String(),
           'status': 'scheduled',
         });
-        print('Inserted 6_hours_reminder for document $documentCode');
+        debugPrint('Inserted 6_hours_reminder for document $documentCode');
       }
     } else if (hoursDiff > 0) {
       // Schedule due_soon
@@ -278,7 +279,7 @@ class SupabaseService {
         'scheduled_time': deadline.toIso8601String(),
         'status': 'scheduled',
       });
-      print('Inserted due_soon for document $documentCode');
+      debugPrint('Inserted due_soon for document $documentCode');
     } else {
       // Overdue - insert overdue notification
       final overdueHours = -hoursDiff;
@@ -290,7 +291,7 @@ class SupabaseService {
           'scheduled_time': deadline.toIso8601String(),
           'status': 'scheduled',
         });
-        print('Inserted overdue_hours for document $documentCode');
+        debugPrint('Inserted overdue_hours for document $documentCode');
       } else {
         await _client.from('notifications_history').insert({
           'document_code': documentCode,
@@ -299,7 +300,7 @@ class SupabaseService {
           'scheduled_time': deadline.toIso8601String(),
           'status': 'scheduled',
         });
-        print('Inserted overdue_days for document $documentCode');
+        debugPrint('Inserted overdue_days for document $documentCode');
       }
     }
   }
@@ -312,18 +313,39 @@ class SupabaseService {
     final userResponse = await _client.from('users').select('id').eq('username', username).single();
     final userId = userResponse['id'];
 
+    // Upsert by token so each physical device keeps its own row
     await _client.from('device_tokens').upsert({
       'user_id': userId,
       'username': username,
       'token': token,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id');
+    }, onConflict: 'token');
+  }
+
+  Future<void> removeDeviceToken(String token) async {
+    await _client.from('device_tokens').delete().eq('token', token);
+  }
+
+  /// Updates the notification_preferences JSON column on the device_tokens row
+  /// identified by [token]. Fails silently if the column doesn't exist yet.
+  Future<void> saveDeviceNotificationPreferences(
+    String token,
+    Map<String, bool> preferences,
+  ) async {
+    try {
+      await _client.from('device_tokens').update({
+        'notification_preferences': preferences,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('token', token);
+    } catch (e) {
+      debugPrint('Could not sync notification preferences to device token: $e');
+    }
   }
 
   Future<List<String>> getAllDeviceTokens() async {
     final response = await _client.from('device_tokens').select('token');
     final tokens = (response as List<dynamic>).map((item) => item['token'] as String).toList();
-    print('Retrieved ${tokens.length} device tokens');
+    debugPrint('Retrieved ${tokens.length} device tokens');
     return tokens;
   }
 
@@ -332,9 +354,9 @@ class SupabaseService {
     try {
       final body = documentCode != null ? {'document_code': documentCode} : null;
       final response = await _client.functions.invoke('send_compliance_notifications', body: body);
-      print('Compliance notifications sent: ${response.data}');
+      debugPrint('Compliance notifications sent: ${response.data}');
     } catch (e) {
-      print('Error sending compliance notifications: $e');
+      debugPrint('Error sending compliance notifications: $e');
       rethrow;
     }
   }
@@ -342,7 +364,7 @@ class SupabaseService {
   // Fetch documents for calendar (those with calendar_deadline or compliance_deadline)
   Future<List<Document>> fetchCalendarDocuments() async {
     try {
-      print('Fetching calendar documents from Supabase...');
+      debugPrint('Fetching calendar documents from Supabase...');
       final response = await _client.from('documents').select('*, history_entries(*)').or('calendar_deadline.not.is.null,compliance_deadline.not.is.null');
 
       final documents = response.map((doc) {
@@ -357,10 +379,10 @@ class SupabaseService {
         return document;
       }).toList();
 
-      print('Parsed ${documents.length} calendar documents');
+      debugPrint('Parsed ${documents.length} calendar documents');
       return documents;
     } catch (e) {
-      print('Error fetching calendar documents: $e');
+      debugPrint('Error fetching calendar documents: $e');
       return [];
     }
   }
@@ -368,15 +390,15 @@ class SupabaseService {
   // Activities table operations
   Future<List<Activity>> fetchActivities() async {
     try {
-      print('Fetching activities from Supabase...');
+      debugPrint('Fetching activities from Supabase...');
       final response = await _client.from('activities').select('*');
 
       final activities = response.map((act) => Activity.fromJson(act)).toList();
 
-      print('Parsed ${activities.length} activities');
+      debugPrint('Parsed ${activities.length} activities');
       return activities;
     } catch (e) {
-      print('Error fetching activities: $e');
+      debugPrint('Error fetching activities: $e');
       return [];
     }
   }
@@ -393,12 +415,12 @@ class SupabaseService {
   Future<void> updateActivity(int activityId, Map<String, dynamic> updates) async {
     updates.remove('id'); // Don't update id
     await _client.from('activities').update(updates).eq('id', activityId);
-    print('Activity $activityId updated successfully');
+    debugPrint('Activity $activityId updated successfully');
   }
 
   Future<void> deleteActivity(int activityId) async {
     await _client.from('activities').delete().eq('id', activityId);
-    print('Activity $activityId deleted successfully');
+    debugPrint('Activity $activityId deleted successfully');
   }
 
   // Repository links operations
@@ -407,7 +429,7 @@ class SupabaseService {
       final response = await _client.from('repository_links').select('*').order('added_at', ascending: false);
       return (response as List<dynamic>).map((r) => RepositoryLink.fromJson(r)).toList();
     } catch (e) {
-      print('Error fetching repository links: $e');
+      debugPrint('Error fetching repository links: $e');
       return [];
     }
   }

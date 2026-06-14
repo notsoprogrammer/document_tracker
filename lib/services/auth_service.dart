@@ -102,14 +102,15 @@ class AuthService {
 
       print('Password verified successfully');
 
-      // Update or insert device token
-      await Supabase.instance.client
-          .from('device_tokens')
-          .upsert({
-            'user_id': userId,
-            'username': username,
-            'token': deviceToken,
-          }, onConflict: 'user_id');
+      // Upsert by token so each physical device keeps its own row
+      if (deviceToken != null) {
+        await Supabase.instance.client.from('device_tokens').upsert({
+          'user_id': userId,
+          'username': username,
+          'token': deviceToken,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'token');
+      }
 
       // Set user as authorized and save username
       await setAuthorized(true);
@@ -199,14 +200,14 @@ class AuthService {
           .delete()
           .eq('token', token);
 
-      // Automatically log the user in after password reset
+      // Upsert by token so each physical device keeps its own row
       if (deviceToken != null) {
         await Supabase.instance.client.from('device_tokens').upsert({
           'user_id': userId,
           'username': username,
           'token': deviceToken,
           'updated_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'user_id');
+        }, onConflict: 'token');
       }
 
       // Set user as authorized and save username

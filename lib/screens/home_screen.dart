@@ -240,6 +240,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _todayEvents = combined;
         _isTodayActivitiesLoading = false;
       });
+
+      // Fire a once-per-day local notification summarising today's events
+      NotificationService().showTodayActivityNotification(
+        activities: activities,
+        calendarDocs: calendarDocs,
+      );
     } catch (_) {
       setState(() {
         _isTodayActivitiesLoading = false;
@@ -1732,6 +1738,7 @@ Positioned(
     bool immediate = currentPrefs['immediateNotifications'] ?? false;
     bool nineAM = currentPrefs['nineAMNotifications'] ?? true;
     bool overdue = currentPrefs['overdueNotifications'] ?? true;
+    bool activity = currentPrefs['activityNotifications'] ?? true;
 
     showDialog(
       context: context,
@@ -1765,6 +1772,14 @@ Positioned(
                   setState(() => overdue = value);
                 },
               ),
+              SwitchListTile(
+                title: const Text('Today\'s Activity Notifications'),
+                subtitle: const Text('Show a daily summary of today\'s activities and events'),
+                value: activity,
+                onChanged: (value) {
+                  setState(() => activity = value);
+                },
+              ),
             ],
           ),
           actions: [
@@ -1779,14 +1794,16 @@ Positioned(
                     immediateNotifications: immediate,
                     nineAMNotifications: nineAM,
                     overdueNotifications: overdue,
+                    activityNotifications: activity,
                   );
+                  if (!context.mounted) return;
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Notification settings saved')),
                   );
                 } catch (e) {
                   debugPrint('Failed to save settings: $e');
-                  // Check if the error is related to notification permission
+                  if (!context.mounted) return;
                   if (e.toString().contains('Notification') || e.toString().contains('permission')) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Settings saved, but notification permission is blocked')),
