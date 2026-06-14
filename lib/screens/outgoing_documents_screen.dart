@@ -24,6 +24,7 @@ import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
 import 'add_document_screen.dart';
 import 'pdf_viewer_screen.dart';
+import '../services/attachment_view_service.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -391,6 +392,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     return textPainter.didExceedMaxLines;
   }
   void _showImageDialog(BuildContext context, Document document) {
+    if (_username != null && _username!.isNotEmpty) {
+      AttachmentViewService.recordView(
+        documentCode: document.code,
+        username: _username!,
+        attachmentType: 'image',
+      );
+    }
     ScrollableImageViewer.show(
       context,
       imageUrls: document.imageUrls,
@@ -595,7 +603,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                 title: Text(fileName),
                 onTap: () {
                   Navigator.pop(context);
-                  _viewFile(filePath, title: document.title ?? document.type);
+                  _viewFile(filePath, title: document.title ?? document.type, documentCode: document.code);
                 },
               );
             },
@@ -634,12 +642,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     return null;
   }
 
-  void _viewFile(String filePath, {String title = 'Document'}) async {
+  void _viewFile(String filePath, {String title = 'Document', String? documentCode}) async {
     try {
       final fileId = _extractFileId(filePath);
       if (fileId == null) {
         SnackbarUtils.showErrorSnackBar(context, 'Invalid file format');
         return;
+      }
+      if (documentCode != null && _username != null && _username!.isNotEmpty) {
+        AttachmentViewService.recordView(
+          documentCode: documentCode,
+          username: _username!,
+          attachmentType: 'pdf',
+        );
       }
       if (kIsWeb) {
         final uri = Uri.parse('https://drive.google.com/file/d/$fileId/view');
@@ -1066,6 +1081,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     );
   }
 
+
+  void _showViewersDialog(BuildContext context, String documentCode) {
+    showDialog(
+      context: context,
+      builder: (_) => _ViewersDialog(documentCode: documentCode),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1700,15 +1722,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                     })(),
                                   ),
                                   const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    alignment: WrapAlignment.center,
+                                  Row(
                                     children: [
+                                      Wrap(
+                                        spacing: 2,
+                                        runSpacing: 2,
+                                         crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
                                       if (_username == doc.person)
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.edit),
-                                          label: const SizedBox.shrink(),
+                                        ElevatedButton(
                                           onPressed: () {
                                             Navigator.push(
                                               context,
@@ -1722,21 +1744,23 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             });
                                           },
                                           style: ElevatedButton.styleFrom(
-                                             alignment: Alignment.center,
                                             backgroundColor: const Color.fromARGB(255, 78, 127, 218),
-                                            minimumSize: const Size(48, 40), // shrink width, fixed height
-                                            padding: EdgeInsets.only(left:10),
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(40, 36),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
+                                          child: const Icon(Icons.edit, size: 18),
                                         ),
                                       if (_username == doc.person)
                                         ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color.fromARGB(255, 218, 87, 78),
                                             foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            minimumSize: const Size(40, 36),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
@@ -1756,7 +1780,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                               }
                                             }
                                           },
-                                          child: const Icon(Icons.delete),
+                                          child: const Icon(Icons.delete, size: 18),
                                         ),
                                       if (doc.imageUrls.isNotEmpty)
                                         ElevatedButton(
@@ -1765,15 +1789,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             doc,
                                           ),
                                           style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            minimumSize: const Size(40, 36),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          child: const Icon(Icons.image),
+                                          child: const Icon(Icons.image, size: 18),
                                         ),
                                       if (doc.filePath != null ||
                                           doc.fileUrls.isNotEmpty)
@@ -1785,32 +1807,43 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                             }
                                             allFiles.addAll(doc.fileUrls);
                                             if (allFiles.length == 1) {
-                                              _viewFile(allFiles[0], title: doc.title ?? doc.type);
+                                              _viewFile(allFiles[0], title: doc.title ?? doc.type, documentCode: doc.code);
                                             } else {
                                               _showFileDialog(context, doc);
                                             }
                                           },
                                           style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
+                                            minimumSize: const Size(40, 36),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          child: const Icon(Icons.attach_file),
+                                          child: const Icon(Icons.attach_file, size: 18),
                                         ),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         ElevatedButton(
                                           onPressed: () => _shareDocument(doc),
                                           style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            minimumSize: const Size(40, 36),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          child: const Icon(Icons.share),
+                                          child: const Icon(Icons.share, size: 18),
+                                        ),
+                                        ],
+                                      ),
+                                      const Spacer(),
+                                      if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
+                                        IconButton(
+                                          icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
+                                          tooltip: 'View who opened attachments',
+                                          onPressed: () => _showViewersDialog(context, doc.code),
+                                          style: IconButton.styleFrom(
+                                            foregroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                          ),
                                         ),
                                     ],
                                   ),
@@ -1828,6 +1861,85 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             ),
       ),
       ),
+    );
+  }
+}
+
+class _ViewersDialog extends StatefulWidget {
+  final String documentCode;
+  const _ViewersDialog({required this.documentCode});
+  @override
+  State<_ViewersDialog> createState() => _ViewersDialogState();
+}
+
+class _ViewersDialogState extends State<_ViewersDialog> {
+  late Future<List<AttachmentViewEntry>> _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = AttachmentViewService.getViewers(widget.documentCode);
+  }
+  String _formatDate(DateTime dt) {
+    final h = dt.hour;
+    final m = dt.minute.toString().padLeft(2, '0');
+    final amPm = h >= 12 ? 'PM' : 'AM';
+    final displayH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+    return '${dt.month}/${dt.day}/${dt.year} $displayH:$m $amPm';
+  }
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(children: [
+        Icon(Icons.remove_red_eye_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
+        const SizedBox(width: 8),
+        const Text('Attachment Viewers', style: TextStyle(fontSize: 16)),
+      ]),
+      content: SizedBox(
+        width: 340,
+        child: FutureBuilder<List<AttachmentViewEntry>>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+            }
+            final viewers = snap.data ?? [];
+            if (viewers.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: Text('No views recorded yet', style: TextStyle(color: Colors.grey))),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              itemCount: viewers.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final v = viewers[i];
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    v.attachmentType == 'pdf' ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+                    size: 20,
+                    color: v.attachmentType == 'pdf' ? Colors.red[400] : Colors.blue[400],
+                  ),
+                  title: Text(v.username, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: Text(
+                    '${v.attachmentType == 'pdf' ? 'PDF' : 'Image'} · ${_formatDate(v.viewedAt)}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        TextButton(
+          onPressed: () => setState(() { _future = AttachmentViewService.getViewers(widget.documentCode); }),
+          child: const Text('Refresh'),
+        ),
+      ],
     );
   }
 }
