@@ -27,6 +27,19 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) => setState(() => _isLoading = false),
         onWebResourceError: (_) => setState(() => _isLoading = false),
+        onNavigationRequest: (NavigationRequest request) {
+          final url = request.url;
+          // Block downloads and any navigation away from the preview
+          if (url.contains('export=download') ||
+              url.contains('/uc?') ||
+              url.startsWith('intent://') ||
+              (url.contains('drive.google.com') &&
+                  !url.contains('/preview') &&
+                  !url.contains('/viewer'))) {
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
       ))
       ..loadRequest(Uri.parse(
           'https://drive.google.com/file/d/${widget.fileId}/preview'));
