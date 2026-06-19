@@ -12,6 +12,18 @@ class UpdateInfo {
 }
 
 class UpdateService {
+  static const String appName = 'FileTrack';
+
+  /// Steps shown to the user before or when the APK installer is blocked.
+  static const String installPermissionSteps =
+      'To install the $appName update you need to allow installation '
+      'from unknown sources:\n\n'
+      '1. Tap "Settings" on the permission prompt that appears.\n'
+      '2. Enable "Allow from this source".\n'
+      '3. Go back — the installer will continue automatically.\n\n'
+      'Alternatively: Settings → Apps → Special app access\n'
+      '→ Install unknown apps → select your browser or file manager → Allow.';
+
   static Future<UpdateInfo?> checkForUpdate() async {
     if (kIsWeb) return null;
 
@@ -62,7 +74,10 @@ class UpdateService {
       type: 'application/vnd.android.package-archive',
     );
     if (result.type != ResultType.done) {
-      throw Exception('Could not open installer: ${result.message}');
+      throw Exception(
+        'Could not open the $appName installer: ${result.message}\n\n'
+        '$installPermissionSteps',
+      );
     }
   }
 
