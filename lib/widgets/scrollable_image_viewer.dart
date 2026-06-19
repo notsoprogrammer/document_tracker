@@ -97,14 +97,9 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
         separatorBuilder: (_, _) =>
             const Divider(color: Colors.white24, height: 24),
         itemBuilder: (context, index) {
-          final name = (widget.fileNames != null &&
-                  index < widget.fileNames!.length)
-              ? widget.fileNames![index]
-              : 'Image ${index + 1}';
           return _ImageListCard(
             imageUrl: widget.imageUrls[index],
             proxyUrl: proxyUrls[index],
-            fileName: name,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -224,68 +219,37 @@ class _ImageZoomPageState extends State<_ImageZoomPage> {
 class _ImageListCard extends StatelessWidget {
   final String imageUrl;
   final String proxyUrl;
-  final String fileName;
   final VoidCallback onTap;
 
   const _ImageListCard({
     required this.imageUrl,
     required this.proxyUrl,
-    required this.fileName,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Text(
-            fileName,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white70),
-            textAlign: TextAlign.center,
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: CachedNetworkImage(
+          imageUrl: proxyUrl,
+          httpHeaders: {
+            'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
+          },
+          fit: BoxFit.contain,
+          placeholder: (_, _) => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
           ),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
-            child: CachedNetworkImage(
-              imageUrl: proxyUrl,
-              httpHeaders: {
-                'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
-              },
-              fit: BoxFit.contain,
-              placeholder: (_, _) => const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-              errorWidget: (_, _, _) => const Center(
-                child: Text(
-                  'Failed to load image',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
+          errorWidget: (_, _, _) => const Center(
+            child: Text(
+              'Failed to load image',
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 12, top: 4),
-              child: Text(
-                'Tap to zoom',
-                style: TextStyle(fontSize: 11, color: Colors.white38),
-              ),
-            ),
-            _DownloadButton(imageUrl: imageUrl),
-          ],
-        ),
-      ],
+      ),
     );
   }
 }
