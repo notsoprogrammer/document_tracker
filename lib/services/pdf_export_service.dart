@@ -28,8 +28,13 @@ class PdfExportService {
 
         if (response.statusCode == 200) {
           final image = pw.MemoryImage(response.bodyBytes);
+          final isLandscape = image.width != null &&
+              image.height != null &&
+              image.width! > image.height!;
+          final pageFormat =
+              isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
           doc.addPage(pw.Page(
-            pageFormat: PdfPageFormat.a4,
+            pageFormat: pageFormat,
             margin: const pw.EdgeInsets.all(16),
             build: (ctx) => pw.Center(
               child: pw.Image(image, fit: pw.BoxFit.contain),
