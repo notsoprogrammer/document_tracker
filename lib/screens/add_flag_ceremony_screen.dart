@@ -806,6 +806,21 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                             ),
                           ],
                         ),
+                        if (kIsWeb) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 14, color: Colors.amber.shade800),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'On web, use "Pick Files" and select Camera to capture photos.',
+                                  style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         // Picking state indicators
                         if (_isPickingImage) ...[
                           const SizedBox(height: 12),

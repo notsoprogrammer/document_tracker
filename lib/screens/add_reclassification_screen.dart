@@ -443,6 +443,21 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                         ),
                       ),
                     ]),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: Colors.amber.shade800),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'On web, use "Pick Files" and select Camera to capture photos.',
+                              style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(controller: referenceLinkController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Drive Link (optional)", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface)),
                     if (_isPickingImage) ...[const SizedBox(height: 12), Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.07), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.withOpacity(0.25))), child: const Row(children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2)), SizedBox(width: 12), Icon(Icons.camera_alt_outlined, size: 18, color: Colors.blue), SizedBox(width: 8), Text("Processing scan...", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500))]))],
