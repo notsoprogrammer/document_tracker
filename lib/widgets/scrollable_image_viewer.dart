@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/google_drive_service.dart';
 import '../services/image_download_service.dart';
+import '../services/pdf_export_service.dart';
 import '../config/supabase_config.dart';
 import '../utils/snackbar_utils.dart';
 
@@ -9,12 +10,14 @@ class ScrollableImageViewer extends StatefulWidget {
   final List<String> imageUrls;
   final List<String>? fileNames;
   final int initialIndex;
+  final String? documentName;
 
   const ScrollableImageViewer({
     super.key,
     required this.imageUrls,
     this.fileNames,
     this.initialIndex = 0,
+    this.documentName,
   });
 
   static void show(
@@ -22,6 +25,7 @@ class ScrollableImageViewer extends StatefulWidget {
     required List<String> imageUrls,
     List<String>? fileNames,
     int initialIndex = 0,
+    String? documentName,
   }) {
     Navigator.push(
       context,
@@ -31,6 +35,7 @@ class ScrollableImageViewer extends StatefulWidget {
           imageUrls: imageUrls,
           fileNames: fileNames,
           initialIndex: initialIndex,
+          documentName: documentName,
         ),
       ),
     );
@@ -42,6 +47,8 @@ class ScrollableImageViewer extends StatefulWidget {
 
 class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
   late final ScrollController _scrollController;
+  bool _exportingPdf = false;
+  bool _pdfSuccess = false;
 
   @override
   void initState() {
@@ -50,7 +57,7 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
     if (widget.initialIndex > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
-          final cardHeight = MediaQuery.of(context).size.height * 0.55 + 80.0;
+          final cardHeight = MediaQuery.of(context).size.height * 0.65 + 24.0;
           final offset = (widget.initialIndex * cardHeight)
               .clamp(0.0, _scrollController.position.maxScrollExtent);
           _scrollController.jumpTo(offset);
@@ -76,6 +83,40 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
     return GoogleDriveService.generateProxyUrl(imageUrl);
   }
 
+  String get _pdfFileName {
+    if (widget.documentName != null && widget.documentName!.isNotEmpty) {
+      return widget.documentName!;
+    }
+    if (widget.fileNames != null && widget.fileNames!.isNotEmpty) {
+      final base = widget.fileNames!.first.replaceAll(RegExp(r'\.[^.]+$'), '');
+      if (base.isNotEmpty) return base;
+    }
+    return 'images_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  Future<void> _exportPdf() async {
+    setState(() { _exportingPdf = true; _pdfSuccess = false; });
+    try {
+      await PdfExportService.exportImagesToPdf(
+        imageUrls: widget.imageUrls,
+        fileName: _pdfFileName,
+      );
+      if (mounted) {
+        setState(() { _exportingPdf = false; _pdfSuccess = true; });
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) setState(() => _pdfSuccess = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _exportingPdf = false);
+        SnackbarUtils.showErrorSnackBar(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final proxyUrls = widget.imageUrls.map(_proxyUrl).toList();
@@ -89,6 +130,36 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
           '${widget.imageUrls.length} image${widget.imageUrls.length != 1 ? 's' : ''}',
           style: const TextStyle(fontSize: 14, color: Colors.white),
         ),
+        actions: [
+          if (_exportingPdf)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            )
+          else if (_pdfSuccess)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check, color: Colors.green, size: 18),
+                  SizedBox(width: 4),
+                  Text('PDF ready', style: TextStyle(color: Colors.green, fontSize: 12)),
+                ],
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: 'Download all as PDF',
+              onPressed: _exportPdf,
+            ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView.separated(
         controller: _scrollController,
