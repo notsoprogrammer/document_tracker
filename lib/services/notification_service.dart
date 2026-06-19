@@ -181,7 +181,6 @@ class NotificationService {
       channelDescription: _channelDesc,
       importance: Importance.max,
       priority: Priority.high,
-      icon: '@drawable/ic_launcher',
     );
 
     const iosDetails = DarwinNotificationDetails();
@@ -191,12 +190,16 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      notificationDetails,
-    );
+    try {
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        notificationDetails,
+      );
+    } catch (e) {
+      debugPrint('flutter_local_notifications show failed: $e');
+    }
   }
 
   /* -----------------------------------------------------------
