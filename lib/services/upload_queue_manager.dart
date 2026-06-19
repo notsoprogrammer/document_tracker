@@ -231,7 +231,7 @@ class UploadQueueManager extends ChangeNotifier {
   }
 
   /// Mark upload as completed and remove from queue
-  void markCompletedAndRemove(String documentCode, String filePath, {Future<void> Function()? onCompleted}) async {
+  Future<void> markCompletedAndRemove(String documentCode, String filePath, {Future<void> Function()? onCompleted}) async {
     final index = _uploadQueue.indexWhere(
       (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
     );

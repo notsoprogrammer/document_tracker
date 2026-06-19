@@ -250,7 +250,9 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
       return;
     }
     final rawBytes = await image.readAsBytes();
-    final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb
+        ? rawBytes
+        : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
     if (!mounted) return;
     if (kIsWeb) {
       final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -317,7 +319,7 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');

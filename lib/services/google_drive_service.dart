@@ -424,7 +424,7 @@ class GoogleDriveService {
         'mimeType': _getMimeType(fileName),
       };
 
-      // Make request to Supabase function
+      // Make request to Supabase function (45s timeout to handle large images)
       final response = await http.post(
         Uri.parse(_supabaseFunctionUrl),
         headers: {
@@ -432,7 +432,7 @@ class GoogleDriveService {
           'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
         },
         body: jsonEncode(payload),
-      );
+      ).timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
@@ -484,7 +484,7 @@ class GoogleDriveService {
         'fileId': fileId,
       };
 
-      // Make request to Supabase function
+      // Make request to Supabase function (45s timeout to handle large images)
       final response = await http.post(
         Uri.parse(_supabaseFunctionUrl),
         headers: {
@@ -492,7 +492,7 @@ class GoogleDriveService {
           'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
         },
         body: jsonEncode(payload),
-      );
+      ).timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);

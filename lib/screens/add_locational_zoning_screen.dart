@@ -152,7 +152,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
     final image = await _picker.pickImage(source: source);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
     final rawBytes = await image.readAsBytes();
-    final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
     if (!mounted) return;
     if (kIsWeb) {
       final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -184,7 +184,8 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
       setState(() => _isPickingImage = true);
       final image = await _picker.pickImage(source: ImageSource.camera);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
-      final scannedBytes = await DocumentScannerService.processImage(await image.readAsBytes()) ?? await image.readAsBytes();
+      final rawBytesFallback = await image.readAsBytes();
+      final scannedBytes = kIsWeb ? rawBytesFallback : (await DocumentScannerService.processImage(rawBytesFallback) ?? rawBytesFallback);
       if (!mounted) return;
       final tempFile = File('${(await getTemporaryDirectory()).path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await tempFile.writeAsBytes(scannedBytes);
@@ -444,7 +445,8 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
-                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) { if (mounted) Navigator.pop(context); }
+                        await CachedDocumentService().processPendingUploads();
+                        if (mounted) Navigator.pop(context);
                       } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e'); if (mounted) setState(() => _isSaving = false); }
                     }
                   },

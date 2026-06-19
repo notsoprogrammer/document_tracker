@@ -33,6 +33,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
   List<List<int>?> _selectedImageBytes = []; // For web camera images
+  final Map<String, List<int>> _webFileBytes = {}; // bytes cache for web file picker
   List<String> _uploadedImageUrls = [];
   List<String> _uploadedDocumentUrls = [];
   bool _isUploadingImages = false;
@@ -186,8 +187,9 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       return;
     }
     final rawBytes = await image.readAsBytes();
-    final scannedBytes =
-        await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb
+        ? rawBytes
+        : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
     if (!mounted) return;
     if (kIsWeb) {
       final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -260,8 +262,9 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes =
-          await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      final scannedBytes = kIsWeb
+          ? rawBytes
+          : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(
@@ -721,15 +724,12 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                       int fileSize = 0;
 
                                       if (kIsWeb) {
-                                        // On web, use file.bytes directly
                                         if (file.bytes != null) {
                                           fileSize = file.bytes!.length;
                                           filePath = 'web_file_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-                                          // Store bytes for web files
-                                          // Note: _webFileBytes is not defined in this screen, need to add it
+                                          _webFileBytes[filePath] = file.bytes!;
                                         }
                                       } else {
-                                        // On mobile/desktop, use file.path
                                         filePath = file.path;
                                         if (filePath != null && filePath.isNotEmpty) {
                                           fileSize = File(filePath).lengthSync();
@@ -748,42 +748,33 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                           }
                                           _selectedImagePaths.add(filePath);
                                           imagesAdded++;
-                                          // Queue for upload
-                                          final queueManager = UploadQueueManager();
-                                          queueManager.addToQueue(
+                                          UploadQueueManager().addToQueue(
                                             documentCode: codeController.text,
                                             filePath: filePath,
                                             isImage: true,
                                             localPath: filePath,
-                                            bytes: kIsWeb ? null : null, // Web bytes handling not implemented in this screen
+                                            bytes: kIsWeb ? _webFileBytes[filePath] : null,
                                           );
                                         } else if (_isDocument(file.name)) {
                                           if (fileSize > 50 * 1024 * 1024) {
                                             skippedFiles.add(file.name);
                                             continue;
                                           }
-                                          int currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) {
-                                            if (kIsWeb) {
-                                              // For web files, we can't easily get size from path, skip size check for now
-                                              return 0;
-                                            } else {
-                                              return sum + File(path).lengthSync();
+                                          if (!kIsWeb) {
+                                            final currentTotalSize = _selectedDocumentPaths.fold(0, (sum, path) => sum + File(path).lengthSync());
+                                            if (currentTotalSize + fileSize > 50 * 1024 * 1024) {
+                                              SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
+                                              continue;
                                             }
-                                          });
-                                          if (!kIsWeb && currentTotalSize + fileSize > 50 * 1024 * 1024) {
-                                            SnackbarUtils.showErrorSnackBar(context, '${file.name} would exceed 50MB total limit. Consider using Drive Link instead.');
-                                            continue;
                                           }
                                           _selectedDocumentPaths.add(filePath);
                                           documentsAdded++;
-                                          // Queue for upload
-                                          final queueManager = UploadQueueManager();
-                                          queueManager.addToQueue(
+                                          UploadQueueManager().addToQueue(
                                             documentCode: codeController.text,
                                             filePath: filePath,
                                             isImage: false,
                                             localPath: filePath,
-                                            bytes: kIsWeb ? null : null, // Web bytes handling not implemented in this screen
+                                            bytes: kIsWeb ? _webFileBytes[filePath] : null,
                                           );
                                         }
                                       }
@@ -1061,7 +1052,10 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                         ).toList();
 
                         if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          SnackbarUtils.showWarningSnackBar(context, 'Cannot save document while uploads are pending. Please wait for all uploads to complete.');
+                          if (mounted) {
+                            SnackbarUtils.showInfoSnackBar(context, 'Uploads still in progress — saving when complete.');
+                            setState(() => _isSaving = false);
+                          }
                           return;
                         }
 

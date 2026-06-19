@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import 'google_drive_service.dart';
@@ -100,16 +101,6 @@ class CachedDocumentService {
 
       // Queue files for upload if they exist
       await _queueFilesForUpload(document);
-
-      // Process uploads in the background if online
-      if (await isOnline) {
-        try {
-          // Start uploads in background - don't wait for completion
-          processPendingUploads();
-        } catch (e) {
-          debugPrint('Failed to start background uploads: $e');
-        }
-      }
 
       // If online, sync to remote immediately (regardless of upload status)
       if (await isOnline) {
@@ -668,11 +659,34 @@ class CachedDocumentService {
           final bytes = (upload['bytes'] as List<int>?) ??
               queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
           if (kIsWeb && bytes != null) {
-            // Web file with bytes - use uploadFileFromBytes
+            // Web file with bytes - compress images before upload to stay within edge function limits
             final extension = upload['localPath'].split('.').last.toLowerCase();
             final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+
+            List<int> uploadBytes = bytes;
+            if (['jpg', 'jpeg', 'png'].contains(extension) && bytes.length > 300 * 1024) {
+              try {
+                final decoded = img.decodeImage(Uint8List.fromList(bytes));
+                if (decoded != null) {
+                  const maxDim = 1920;
+                  final img.Image resized;
+                  if (decoded.width >= decoded.height && decoded.width > maxDim) {
+                    resized = img.copyResize(decoded, width: maxDim);
+                  } else if (decoded.height > decoded.width && decoded.height > maxDim) {
+                    resized = img.copyResize(decoded, height: maxDim);
+                  } else {
+                    resized = decoded;
+                  }
+                  uploadBytes = img.encodeJpg(resized, quality: 80);
+                  debugPrint('Compressed web image: ${bytes.length} → ${uploadBytes.length} bytes');
+                }
+              } catch (compressErr) {
+                debugPrint('Image compression failed, uploading original: $compressErr');
+              }
+            }
+
             driveUrl = await GoogleDriveService.uploadFileFromBytes(
-              bytes,
+              uploadBytes,
               docFileName,
               folder: folder,
             );
@@ -791,7 +805,7 @@ class CachedDocumentService {
 
             }
 
-            queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
+            await queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
             hasCompletedUploads = true;
             documentsWithUploads.add(documentCode);
             debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');

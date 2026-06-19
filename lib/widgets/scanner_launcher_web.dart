@@ -51,13 +51,11 @@ class _ScannerLauncherWebState extends State<ScannerLauncherWeb> {
 
     setState(() => _processing = true);
     try {
-      final Uint8List? scanned = await DocumentScannerService.processImage(raw);
+      final Uint8List processed = kIsWeb
+          ? raw
+          : (await DocumentScannerService.processImage(raw) ?? raw);
       if (!mounted) return;
-      if (scanned == null) {
-        _showError('Could not process the image. Please try again.');
-        return;
-      }
-      await _showPreview(scanned);
+      await _showPreview(processed);
     } finally {
       if (mounted) setState(() => _processing = false);
     }
@@ -136,19 +134,6 @@ class _ScannerLauncherWebState extends State<ScannerLauncherWeb> {
       builder: (ctx) => _PreviewDialog(bytes: bytes),
     );
     if (accepted == true) widget.onScanned?.call(bytes);
-  }
-
-  // ─── Error feedback ───────────────────────────────────────────────────────
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.red[700],
-      ),
-    );
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────

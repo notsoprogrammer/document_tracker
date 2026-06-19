@@ -188,8 +188,9 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
       return;
     }
     final rawBytes = await image.readAsBytes();
-    final scannedBytes =
-        await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb
+        ? rawBytes
+        : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
     if (!mounted) return;
     if (kIsWeb) {
       final fileName = 'scanned_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -262,8 +263,9 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes =
-          await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      final scannedBytes = kIsWeb
+          ? rawBytes
+          : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(
@@ -1122,13 +1124,8 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
-                        // If no files to upload, pop immediately
-                        if (_selectedImagePaths.isEmpty && _selectedDocumentPaths.isEmpty) {
-                          if (mounted) {
-                            Navigator.pop(context);
-                          }
-                        }
-                        // Otherwise, wait for uploads to complete
+                        await CachedDocumentService().processPendingUploads();
+                        if (mounted) Navigator.pop(context);
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);

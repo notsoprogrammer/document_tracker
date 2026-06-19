@@ -199,7 +199,9 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     }
 
     final rawBytes = await image.readAsBytes();
-    final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb
+        ? rawBytes
+        : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
 
     if (!mounted) return;
 
@@ -274,7 +276,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes = await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');

@@ -313,8 +313,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
     // Run the full document-scanning pipeline; fall back to the raw capture on failure
     final rawBytes = await image.readAsBytes();
-    final scannedBytes =
-        await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+    final scannedBytes = kIsWeb
+        ? rawBytes
+        : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
 
     if (!mounted) return;
 
@@ -397,8 +398,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes =
-          await DocumentScannerService.processImage(rawBytes) ?? rawBytes;
+      final scannedBytes = kIsWeb
+          ? rawBytes
+          : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(
@@ -1646,7 +1648,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ).toList();
 
                         if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait a moment.');
+                          if (mounted) {
+                            SnackbarUtils.showInfoSnackBar(context, 'Uploads still in progress — saving when complete.');
+                            setState(() => _isSaving = false);
+                          }
                           return;
                         }
 
