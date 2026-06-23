@@ -606,21 +606,20 @@ class CachedDocumentService {
             'CSOs',
             'AIP',
             'Barangay – AIP',
-            'Barangay– GAD',
-            'Zoning/Loc. Clearance',
-            'Zoning/Loc. Certification',
+            'Barangay – GAD',
           ].contains(doc.category)) {
             folder = DriveFolder.attendance; // Core Function -> attendance
           } else if ([
             'PR/PPMP',
             'Liquidation/ Reimbursement',
-            'PFMAT',
+            'PFMAR/PFMIP',
           ].contains(doc.category)) {
             folder = DriveFolder.movs; // Strategic Function -> movs
           } else if ([
             'DTR',
             'Monthly Accomplishment Report',
             'Quarterly Accomplishment Report',
+            'Annual Accomplishment Report',
             'OPCR',
             'Certificate/Attendance',
             'Dept. Heads Meeting',
@@ -631,12 +630,11 @@ class CachedDocumentService {
             'Man. Com',
             'Cash Advance',
             'L&D/IDP/DNA',
-            'Budget',
+            'Annual Budget',
+            'Others',
           ].contains(doc.category)) {
             folder = DriveFolder.certificates; // Support Function -> certificates
           } else if (doc.mode == 'Office Function MOVs') {
-            // For Office Function MOVs with category not in predefined lists (e.g., "Others"),
-            // use movs folder as default for Office Function MOVs
             folder = DriveFolder.movs;
           } else if (doc.incoming) {
             folder = DriveFolder.incoming;

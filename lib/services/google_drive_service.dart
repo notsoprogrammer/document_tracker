@@ -49,28 +49,47 @@ class GoogleDriveService {
       'Sectoral Plans',
       'Ecological Profile',
       'Research/Studies/Trainings',
-      'CLUP Zoning Reclassification',
       'CSOs',
-      'CDC – Resolution',
-      'CDC – Minutes',
-      'CDC – Attendance',
       'AIP',
       'Barangay – AIP',
-      'Barangay– GAD',
-      'Zoning/Loc. Clearance',
-      'Zoning/Loc. Certification',
+      'Barangay – GAD',
     ].contains(category)) {
       return _attendanceFolderId; // Core Function -> attendance
     } else if ([
+      'CDC – Resolution',
+      'CDC – Minutes',
+      'CDC – Attendance',
+      'Execom Resolution',
+      'Supplemental AIP',
+      'CDC Invitation',
+    ].contains(category)) {
+      return _cdcFolderId; // CDC Documents
+    } else if ([
+      'SP Resolution',
+      'SP Ordinance',
+    ].contains(category)) {
+      return _spDocumentsFolderId; // SP Documents
+    } else if ([
+      'Locational Clearance',
+      'Zoning Clearance',
+      'Zoning Certification',
+    ].contains(category)) {
+      return _locationalZoningFolderId; // Locational & Zoning
+    } else if ([
+      'CLUP Zoning Reclassification',
+    ].contains(category)) {
+      return _reclassificationFolderId; // Reclassification
+    } else if ([
       'PR/PPMP',
       'Liquidation/ Reimbursement',
-      'PFMAT',
+      'PFMAR/PFMIP',
     ].contains(category)) {
       return _movsFolderId; // Strategic Function -> movs
     } else if ([
       'DTR',
       'Monthly Accomplishment Report',
       'Quarterly Accomplishment Report',
+      'Annual Accomplishment Report',
       'OPCR',
       'Certificate/Attendance',
       'Dept. Heads Meeting',
@@ -81,7 +100,7 @@ class GoogleDriveService {
       'Man. Com',
       'Cash Advance',
       'L&D/IDP/DNA',
-      'Budget',
+      'Annual Budget',
       'Others',
     ].contains(category)) {
       return _certificatesFolderId; // Support Function -> certificates
