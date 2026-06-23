@@ -19,6 +19,11 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
+  /// Web push VAPID key — Firebase Console → Project Settings →
+  /// Cloud Messaging → Web Push certificates → Key pair
+  static const String _webVapidKey =
+      'BEvvwv7-qAHEABOxzJNYWAYRRXiajNzMl2KPEd6xSBwSudl8oA1Sd8Qe3enA0NDdIlvbrvQ8SZnzkICxGHjBrOg';
+
   /// Channel constants
   static const String _channelId = 'compliance_channel';
   static const String _channelName = 'Compliance Notifications';
@@ -104,7 +109,7 @@ class NotificationService {
   Future<void> _initializeFCM() async {
     // Get FCM token and save to Supabase (non-blocking on web)
     try {
-      final token = await _firebaseMessaging.getToken();
+      final token = await _firebaseMessaging.getToken(vapidKey: kIsWeb ? _webVapidKey : null);
       if (token != null) {
         final username = await _getCurrentUsername();
         if (username != null) {
@@ -360,7 +365,7 @@ class NotificationService {
   }
 
   Future<void> _getAndSaveToken() async {
-    final token = await _firebaseMessaging.getToken();
+    final token = await _firebaseMessaging.getToken(vapidKey: kIsWeb ? _webVapidKey : null);
     if (token != null) {
       final username = await _getCurrentUsername();
       if (username != null) {
@@ -376,7 +381,7 @@ class NotificationService {
   /// backend edge function can skip sending FCM to devices that have opted out.
   Future<void> _syncPreferencesToDevice() async {
     try {
-      final token = await _firebaseMessaging.getToken();
+      final token = await _firebaseMessaging.getToken(vapidKey: kIsWeb ? _webVapidKey : null);
       if (token == null) return;
       final prefs = await getNotificationPreferences();
       await SupabaseService().saveDeviceNotificationPreferences(token, prefs);
