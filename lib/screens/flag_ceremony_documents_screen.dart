@@ -1161,21 +1161,18 @@ class _ViewersDialogState extends State<_ViewersDialog> {
       ]),
       content: SizedBox(
         width: 340,
+        height: 260,
         child: FutureBuilder<List<AttachmentViewEntry>>(
           future: _future,
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
-              return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+              return const Center(child: CircularProgressIndicator());
             }
             final viewers = snap.data ?? [];
             if (viewers.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: Text('No views recorded yet', style: TextStyle(color: Colors.grey))),
-              );
+              return const Center(child: Text('No views recorded yet', style: TextStyle(color: Colors.grey)));
             }
             return ListView.separated(
-              shrinkWrap: true,
               itemCount: viewers.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
