@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../services/supabase_service.dart';
 import '../models/activity.dart';
 import '../models/document.dart';
@@ -32,7 +33,7 @@ class NotificationService {
 
   /// Preference keys
   static const String _prefImmediate = 'immediate_notifications';
-  static const String _prefNineAM = 'nine_am_notifications';
+  static const String _prefTwentyFourHour = 'twenty_four_hour_notifications';
   static const String _prefOverdue = 'overdue_notifications';
   static const String _prefActivity = 'activity_notifications';
   static const String _prefActivityLastShown = 'activity_notification_last_shown';
@@ -293,11 +294,73 @@ class NotificationService {
   }
 
   /* -----------------------------------------------------------
+   * MEETING REMINDER (30 min before, floor 7:50 AM)
+   * ---------------------------------------------------------*/
+  /// Schedules a device-local notification for an activity.
+  /// Fires at startTime - 30 minutes, but never earlier than 7:50 AM that day.
+  /// No-op on web (handled server-side) or if the reminder time has passed.
+  Future<void> scheduleActivityReminder(Activity activity) async {
+    if (kIsWeb) return;
+
+    final prefs = await getNotificationPreferences();
+    if (!(prefs['activityNotifications'] ?? true)) return;
+
+    final startTime = activity.startTime;
+    if (startTime.isBefore(DateTime.now())) return;
+
+    final thirtyMinBefore = startTime.subtract(const Duration(minutes: 30));
+    final floor = DateTime(
+      thirtyMinBefore.year, thirtyMinBefore.month, thirtyMinBefore.day, 7, 50,
+    );
+    final reminderTime = thirtyMinBefore.isBefore(floor) ? floor : thirtyMinBefore;
+
+    if (reminderTime.isBefore(DateTime.now())) return;
+
+    final location = tz.getLocation('Asia/Manila');
+    final tzReminder = tz.TZDateTime.from(reminderTime, location);
+
+    final minutesBefore = startTime.difference(reminderTime).inMinutes;
+    final body = minutesBefore > 0
+        ? 'Starting in $minutesBefore minutes'
+        : 'Starting now';
+
+    const androidDetails = AndroidNotificationDetails(
+      _channelId, _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const notifDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    // Use a stable ID derived from the activity's start time
+    final notifId = startTime.millisecondsSinceEpoch ~/ 1000 & 0x7FFFFFFF;
+
+    try {
+      await _plugin.zonedSchedule(
+        notifId,
+        activity.title ?? 'Upcoming Event',
+        body,
+        tzReminder,
+        notifDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint('Scheduled reminder for "${activity.title}" at $tzReminder');
+    } catch (e) {
+      debugPrint('Failed to schedule activity reminder: $e');
+    }
+  }
+
+  /* -----------------------------------------------------------
    * NOTIFICATION PREFERENCES
    * ---------------------------------------------------------*/
   Future<void> setNotificationPreferences({
     bool? immediateNotifications,
-    bool? nineAMNotifications,
+    bool? twentyFourHourNotifications,
     bool? overdueNotifications,
     bool? activityNotifications,
   }) async {
@@ -305,8 +368,8 @@ class NotificationService {
     if (immediateNotifications != null) {
       await prefs.setBool(_prefImmediate, immediateNotifications);
     }
-    if (nineAMNotifications != null) {
-      await prefs.setBool(_prefNineAM, nineAMNotifications);
+    if (twentyFourHourNotifications != null) {
+      await prefs.setBool(_prefTwentyFourHour, twentyFourHourNotifications);
     }
     if (overdueNotifications != null) {
       await prefs.setBool(_prefOverdue, overdueNotifications);
@@ -315,10 +378,9 @@ class NotificationService {
       await prefs.setBool(_prefActivity, activityNotifications);
     }
 
-    // Sync preferences to Supabase so the backend can filter per device
     await _syncPreferencesToDevice();
 
-    if ((immediateNotifications == true) || (nineAMNotifications == true) || (overdueNotifications == true)) {
+    if ((immediateNotifications == true) || (twentyFourHourNotifications == true) || (overdueNotifications == true)) {
       await _getAndSaveToken();
     }
   }
@@ -327,7 +389,7 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     return {
       'immediateNotifications': prefs.getBool(_prefImmediate) ?? false,
-      'nineAMNotifications': prefs.getBool(_prefNineAM) ?? true,
+      'twentyFourHourNotifications': prefs.getBool(_prefTwentyFourHour) ?? true,
       'overdueNotifications': prefs.getBool(_prefOverdue) ?? true,
       'activityNotifications': prefs.getBool(_prefActivity) ?? true,
     };
@@ -340,12 +402,13 @@ class NotificationService {
     switch (notificationType) {
       case 'immediate':
         return prefs['immediateNotifications'] ?? true;
-      case '9am':
-      case 'nine_am':
-        return prefs['nineAMNotifications'] ?? true;
+      case 'twenty_four_hour':
+      case '24h':
+        return prefs['twentyFourHourNotifications'] ?? true;
       case 'overdue':
         return prefs['overdueNotifications'] ?? true;
       case 'activity':
+      case 'daily_summary':
         return prefs['activityNotifications'] ?? true;
       default:
         return prefs['immediateNotifications'] ?? true;

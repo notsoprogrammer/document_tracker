@@ -10,6 +10,7 @@ import 'services/notification_service.dart';
 import 'app.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,8 @@ void main() async {
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
+
+  tz.initializeTimeZones();
 
   await ConnectivityService().initialize();
   await AutoSyncService.initialize();

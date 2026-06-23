@@ -118,7 +118,7 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
 }
 
 // Send FCM notification using HTTP v1 API
-async function sendFCMNotification(accessToken: string, projectId: string, token: string, title: string, body: string): Promise<any> {
+async function sendFCMNotification(accessToken: string, projectId: string, token: string, title: string, body: string, type = 'immediate'): Promise<any> {
   const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
 
   const payload = {
@@ -127,6 +127,9 @@ async function sendFCMNotification(accessToken: string, projectId: string, token
       notification: {
         title: title,
         body: body,
+      },
+      data: {
+        type: type,
       },
     },
   }
@@ -281,28 +284,47 @@ serve(async (req: Request) => {
         fcmResponses: fcmResponses,
       })
 
-      // Delete old scheduled notifications for this document
-      await supabaseClient
-        .from('notifications_history')
-        .delete()
-        .eq('document_code', doc.code)
-        .in('notification_type', ['1_day_reminder', '6_hours_reminder', 'due_soon', 'overdue_hours', 'overdue_days'])
-        .eq('status', 'scheduled')
-
-      if (hoursDiff > 48) {
-        // Schedule 1_day_reminder
-        const reminderTime = new Date(deadline.getTime() - 24 * 60 * 60 * 1000)
-        reminderTime.setUTCHours(9, 0, 0, 0) // 9 AM local = 1 AM UTC assuming +8
-
-        await supabaseClient
+      if (hoursDiff > 25) {
+        // Nothing more to do until we're within the 24h window
+      } else if (hoursDiff > 24) {
+        // 24-hour reminder window (between 25h and 24h before deadline)
+        const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000)
+        const { data: recent24h } = await supabaseClient
           .from('notifications_history')
-          .insert({
-            document_code: doc.code,
-            notification_type: '1_day_reminder',
-            notification_id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000),
-            scheduled_time: reminderTime.toISOString(),
-            status: 'scheduled',
+          .select('id')
+          .eq('document_code', doc.code)
+          .eq('notification_type', 'twenty_four_hour_reminder')
+          .gte('created_at', twentyFiveHoursAgo.toISOString())
+          .limit(1)
+
+        if (!recent24h || recent24h.length === 0) {
+          const title = '📋 Deadline Tomorrow'
+          const body = `Document ${doc.code} is due in about 24 hours. Assigned to: ${doc.compliance_assignee || 'Unknown'}.`
+
+          const fcmResponses = []
+          for (const token of tokenList) {
+            const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body, 'twenty_four_hour')
+            fcmResponses.push(fcmResponse)
+          }
+
+          await supabaseClient
+            .from('notifications_history')
+            .insert({
+              document_code: doc.code,
+              notification_type: 'twenty_four_hour_reminder',
+              notification_id: Math.floor(Date.now() / 1000),
+              scheduled_time: deadline.toISOString(),
+              status: 'sent',
+            })
+
+          notificationsSent.push({
+            documentCode: doc.code,
+            type: 'twenty_four_hour_reminder',
+            title,
+            body,
+            fcmResponses,
           })
+        }
       } else if (hoursDiff > 6) {
         if (hoursDiff <= 24) {
           // Send 6_hours_reminder
@@ -321,7 +343,7 @@ serve(async (req: Request) => {
 
             const fcmResponses = []
             for (const token of tokenList) {
-              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body, 'immediate')
               fcmResponses.push(fcmResponse)
             }
 
@@ -402,7 +424,7 @@ serve(async (req: Request) => {
 
             const fcmResponses = []
             for (const token of tokenList) {
-              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body, 'overdue')
               fcmResponses.push(fcmResponse)
             }
 
@@ -440,7 +462,7 @@ serve(async (req: Request) => {
 
             const fcmResponses = []
             for (const token of tokenList) {
-              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body)
+              const fcmResponse = await sendFCMNotification(accessToken, serviceAccount.project_id, token, title, body, 'overdue')
               fcmResponses.push(fcmResponse)
             }
 

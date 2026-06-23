@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/activity.dart';
 import '../services/cached_activity_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../utils/snackbar_utils.dart';
 
 class AddActivityScreen extends StatefulWidget {
@@ -330,6 +331,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         setState(() => _isSaving = true);
                         try {
                           await CachedActivityService().createActivity(activity);
+                          // Schedule a local reminder (30 min before, floor 7:50 AM)
+                          NotificationService().scheduleActivityReminder(activity);
                           if (mounted) {
                             Navigator.pop(context, true); // Success
                           }

@@ -1736,7 +1736,7 @@ Positioned(
     final currentPrefs = await notificationService.getNotificationPreferences();
 
     bool immediate = currentPrefs['immediateNotifications'] ?? false;
-    bool nineAM = currentPrefs['nineAMNotifications'] ?? true;
+    bool twentyFourHour = currentPrefs['twentyFourHourNotifications'] ?? true;
     bool overdue = currentPrefs['overdueNotifications'] ?? true;
     bool activity = currentPrefs['activityNotifications'] ?? true;
 
@@ -1757,11 +1757,11 @@ Positioned(
                 },
               ),
               SwitchListTile(
-                title: const Text('A day before Deadline Notifications'),
-                subtitle: const Text('Shows at 9 AM'),
-                value: nineAM,
+                title: const Text('24 Hours Before Deadline'),
+                subtitle: const Text('Notifies 24 hours before a compliance deadline'),
+                value: twentyFourHour,
                 onChanged: (value) {
-                  setState(() => nineAM = value);
+                  setState(() => twentyFourHour = value);
                 },
               ),
               SwitchListTile(
@@ -1792,7 +1792,7 @@ Positioned(
                 try {
                   await notificationService.setNotificationPreferences(
                     immediateNotifications: immediate,
-                    nineAMNotifications: nineAM,
+                    twentyFourHourNotifications: twentyFourHour,
                     overdueNotifications: overdue,
                     activityNotifications: activity,
                   );
