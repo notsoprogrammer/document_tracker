@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 
@@ -97,7 +97,6 @@ class MlKitScannerService {
         return ScannerOutput(images: images);
       }
     } on Exception catch (e) {
-      debugPrint('[MlKitScannerService] scanDocument error: $e');
       return null; // caller falls back to custom CV pipeline
     } finally {
       scanner.close();

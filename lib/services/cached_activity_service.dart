@@ -1,4 +1,4 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+﻿import 'package:connectivity_plus/connectivity_plus.dart';
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import '../models/activity.dart';
@@ -75,7 +75,6 @@ class CachedActivityService {
 
           return mergedActivities;
         } catch (e) {
-          print('Failed to sync with remote: $e');
           // Return local data if remote sync fails
           return localActivities;
         }
@@ -84,7 +83,6 @@ class CachedActivityService {
         return localActivities;
       }
     } catch (e) {
-      print('Error fetching activities: $e');
       return [];
     }
   }
@@ -102,7 +100,6 @@ class CachedActivityService {
           // Update local with remote data if needed
           return remoteActivity;
         } catch (e) {
-          print('Failed to sync creation to remote: $e');
           // Mark as needing sync since remote failed
           await _localDb.updateActivity(localActivity.id!, {'needs_sync': 1});
           return localActivity.copyWith(needsSync: true);
@@ -113,7 +110,6 @@ class CachedActivityService {
         return localActivity.copyWith(needsSync: true);
       }
     } catch (e) {
-      print('Error creating activity: $e');
       rethrow;
     }
   }
@@ -128,12 +124,10 @@ class CachedActivityService {
         try {
           await _remoteDb.updateActivity(activityId, updates);
         } catch (e) {
-          print('Failed to sync update to remote: $e');
           // Update is saved locally, will sync later
         }
       }
     } catch (e) {
-      print('Error updating activity: $e');
       rethrow;
     }
   }
@@ -145,7 +139,6 @@ class CachedActivityService {
         try {
           await _remoteDb.deleteActivity(activityId);
         } catch (e) {
-          print('Failed to delete from remote: $e');
           rethrow;
         }
       }
@@ -153,7 +146,6 @@ class CachedActivityService {
       // Delete locally
       await _localDb.deleteActivity(activityId);
     } catch (e) {
-      print('Error deleting activity: $e');
       rethrow;
     }
   }
@@ -172,11 +164,9 @@ class CachedActivityService {
             await _localDb.updateActivity(act.id!, {'needs_sync': 0});
           }
         } catch (e) {
-          print('Failed to sync activity ${act.id}: $e');
         }
       }
     } catch (e) {
-      print('Error syncing pending changes: $e');
     }
   }
 }

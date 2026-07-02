@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/document.dart';
 import 'cached_document_service.dart';
@@ -75,9 +75,7 @@ class EnhancedSyncService {
       ConnectivityService().registerReconnectionCallback(_onReconnection);
 
       _isInitialized = true;
-      debugPrint('EnhancedSyncService initialized');
     } catch (e) {
-      debugPrint('Error initializing EnhancedSyncService: $e');
     }
   }
 
@@ -88,7 +86,6 @@ class EnhancedSyncService {
     _currentStatus = status;
     if (!_syncStatusController.isClosed) {
       _syncStatusController.add(status);
-      debugPrint('Sync status updated: ${status.message}');
     }
   }
 
@@ -96,7 +93,6 @@ class EnhancedSyncService {
   void _onReconnection() {
     if (_isDisposed) return;
 
-    debugPrint('Internet reconnected! Starting auto-sync...');
     performSync();
   }
 
@@ -110,7 +106,6 @@ class EnhancedSyncService {
       // Check connectivity
       final isOnline = await cachedService.isOnline;
       if (!isOnline) {
-        debugPrint('Device is offline - skipping sync');
         return;
       }
 
@@ -142,7 +137,6 @@ class EnhancedSyncService {
         return;
       }
 
-      debugPrint('Found ${unsyncedDocuments.length} unsynced documents');
 
       // Update status: Syncing documents
       _updateSyncStatus(SyncStatus(
@@ -182,7 +176,6 @@ class EnhancedSyncService {
       }
 
     } catch (e) {
-      debugPrint('Error in sync: $e');
       _updateSyncStatus(const SyncStatus(
         message: 'Sync failed',
         isActive: false,
@@ -210,7 +203,6 @@ class EnhancedSyncService {
 
       if (pendingUploads.isEmpty) return;
 
-      debugPrint('Processing ${pendingUploads.length} pending uploads');
 
       // Update status: Uploading files
       _updateSyncStatus(SyncStatus(
@@ -224,9 +216,7 @@ class EnhancedSyncService {
       final cachedService = CachedDocumentService();
       await cachedService.processPendingUploads();
 
-      debugPrint('File uploads completed');
     } catch (e) {
-      debugPrint('Error processing pending uploads: $e');
     }
   }
 
@@ -235,7 +225,6 @@ class EnhancedSyncService {
     if (_isDisposed) return;
 
     try {
-      debugPrint('Syncing ${unsyncedDocuments.length} documents to Supabase...');
 
       final supabaseService = SupabaseService();
       int successCount = 0;
@@ -247,7 +236,6 @@ class EnhancedSyncService {
 
         // Skip documents that still have local paths (uploads not completed)
         if (doc.localImagePaths.isNotEmpty || doc.localFilePaths.isNotEmpty) {
-          debugPrint('Skipping sync for ${doc.code} - uploads not completed');
           continue;
         }
 
@@ -266,22 +254,17 @@ class EnhancedSyncService {
           if (existingDoc != null) {
             // Update existing document
             await supabaseService.updateDocument(doc.code, doc.toJson());
-            debugPrint('Updated existing document ${doc.code} in Supabase');
           } else {
             // Create new document
             await supabaseService.createDocument(doc);
-            debugPrint('Created new document ${doc.code} in Supabase');
           }
           await SQLiteDatabaseService().updateDocument(doc.code, {'needs_sync': 0});
           successCount++;
         } catch (e) {
-          debugPrint('Failed to sync document ${doc.code} to Supabase: $e');
         }
       }
 
-      debugPrint('Supabase sync completed: $successCount/${unsyncedDocuments.length} documents synced');
     } catch (e) {
-      debugPrint('Error in Supabase sync: $e');
     }
   }
 
@@ -294,11 +277,9 @@ class EnhancedSyncService {
       final pendingDeletions = await SQLiteDatabaseService().getPendingDeletions();
 
       if (pendingDeletions.isEmpty) {
-        debugPrint('No pending deletions to sync');
         return;
       }
 
-      debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
 
       // Update status: Syncing deletions
       _updateSyncStatus(SyncStatus(
@@ -312,9 +293,7 @@ class EnhancedSyncService {
       // Use the cached service method to sync pending deletions
       await cachedService.syncPendingDeletions();
 
-      debugPrint('Pending deletions sync completed');
     } catch (e) {
-      debugPrint('Error syncing pending deletions: $e');
     }
   }
 
@@ -322,7 +301,6 @@ class EnhancedSyncService {
   Future<void> triggerSync() async {
     if (_isDisposed) return;
 
-    debugPrint('Manual sync triggered');
     await performSync();
   }
 
@@ -334,7 +312,6 @@ class EnhancedSyncService {
       _syncStatusController.close();
     }
     _isInitialized = false;
-    debugPrint('EnhancedSyncService disposed');
   }
 
   /// Check if service is initialized

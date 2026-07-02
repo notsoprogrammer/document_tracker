@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 
@@ -96,7 +96,6 @@ Future<bool> confirmAndDeleteRecord(BuildContext context, Document document, Cac
       return true;
     } catch (e) {
       // Handle error - show snackbar
-      print('Error deleting document: $e');
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

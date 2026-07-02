@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -96,7 +96,6 @@ class UserActivityService {
     try {
       await fn();
     } catch (e) {
-      debugPrint('UserActivityService remote error: $e');
     }
   }
 
@@ -318,7 +317,6 @@ class UserActivityService {
       return grouped.values.toList()
         ..sort((a, b) => (b['last_seen'] as String).compareTo(a['last_seen'] as String));
     } catch (e) {
-      debugPrint('fetchUserSessions remote failed, using local: $e');
       return _fetchUserSessionsLocal();
     }
   }
@@ -377,7 +375,6 @@ class UserActivityService {
       return latest.values.toList()
         ..sort((a, b) => (b['timestamp'] as String).compareTo(a['timestamp'] as String));
     } catch (e) {
-      debugPrint('fetchLatestActivityPerUser remote failed, using local: $e');
       final db = await _db;
       return await db.rawQuery('''
         SELECT l.username, l.action, l.screen, l.details, l.timestamp
@@ -408,7 +405,6 @@ class UserActivityService {
               .limit(limit);
       return List<Map<String, dynamic>>.from(result as List);
     } catch (e) {
-      debugPrint('fetchActivityLogs remote failed, using local: $e');
       final db = await _db;
       if (username != null) {
         return await db.query(
@@ -474,7 +470,6 @@ class UserActivityService {
 
       return [...todayList, ...historyList];
     } catch (e) {
-      debugPrint('fetchDailySummary remote failed, using local: $e');
       return _fetchDailySummaryLocal();
     }
   }

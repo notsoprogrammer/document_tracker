@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
@@ -36,7 +36,6 @@ class ConnectivityService {
         final isNowOnline = _isOnline(results);
         _lastOnlineStatus = isNowOnline;
 
-        debugPrint('Connectivity changed: ${results.map((r) => r.name).join(', ')} (online: $isNowOnline)');
 
         _onlineStatusController.add(isNowOnline);
 
@@ -47,9 +46,7 @@ class ConnectivityService {
       });
 
       _isInitialized = true;
-      debugPrint('ConnectivityService initialized');
     } catch (e) {
-      debugPrint('Error initializing ConnectivityService: $e');
     }
   }
 
@@ -74,23 +71,19 @@ class ConnectivityService {
   /// Register a callback to be called when internet connection is restored
   void registerReconnectionCallback(Function() callback) {
     _reconnectionCallbacks.add(callback);
-    debugPrint('Registered reconnection callback (total: ${_reconnectionCallbacks.length})');
   }
 
   /// Unregister a reconnection callback
   void unregisterReconnectionCallback(Function() callback) {
     _reconnectionCallbacks.remove(callback);
-    debugPrint('Unregistered reconnection callback (total: ${_reconnectionCallbacks.length})');
   }
 
   /// Trigger all reconnection callbacks
   void _triggerReconnectionCallbacks() {
-    debugPrint('Triggering reconnection callbacks...');
     for (final callback in _reconnectionCallbacks) {
       try {
         callback();
       } catch (e) {
-        debugPrint('Error in reconnection callback: $e');
       }
     }
   }
@@ -126,7 +119,6 @@ class ConnectivityService {
     _onlineStatusController.close();
     _reconnectionCallbacks.clear();
     _isInitialized = false;
-    debugPrint('ConnectivityService disposed');
   }
 
   /// Check if service is initialized

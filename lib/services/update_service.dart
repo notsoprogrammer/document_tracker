@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -47,7 +47,6 @@ class UpdateService {
 
       return UpdateInfo(latestVersion: latestVersion, downloadUrl: downloadUrl);
     } catch (e) {
-      debugPrint('Update check failed: $e');
       return null;
     }
   }

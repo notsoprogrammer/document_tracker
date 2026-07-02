@@ -1,4 +1,4 @@
-import 'package:hive/hive.dart';
+﻿import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
 import '../models/document.dart';
@@ -385,14 +385,12 @@ class SQLiteDatabaseService {
   }) async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
     // This method exists for API compatibility but does nothing in web
-    print('addPendingUpload called on web - uploads handled in-memory');
   }
 
   /// Get all pending uploads (stub for web - uploads are handled in-memory)
   Future<List<Map<String, dynamic>>> getPendingUploads() async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
     // This method exists for API compatibility but returns empty list
-    print('getPendingUploads called on web - uploads handled in-memory');
     return [];
   }
 
@@ -403,20 +401,17 @@ class SQLiteDatabaseService {
 
   Future<void> removePendingUploadByDocumentAndPath(String documentCode, String filePath) async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
-    print('removePendingUploadByDocumentAndPath called on web - uploads handled in-memory');
   }
 
   /// Update the status of a pending upload (stub for web)
   Future<void> updatePendingUploadStatus(int id, String status, {int? retryCount}) async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
-    print('updatePendingUploadStatus called on web - uploads handled in-memory');
   }
 
   /// Reset any stuck uploads (stub for web)
   Future<void> resetStuckUploads() async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
     // This method exists for API compatibility but does nothing in web
-    print('resetStuckUploads called on web - uploads handled in-memory');
   }
 
   // Pending drive deletions methods (stub implementations for web)
@@ -429,25 +424,21 @@ class SQLiteDatabaseService {
   }) async {
     // Stub: Web version cannot directly delete Drive files
     // This method exists for API compatibility but does nothing in web
-    print('addPendingDriveDeletion called on web - Drive deletion not supported on web');
   }
 
   /// Get pending drive deletions (stub for web)
   Future<List<Map<String, dynamic>>> getPendingDriveDeletions() async {
     // Stub: Web version cannot directly delete Drive files
-    print('getPendingDriveDeletions called on web - returning empty list');
     return [];
   }
 
   /// Delete a pending drive deletion record (stub for web)
   Future<void> deletePendingDriveDeletionRecord(int id) async {
     // Stub: Web version cannot directly delete Drive files
-    print('deletePendingDriveDeletionRecord called on web - Drive deletion not supported on web');
   }
 
   /// Delete a pending drive deletion by file ID (stub for web)
   Future<void> deletePendingDriveDeletionByFileId(String fileId) async {
     // Stub: Web version cannot directly delete Drive files
-    print('deletePendingDriveDeletionByFileId called on web - Drive deletion not supported on web');
   }
 }

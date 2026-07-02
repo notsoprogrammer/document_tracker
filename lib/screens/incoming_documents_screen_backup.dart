@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
@@ -827,7 +827,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final allIncoming = widget.documents.where((doc) => doc.incoming).toList();
-    print('Incoming screen: Total documents: ${widget.documents.length}, Incoming documents: ${allIncoming.length}');
     final incomingDocuments = searchAndFilterDocuments(
       allIncoming,
       searchQuery: _searchQuery,

@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -41,7 +41,6 @@ class DocumentScannerService {
           ? _pipeline(inputBytes)
           : await compute(_pipeline, inputBytes);
     } catch (e) {
-      debugPrint('[DocumentScannerService] $e');
       return null;
     }
   }

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -115,9 +115,7 @@ class NotificationService {
         final username = await _getCurrentUsername();
         if (username != null) {
           await SupabaseService().saveDeviceToken(token, username);
-          debugPrint('FCM Token: $token for user: $username');
         } else {
-          debugPrint('No username found, skipping device token save');
         }
       }
     } catch (e) {
@@ -129,7 +127,6 @@ class NotificationService {
       final username = await _getCurrentUsername();
       if (username != null) {
         await SupabaseService().saveDeviceToken(newToken, username);
-        debugPrint('FCM Token refreshed: $newToken for user: $username');
       }
     });
 
@@ -147,7 +144,6 @@ class NotificationService {
    * FCM MESSAGE HANDLERS
    * ---------------------------------------------------------*/
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    debugPrint('Received foreground FCM message: ${message.notification?.title}');
 
     final notification = message.notification;
     if (notification != null) {
@@ -159,13 +155,11 @@ class NotificationService {
           body: notification.body ?? '',
         );
       } else {
-        debugPrint('Notification suppressed due to user preferences');
       }
     }
   }
 
   Future<void> _handleMessageOpenedApp(RemoteMessage message) async {
-    debugPrint('App opened from FCM message: ${message.notification?.title}');
     // Handle navigation if needed
   }
 
@@ -204,7 +198,6 @@ class NotificationService {
         notificationDetails,
       );
     } catch (e) {
-      debugPrint('flutter_local_notifications show failed: $e');
     }
   }
 
@@ -219,13 +212,11 @@ class NotificationService {
   }) async {
     // No longer schedule local notifications
     // Instead, this could trigger a backend call to schedule FCM notifications
-    debugPrint('FCM: Compliance notifications will be handled by backend for $documentCode');
     return []; // Return empty list since no local IDs
   }
 
   Future<void> cancelAll(List<int> ids) async {
     // No-op since we don't schedule local notifications anymore
-    debugPrint('FCM: No local notifications to cancel');
   }
 
   /* -----------------------------------------------------------
@@ -349,9 +340,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-      debugPrint('Scheduled reminder for "${activity.title}" at $tzReminder');
     } catch (e) {
-      debugPrint('Failed to schedule activity reminder: $e');
     }
   }
 
@@ -433,9 +422,7 @@ class NotificationService {
       final username = await _getCurrentUsername();
       if (username != null) {
         await SupabaseService().saveDeviceToken(token, username);
-        debugPrint('FCM Token: $token for user: $username');
       } else {
-        debugPrint('No username found, skipping device token save');
       }
     }
   }
@@ -456,7 +443,6 @@ class NotificationService {
 
 // Background message handler (must be top-level function)
 Future<void> _handleBackgroundMessage(RemoteMessage message) async {
-  debugPrint('Received background FCM message: ${message.notification?.title}');
   // Note: Background messages don't automatically show notifications on iOS
   // You might need to use local notifications here if needed
 }

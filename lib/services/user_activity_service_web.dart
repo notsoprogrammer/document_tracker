@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 
@@ -28,7 +28,6 @@ class UserActivityService {
     try {
       await fn();
     } catch (e) {
-      debugPrint('UserActivityService remote error: $e');
     }
   }
 
@@ -173,7 +172,6 @@ class UserActivityService {
       return grouped.values.toList()
         ..sort((a, b) => (b['last_seen'] as String).compareTo(a['last_seen'] as String));
     } catch (e) {
-      debugPrint('fetchUserSessions failed: $e');
       return [];
     }
   }
@@ -187,7 +185,6 @@ class UserActivityService {
           .order('login_time', ascending: false);
       return List<Map<String, dynamic>>.from(rows as List);
     } catch (e) {
-      debugPrint('fetchSessionsForUser failed: $e');
       return [];
     }
   }
@@ -211,7 +208,6 @@ class UserActivityService {
       return latest.values.toList()
         ..sort((a, b) => (b['timestamp'] as String).compareTo(a['timestamp'] as String));
     } catch (e) {
-      debugPrint('fetchLatestActivityPerUser failed: $e');
       return [];
     }
   }
@@ -232,7 +228,6 @@ class UserActivityService {
               .limit(limit);
       return List<Map<String, dynamic>>.from(result as List);
     } catch (e) {
-      debugPrint('fetchActivityLogs failed: $e');
       return [];
     }
   }
@@ -283,7 +278,6 @@ class UserActivityService {
 
       return [...todayList, ...historyList];
     } catch (e) {
-      debugPrint('fetchDailySummary failed: $e');
       return [];
     }
   }

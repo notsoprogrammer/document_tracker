@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
 import '../utils/snackbar_utils.dart';
@@ -36,7 +36,6 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         _isLoading = false;
       });
       // Handle error - could show a snackbar
-      print('Error loading data: $e');
     }
   }
 

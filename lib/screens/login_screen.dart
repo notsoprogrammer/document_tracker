@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../services/auth_service.dart';
 import '../services/user_activity_service.dart';
@@ -59,7 +59,6 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         deviceToken = await FirebaseMessaging.instance.getToken();
       } catch (e) {
-        debugPrint('Failed to get FCM token: $e');
         // Continue without device token if permission is blocked
       }
 
@@ -326,7 +325,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       try {
                         deviceToken = await FirebaseMessaging.instance.getToken();
                       } catch (e) {
-                        debugPrint('Failed to get FCM token during reset: $e');
                       }
                       final success = await AuthService.resetPassword(
                         tokenController.text.trim(),

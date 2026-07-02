@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/document.dart';
 import 'cached_document_service.dart';
 import 'sqlite_database_service.dart';
@@ -31,9 +31,7 @@ class AutoSyncService {
       _startPeriodicSync();
 
       _isInitialized = true;
-      debugPrint('AutoSyncService initialized');
     } catch (e) {
-      debugPrint('Error initializing AutoSyncService: $e');
     }
   }
 
@@ -42,7 +40,6 @@ class AutoSyncService {
     if (_isRunning) return;
 
     _isRunning = true;
-    debugPrint('Starting periodic auto-sync...');
 
     // Run sync immediately and then periodically
     _performSync();
@@ -62,7 +59,6 @@ class AutoSyncService {
 
   /// Callback for when internet connection is restored
   static void _onReconnection() {
-    debugPrint('Internet reconnected! Starting auto-sync...');
     _performSync();
   }
 
@@ -74,7 +70,6 @@ class AutoSyncService {
       // Check connectivity
       final isOnline = await cachedService.isOnline;
       if (!isOnline) {
-        debugPrint('Device is offline - skipping auto-sync');
         return;
       }
 
@@ -83,11 +78,9 @@ class AutoSyncService {
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
 
       if (unsyncedDocuments.isEmpty) {
-        debugPrint('No unsynced documents found');
         return;
       }
 
-      debugPrint('Found ${unsyncedDocuments.length} unsynced documents for auto-sync');
 
       // Sync documents to Supabase first
       await _syncToSupabase(unsyncedDocuments);
@@ -96,14 +89,12 @@ class AutoSyncService {
       await cachedService.processPendingUploads();
 
     } catch (e) {
-      debugPrint('Error in auto-sync: $e');
     }
   }
 
   /// Sync unsynced documents to Supabase
   static Future<void> _syncToSupabase(List<Document> unsyncedDocuments) async {
     try {
-      debugPrint('Auto-syncing ${unsyncedDocuments.length} documents to Supabase...');
 
       final supabaseService = SupabaseService();
       int successCount = 0;
@@ -114,13 +105,10 @@ class AutoSyncService {
           await SQLiteDatabaseService().updateDocument(doc.code, {'needs_sync': 0});
           successCount++;
         } catch (e) {
-          debugPrint('Failed to sync document ${doc.code} to Supabase: $e');
         }
       }
 
-      debugPrint('Auto-sync to Supabase completed: $successCount/${unsyncedDocuments.length} documents synced');
     } catch (e) {
-      debugPrint('Error in auto-sync to Supabase: $e');
     }
   }
 
@@ -132,18 +120,15 @@ class AutoSyncService {
       // Check connectivity
       final isOnline = await cachedService.isOnline;
       if (!isOnline) {
-        debugPrint('Device is offline - skipping full sync');
         return;
       }
 
-      debugPrint('Starting full bidirectional sync...');
 
       // Step 1: Push local unsynced documents to Supabase first
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
 
       if (unsyncedDocuments.isNotEmpty) {
-        debugPrint('Pushing ${unsyncedDocuments.length} local documents to Supabase...');
         await _syncToSupabase(unsyncedDocuments);
 
         // Then process any pending file uploads (now that documents exist in Supabase)
@@ -151,12 +136,9 @@ class AutoSyncService {
       }
 
       // Step 2: Pull remote documents from Supabase and merge with local
-      debugPrint('Pulling remote documents from Supabase...');
       await _pullFromSupabase();
 
-      debugPrint('Full bidirectional sync completed');
     } catch (e) {
-      debugPrint('Error in full sync: $e');
     }
   }
 
@@ -204,15 +186,12 @@ class AutoSyncService {
         }
       }
 
-      debugPrint('Pull sync completed: $addedCount added, $updatedCount updated');
     } catch (e) {
-      debugPrint('Error pulling from Supabase: $e');
     }
   }
 
   /// Manually trigger sync (bidirectional - push local changes and pull remote changes)
   static Future<void> triggerSync() async {
-    debugPrint('Manual sync triggered - performing bidirectional sync');
     await _performFullSync();
   }
 
@@ -231,7 +210,6 @@ class AutoSyncService {
         'isInitialized': _isInitialized,
       };
     } catch (e) {
-      debugPrint('Error getting sync stats: $e');
       return {
         'total': 0,
         'synced': 0,
@@ -246,7 +224,6 @@ class AutoSyncService {
   /// Stop the auto-sync service
   static void stop() {
     _isRunning = false;
-    debugPrint('AutoSyncService stopped');
   }
 
   /// Dispose the auto-sync service
@@ -254,7 +231,6 @@ class AutoSyncService {
     stop();
     ConnectivityService().unregisterReconnectionCallback(_onReconnection);
     _isInitialized = false;
-    debugPrint('AutoSyncService disposed');
   }
 
   /// Check if service is running

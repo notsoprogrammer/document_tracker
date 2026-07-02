@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
@@ -195,7 +195,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _isLoading = false;
       });
-      print('Error loading documents: $e');
     }
   }
 
@@ -339,7 +338,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {});
     } catch (e) {
-      print('Error transferring document: $e');
       // Could show error snackbar here
     }
   }
@@ -412,7 +410,6 @@ class _HomeScreenState extends State<HomeScreen> {
         try {
           await SupabaseService().deleteNotificationsByDocumentCodeAndType(documents[index].code, 'urgent');
         } catch (e) {
-          print('Error deleting urgent notifications: $e');
         }
       }
 
@@ -449,7 +446,6 @@ class _HomeScreenState extends State<HomeScreen> {
               // Send compliance notifications
               await SupabaseService().sendComplianceNotifications(documentCode: documents[index].code);
             } catch (e) {
-              print('Error recording notification history or sending notifications: $e');
             }
           }
 
@@ -465,7 +461,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           // Note: No push notifications sent for urgent status
         } catch (e) {
-          print('Error recording urgent notification history: $e');
         }
       }
 
@@ -476,7 +471,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       setState(() {});
     } catch (e) {
-      print('Error updating document status: $e');
     }
   }
 
@@ -501,7 +495,6 @@ class _HomeScreenState extends State<HomeScreen> {
       // Reload documents to reflect changes
       await _loadDocuments();
     } catch (e) {
-      print('Error syncing document: $e');
       // Could show error snackbar here
     }
   }
@@ -518,7 +511,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       await _loadDocuments(); // Reload to reflect changes
     } catch (e) {
-      print('Error syncing all documents: $e');
       // Could show error snackbar here
     }
   }
@@ -1694,7 +1686,6 @@ Positioned(
         }
       }
     } catch (e) {
-      print('Error checking notification permissions: $e');
     }
   }
 
@@ -1799,7 +1790,6 @@ Positioned(
                     const SnackBar(content: Text('Notification settings saved')),
                   );
                 } catch (e) {
-                  debugPrint('Failed to save settings: $e');
                   if (!context.mounted) return;
                   if (e.toString().contains('Notification') || e.toString().contains('permission')) {
                     ScaffoldMessenger.of(context).showSnackBar(

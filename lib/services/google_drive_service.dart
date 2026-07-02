@@ -1,4 +1,4 @@
-import 'package:googleapis/drive/v3.dart' as drive;
+﻿import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
@@ -130,10 +130,8 @@ class GoogleDriveService {
       // Copy the image file to local storage
       final localFile = await imageFile.copy(localPath);
 
-      print('Image saved locally: ${localFile.path}');
       return localFile.path;
     } catch (e) {
-      print('Error saving image locally: $e');
       return null;
     }
   }
@@ -154,7 +152,6 @@ class GoogleDriveService {
       final bytes = await imageFile.readAsBytes();
       return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
     } catch (e) {
-      print('Error uploading to Google Drive: $e');
       return null;
     }
   }
@@ -174,7 +171,6 @@ class GoogleDriveService {
         supportsAllDrives: true,
       );
     } catch (e) {
-      print('Error making file public: $e');
       // We don't rethrow here, as the upload itself was successful
     }
   }
@@ -237,7 +233,6 @@ class GoogleDriveService {
       final driveUrl = await uploadFileToDrive(file, fileName, folder: folder);
       return driveUrl;
     } catch (e) {
-      print('Error uploading file: $e');
       return null;
     }
   }
@@ -259,7 +254,6 @@ class GoogleDriveService {
       final bytes = await file.readAsBytes();
       return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
     } catch (e) {
-      print('Error uploading file to Google Drive: $e');
       return null;
     }
   }
@@ -305,7 +299,6 @@ class GoogleDriveService {
       driveSuccess = driveId != null;
       driveUrl = driveId; // For backward compatibility, driveUrl now holds fileId
     } catch (e) {
-      print('Google Drive upload failed, but local save succeeded: $e');
       driveSuccess = false;
     }
 
@@ -327,7 +320,6 @@ class GoogleDriveService {
       }
       return null;
     } catch (e) {
-      print('Error getting local image: $e');
       return null;
     }
   }
@@ -350,7 +342,6 @@ class GoogleDriveService {
 
       return imageFiles;
     } catch (e) {
-      print('Error getting local images for document: $e');
       return [];
     }
   }
@@ -373,12 +364,10 @@ class GoogleDriveService {
           final stat = await file.stat();
           if (stat.modified.isBefore(cutoffDate)) {
             await file.delete();
-            print('Deleted old image: ${file.path}');
           }
         }
       }
     } catch (e) {
-      print('Error cleaning up old images: $e');
     }
   }
 
@@ -404,7 +393,6 @@ class GoogleDriveService {
 
       return totalSize;
     } catch (e) {
-      print('Error calculating local images size: $e');
       return 0;
     }
   }
@@ -461,16 +449,12 @@ class GoogleDriveService {
         if (result['success'] == true) {
           return result['fileId'];
         } else {
-          print('Supabase function error: ${result['error']}');
           return null;
         }
       } else {
-        print('Supabase function failed with status: ${response.statusCode}');
-        print('Response: ${response.body}');
         return null;
       }
     } catch (e) {
-      print('Error uploading via Supabase: $e');
       return null;
     }
   }
@@ -519,19 +503,14 @@ class GoogleDriveService {
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
         if (result['success'] == true) {
-          print('Successfully deleted file from Google Drive: $fileId');
           return true;
         } else {
-          print('Supabase function error deleting file: ${result['error']}');
           return false;
         }
       } else {
-        print('Supabase function failed with status: ${response.statusCode}');
-        print('Response: ${response.body}');
         return false;
       }
     } catch (e) {
-      print('Error deleting file from Google Drive: $e');
       return false;
     }
   }

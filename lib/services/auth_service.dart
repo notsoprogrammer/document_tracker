@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,7 +43,6 @@ class AuthService {
           .maybeSingle();
 
       if (existingUser != null) {
-        print('Username already exists: $username');
         return false; // Username is taken
       }
 
@@ -73,7 +72,6 @@ class AuthService {
 
       return true;
     } catch (e) {
-      print('Signup error: $e');
       return false;
     }
   }
@@ -81,7 +79,6 @@ class AuthService {
   // Login with username, password, and device token
   static Future<bool> login(String username, String password, String? deviceToken) async {
     try {
-      print('Attempting login for user: $username');
 
       // Fetch user from Supabase
       final response = await Supabase.instance.client
@@ -96,11 +93,9 @@ class AuthService {
 
       // Verify password
       if (!BCrypt.checkpw(password, storedHash)) {
-        print('Password verification failed');
         return false;
       }
 
-      print('Password verified successfully');
 
       // Upsert by token so each physical device keeps its own row
       if (deviceToken != null) {
@@ -116,10 +111,8 @@ class AuthService {
       await setAuthorized(true);
       await setUsername(username);
 
-      print('Login successful for user: $username');
       return true;
     } catch (e) {
-      print('Login error: $e');
       return false;
     }
   }
@@ -138,7 +131,6 @@ class AuthService {
 
       // Generate reset token
       final resetToken = _generateResetToken();
-      print('Generated reset token: $resetToken for user: $username');
 
       // Set expiry (15 minutes from now)
       final expiresAt = DateTime.now().add(const Duration(minutes: 15));
@@ -153,7 +145,6 @@ class AuthService {
       // print('Inserted reset record for token: $resetToken');
       return resetToken;
     } catch (e) {
-      print('Password reset request error: $e');
       return null;
     }
   }
@@ -216,7 +207,6 @@ class AuthService {
 
       return true;
     } catch (e) {
-      print('Password reset error: $e');
       return false;
     }
   }

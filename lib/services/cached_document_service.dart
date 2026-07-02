@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -26,9 +26,7 @@ class CachedDocumentService {
     try {
       // Access the database to trigger any pending upgrades
       await _localDb.database;
-      debugPrint('Database schema check completed');
     } catch (e) {
-      debugPrint('Error ensuring database schema: $e');
     }
   }
 
@@ -67,7 +65,6 @@ class CachedDocumentService {
               // If local document exists in remote and is marked as needing sync, mark as synced
               if (localDoc.needsSync) {
                 await _localDb.updateDocument(localDoc.code, {'needs_sync': 0});
-                debugPrint('Marked local document ${localDoc.code} as synced (already exists in remote)');
               }
             }
           }
@@ -80,7 +77,6 @@ class CachedDocumentService {
 
           return mergedDocuments;
         } catch (e) {
-          print('Failed to sync with remote: $e');
           // Return local data if remote sync fails
           return localDocuments;
         }
@@ -89,7 +85,6 @@ class CachedDocumentService {
         return localDocuments;
       }
     } catch (e) {
-      print('Error fetching documents: $e');
       return [];
     }
   }
@@ -117,16 +112,13 @@ class CachedDocumentService {
                 scheduledTime: DateTime.now(),
                 status: 'urgent',
               );
-              print('Urgent notification created for new document ${remoteDoc.code}');
             } catch (e) {
-              print('Failed to create urgent notification for new document: $e');
             }
           }
 
           // Update local with any remote changes (like IDs)
           return remoteDoc;
         } catch (e) {
-          print('Failed to sync creation to remote: $e');
           // Mark as needing sync since remote failed
           await _localDb.updateDocument(document.code, {'needs_sync': true});
           return document.copyWith(needsSync: true);
@@ -137,7 +129,6 @@ class CachedDocumentService {
         return document.copyWith(needsSync: true);
       }
     } catch (e) {
-      print('Error creating document: $e');
       rethrow;
     }
   }
@@ -152,12 +143,10 @@ class CachedDocumentService {
         try {
           await _remoteDb.updateDocument(documentCode, updates);
         } catch (e) {
-          print('Failed to sync update to remote: $e');
           // Update is saved locally, will sync later
         }
       }
     } catch (e) {
-      print('Error updating document: $e');
       rethrow;
     }
   }
@@ -182,9 +171,7 @@ class CachedDocumentService {
               // Extract file ID from URL if needed
               final fileId = GoogleDriveService.normalizeFileId(driveUrl);
               await GoogleDriveService.deleteFile(fileId);
-              debugPrint('Deleted Drive file: $fileId');
             } catch (e) {
-              debugPrint('Failed to delete Drive file $driveUrl: $e');
               // Continue with other files even if one fails
             }
           }
@@ -203,14 +190,11 @@ class CachedDocumentService {
           // Delete locally after successful remote deletion
           await _localDb.deleteDocument(documentCode);
           
-          debugPrint('Document $documentCode deleted successfully (online)');
         } catch (e) {
-          print('Failed to delete from remote: $e');
           rethrow;
         }
       } else {
         // Offline: Mark as deleted_pending_sync and add to pending_deletions
-        debugPrint('Device is offline - marking document $documentCode for deletion');
         
         // Mark document as deleted_pending_sync (hides it from UI)
         await _localDb.markDocumentAsDeletedPending(documentCode);
@@ -233,10 +217,8 @@ class CachedDocumentService {
           );
         }
         
-        debugPrint('Document $documentCode marked for deletion (offline)');
       }
     } catch (e) {
-      print('Error deleting document: $e');
       rethrow;
     }
   }
@@ -244,7 +226,6 @@ class CachedDocumentService {
   /// Sync pending deletions to Supabase
   Future<void> syncPendingDeletions() async {
     if (!(await isOnline)) {
-      debugPrint('Device is offline - skipping pending deletions sync');
       return;
     }
 
@@ -252,11 +233,9 @@ class CachedDocumentService {
       final pendingDeletions = await _localDb.getPendingDeletions();
       
       if (pendingDeletions.isEmpty) {
-        debugPrint('No pending deletions to sync');
         return;
       }
 
-      debugPrint('Syncing ${pendingDeletions.length} pending deletions...');
       int successCount = 0;
 
       for (final deletion in pendingDeletions) {
@@ -282,16 +261,12 @@ class CachedDocumentService {
           await _localDb.deletePendingDeletionRecord(deletionId);
           
           successCount++;
-          debugPrint('Synced deletion for document $docCode');
         } catch (e) {
-          debugPrint('Failed to sync deletion for ${deletion['doc_code']}: $e');
           // Continue with next deletion
         }
       }
 
-      debugPrint('Synced $successCount of ${pendingDeletions.length} pending deletions');
     } catch (e) {
-      debugPrint('Error syncing pending deletions: $e');
     }
   }
 
@@ -302,7 +277,6 @@ class CachedDocumentService {
         final docs = await _localDb.fetchDocuments();
         final doc = docs.where((d) => d.code == documentCode).firstOrNull;
         if (doc != null && doc.history.isNotEmpty && doc.history.last.action == 'Files Uploaded') {
-          debugPrint('Skipping duplicate "Files Uploaded" history entry for document $documentCode');
           return;
         }
       }
@@ -315,12 +289,10 @@ class CachedDocumentService {
         try {
           await _remoteDb.addHistoryEntry(documentCode, entry, personnel: personnel);
         } catch (e) {
-          print('Failed to sync history to remote: $e');
           // History is saved locally, will sync later
         }
       }
     } catch (e) {
-      print('Error adding history entry: $e');
       rethrow;
     }
   }
@@ -340,7 +312,6 @@ class CachedDocumentService {
         await _localDb.createDocument(doc);
       }
     } catch (e) {
-      print('Error syncing pending changes: $e');
     }
   }
 
@@ -376,9 +347,7 @@ class CachedDocumentService {
             );
             // Send compliance notifications
             await _remoteDb.sendComplianceNotifications(documentCode: localDoc.code);
-            print('Compliance notifications triggered for synced document ${localDoc.code}');
           } catch (e) {
-            print('Failed to trigger compliance notifications for synced document ${localDoc.code}: $e');
           }
         } else if (localDoc.status == 'Urgent') {
           try {
@@ -390,9 +359,7 @@ class CachedDocumentService {
               scheduledTime: DateTime.now(),
               status: 'urgent',
             );
-            print('Urgent notification created for synced document ${localDoc.code}');
           } catch (e) {
-            print('Failed to create urgent notification for synced document: $e');
           }
         }
 
@@ -400,7 +367,6 @@ class CachedDocumentService {
         await _localDb.updateDocument(documentCode, {'needs_sync': 0});
       }
     } catch (e) {
-      print('Error syncing specific document: $e');
       rethrow;
     }
   }
@@ -412,7 +378,6 @@ class CachedDocumentService {
   }) async {
     // Check offline
     if (!(await isOnline)) {
-      debugPrint('Device is offline - skipping sync');
       if (context.mounted && showMessages) {
         SnackbarUtils.showWarningSnackBar(context, 'Device is offline - sync skipped');
       }
@@ -456,9 +421,7 @@ class CachedDocumentService {
             );
             // Send compliance notifications
             await _remoteDb.sendComplianceNotifications(documentCode: doc.code);
-            print('Compliance notifications triggered for synced document ${doc.code}');
           } catch (e) {
-            print('Failed to trigger compliance notifications for synced document ${doc.code}: $e');
           }
         } else if (doc.status == 'Urgent') {
           try {
@@ -470,16 +433,13 @@ class CachedDocumentService {
               scheduledTime: DateTime.now(),
               status: 'urgent',
             );
-            print('Urgent notification created for synced document ${doc.code}');
           } catch (e) {
-            print('Failed to create urgent notification for synced document: $e');
           }
         }
 
         await _localDb.updateDocument(doc.code, {'needs_sync': 0});
         success++;
       } catch (e) {
-        print('Failed to sync document ${doc.code}: $e');
       }
     }
 
@@ -537,7 +497,6 @@ class CachedDocumentService {
 
     // Prevent concurrent processing
     if (!queueManager.startProcessing()) {
-      debugPrint('Upload processing already in progress, skipping');
       return;
     }
 
@@ -568,7 +527,6 @@ class CachedDocumentService {
           final doc = docs.where((d) => d.code == upload['documentCode']).firstOrNull;
           if (doc == null) {
             // Document not saved yet (e.g. auto-sync fired before user tapped Save) — defer
-            debugPrint('Document not in DB yet, deferring upload: ${upload['documentCode']}');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
             continue;
           }
@@ -650,7 +608,6 @@ class CachedDocumentService {
           // Check if this is a web camera image (blob URL that we can't handle)
           if (kIsWeb && upload['localPath'].startsWith('blob:')) {
             // Skip blob URLs - these should have been replaced with bytes in the screens
-            debugPrint('Skipping blob URL upload: ${upload['localPath']}');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
@@ -678,10 +635,8 @@ class CachedDocumentService {
                     resized = decoded;
                   }
                   uploadBytes = img.encodeJpg(resized, quality: 80);
-                  debugPrint('Compressed web image: ${bytes.length} → ${uploadBytes.length} bytes');
                 }
               } catch (compressErr) {
-                debugPrint('Image compression failed, uploading original: $compressErr');
               }
             }
 
@@ -690,7 +645,6 @@ class CachedDocumentService {
               docFileName,
               folder: folder,
             );
-            debugPrint('Web file upload result for ${upload['filePath']}: $driveUrl');
             uploadedFileName = docFileName;
           } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
             // Regular file - use existing methods (only for non-web or non-web-prefixed files)
@@ -702,7 +656,6 @@ class CachedDocumentService {
                 fileName,
                 folder: folder,
               );
-              debugPrint('Image upload result for ${upload['filePath']}: $driveUrl');
               // For images, the uploaded filename is fileName + extension
               final extension = upload['localPath'].split('.').last.toLowerCase();
               uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
@@ -716,12 +669,10 @@ class CachedDocumentService {
                 docFileName,
                 folder: folder,
               );
-              debugPrint('Document upload result for ${upload['filePath']}: $driveUrl');
               uploadedFileName = docFileName;
             }
           } else {
             // Web file without bytes - this shouldn't happen with our new implementation
-            debugPrint('Web file without bytes: ${upload['localPath']} - skipping');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
@@ -735,7 +686,6 @@ class CachedDocumentService {
             final docs = await _localDb.fetchDocuments();
             final doc = docs.where((d) => d.code == documentCode).firstOrNull;
             if (doc == null) {
-              debugPrint('Document not found for URL update: $documentCode — skipping');
               queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'completed');
               continue;
             }
@@ -808,12 +758,10 @@ class CachedDocumentService {
             await queueManager.markCompletedAndRemove(documentCode, upload['filePath'], onCompleted: cleanup);
             hasCompletedUploads = true;
             documentsWithUploads.add(documentCode);
-            debugPrint('Successfully uploaded ${upload['filePath']} for document $documentCode');
           } else {
             throw Exception('Upload returned null URL');
           }
         } catch (e) {
-          debugPrint('Failed to upload ${upload['filePath']}: $e');
           final newRetryCount = upload['retryCount'] + 1;
           if (newRetryCount >= 3) {
             queueManager.updateStatus(
@@ -848,7 +796,6 @@ class CachedDocumentService {
       // Delete from Google Drive
       final deleteSuccess = await GoogleDriveService.deleteFile(driveUrl);
       if (!deleteSuccess) {
-        print('Failed to delete file from Google Drive: $driveUrl');
         return false;
       }
 
@@ -873,7 +820,6 @@ class CachedDocumentService {
       }
 
       if (doc == null) {
-        print('Document containing driveUrl $driveUrl not found');
         return false;
       }
 
@@ -910,10 +856,8 @@ class CachedDocumentService {
         }
       }
 
-      print('Successfully removed attachment from document ${doc.code}');
       return true;
     } catch (e) {
-      print('Error deleting attachment: $e');
       return false;
     }
   }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../widgets/connectivity_banner.dart';
@@ -40,7 +40,6 @@ class _FlagCeremonyScreenState extends State<FlagCeremonyScreen> {
       setState(() {
         _isLoading = false;
       });
-      print('Error loading documents: $e');
     }
   }
 

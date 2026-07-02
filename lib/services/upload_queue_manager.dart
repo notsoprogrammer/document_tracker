@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'sqlite_database_service.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 
@@ -39,11 +39,9 @@ class UploadQueueManager extends ChangeNotifier {
             'sqliteId': upload['id'], // Store SQLite ID for updates
           });
         }
-        debugPrint('Loaded ${_uploadQueue.length} pending uploads from SQLite');
       }
       _isInitialized = true;
     } catch (e) {
-      debugPrint('Error initializing UploadQueueManager from SQLite: $e');
       _isInitialized = true; // Continue with empty queue
     }
   }
@@ -91,7 +89,6 @@ class UploadQueueManager extends ChangeNotifier {
         'retryCount': 0,
         'timestamp': DateTime.now().toIso8601String(),
       });
-      debugPrint('Added file to upload queue: $filePath for document $documentCode');
       
       // Persist to SQLite (non-web only, and only if bytes are not required)
       if (!kIsWeb && bytes == null) {
@@ -103,11 +100,9 @@ class UploadQueueManager extends ChangeNotifier {
             localPath: localPath,
           );
         } catch (e) {
-          debugPrint('Error persisting upload to SQLite: $e');
         }
       }
     } else {
-      debugPrint('Skipped duplicate queue item: $filePath for document $documentCode');
     }
   }
 
@@ -137,10 +132,8 @@ class UploadQueueManager extends ChangeNotifier {
         'retryCount': 0,
         'timestamp': DateTime.now().toIso8601String(),
       });
-      debugPrint('Added web camera image to upload queue: $filePath for document $documentCode');
       // Note: Web images with bytes are NOT persisted to SQLite
     } else {
-      debugPrint('Skipped duplicate queue item: $filePath for document $documentCode');
     }
   }
 
@@ -169,10 +162,8 @@ class UploadQueueManager extends ChangeNotifier {
       try {
         await SQLiteDatabaseService().updatePendingUploadsDocumentCode(oldCode, newCode);
       } catch (e) {
-        debugPrint('Error updating document code in SQLite: $e');
       }
     }
-    debugPrint('Renamed queue entries from $oldCode to $newCode');
   }
 
   /// Remove a file from the upload queue
@@ -181,14 +172,12 @@ class UploadQueueManager extends ChangeNotifier {
       (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
     );
     _webBytesCache.remove('$documentCode:$filePath');
-    debugPrint('Removed file from upload queue: $filePath for document $documentCode');
     
     // Remove from SQLite persistence
     if (!kIsWeb) {
       try {
         await SQLiteDatabaseService().removePendingUploadByDocumentAndPath(documentCode, filePath);
       } catch (e) {
-        debugPrint('Error removing upload from SQLite: $e');
       }
     }
   }
@@ -219,7 +208,6 @@ class UploadQueueManager extends ChangeNotifier {
       if (retryCount != null) {
         _uploadQueue[index]['retryCount'] = retryCount;
       }
-      debugPrint('Updated upload status: $filePath -> $status');
       
       // Update SQLite persistence
       if (!kIsWeb) {
@@ -228,7 +216,6 @@ class UploadQueueManager extends ChangeNotifier {
           try {
             await SQLiteDatabaseService().updatePendingUploadStatus(sqliteId, status, retryCount: retryCount);
           } catch (e) {
-            debugPrint('Error updating upload status in SQLite: $e');
           }
         }
       }
@@ -245,7 +232,6 @@ class UploadQueueManager extends ChangeNotifier {
           try {
             await SQLiteDatabaseService().removePendingUploadByDocumentAndPath(documentCode, filePath);
           } catch (e) {
-            debugPrint('Error removing completed upload from SQLite: $e');
           }
         }
       }
@@ -269,7 +255,6 @@ class UploadQueueManager extends ChangeNotifier {
       }
       // Update status to completed
       _uploadQueue[index]['status'] = 'completed';
-      debugPrint('Marked upload as completed and removing from queue: $filePath for document $documentCode');
       // Remove the item from the queue and clear bytes cache
       _uploadQueue.removeAt(index);
       _webBytesCache.remove('$documentCode:$filePath');
@@ -279,7 +264,6 @@ class UploadQueueManager extends ChangeNotifier {
         try {
           await SQLiteDatabaseService().removePendingUploadByDocumentAndPath(documentCode, filePath);
         } catch (e) {
-          debugPrint('Error removing upload from SQLite: $e');
         }
       }
       
@@ -296,7 +280,6 @@ class UploadQueueManager extends ChangeNotifier {
       final file = File(item['localPath']);
       if (!await file.exists()) {
         toRemove.add(item);
-        debugPrint('File no longer exists, removing from queue: ${item['localPath']}');
       }
     }
 
@@ -339,6 +322,5 @@ class UploadQueueManager extends ChangeNotifier {
   /// Clear all items
   void clear() {
     _uploadQueue.clear();
-    debugPrint('Cleared upload queue');
   }
 }

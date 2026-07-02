@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 
 class DeleteHistoryScreen extends StatefulWidget {
@@ -31,7 +31,6 @@ class _DeleteHistoryScreenState extends State<DeleteHistoryScreen> {
         _isLoading = false;
       });
       // Handle error - could show a snackbar
-      print('Error loading delete logs: $e');
     }
   }
 
