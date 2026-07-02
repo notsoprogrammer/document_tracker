@@ -413,13 +413,6 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (document.title != null && document.title!.isNotEmpty)
-                                    Text(
-                                      document.title!,
-                                      style: const TextStyle(fontSize: 12),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
                                   Row(
                                     children: [
                                       Text("${document.code}  "),

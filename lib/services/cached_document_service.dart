@@ -573,7 +573,9 @@ class CachedDocumentService {
             continue;
           }
           DriveFolder folder;
-          if (doc.mode == 'Flag Ceremony') {
+          if (doc.mode == 'Resolutions') {
+            folder = DriveFolder.resolutions;
+          } else if (doc.mode == 'Flag Ceremony') {
             folder = DriveFolder.flagCeremony;
           } else if (doc.mode == 'Locational & Zoning' || [
             'Locational Clearance',

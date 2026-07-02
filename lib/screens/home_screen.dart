@@ -969,36 +969,6 @@ Positioned(
             Expanded(
               child: _buildFolderCard(
                 icon: Icons.gavel_outlined,
-                title: "Resolutions",
-                subtitle: "All resolution types",
-                count: resolutionCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Resolutions');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ResolutionsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-                        Expanded(
-              child: _buildFolderCard(
-                icon: Icons.gavel_outlined,
                 title: "SP Documents",
                 subtitle: "Resolutions & ordinances",
                 count: spCount,
@@ -1025,6 +995,37 @@ Positioned(
                 },
               ),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFolderCard(
+                icon: Icons.gavel_outlined,
+                title: "Resolutions",
+                subtitle: "All resolution types",
+                count: resolutionCount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                onTap: () {
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Resolutions');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ResolutionsScreen(
+                        documents: documents,
+                        transferDocument: _transferDocument,
+                        updateDocumentStatus: _updateDocumentStatus,
+                        deleteDocument: _deleteDocument,
+                        syncDocument: _syncDocument,
+                        onRefresh: _loadDocuments,
+                      ),
+                    ),
+                  ).then((_) { if (mounted) _loadTodayActivities(); });
+                },
+              ),
+            ),
+                        
           ],
         ),
         const SizedBox(height: 12),

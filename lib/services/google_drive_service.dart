@@ -25,7 +25,7 @@ class ImageSaveResult {
   });
 }
 
-enum DriveFolder { incoming, outgoing, flagCeremony, attendance, movs, certificates, locationalZoning, cdc, spDocuments, reclassification }
+enum DriveFolder { incoming, outgoing, flagCeremony, attendance, movs, certificates, locationalZoning, cdc, spDocuments, reclassification, resolutions }
 
 class GoogleDriveService {
   // Use your folder IDs - replace these with your actual Google Drive folder IDs
@@ -39,6 +39,7 @@ class GoogleDriveService {
   static const String _cdcFolderId = '1cO9b-mQB9YrbjBdnnoxnsIVhqp_QYuKL';
   static const String _spDocumentsFolderId = '1wAmcxzIY271M7STbKwGCwxW4_-uoViB-';
   static const String _reclassificationFolderId = '1akueBVl9oRIporDPYuvCOnVmn14hFtqR';
+  static const String _resolutionsFolderId = '1Jotcls0aRcykZrWCfiobH3vwd3ZSzZC6';
 
   // Supabase function URL for secure uploads
   static const String _supabaseFunctionUrl = SupabaseConfig.uploadToDriveFunctionUrl;
@@ -430,7 +431,9 @@ class GoogleDriveService {
                                       ? _spDocumentsFolderId
                                       : folder == DriveFolder.reclassification
                                           ? _reclassificationFolderId
-                                          : _incomingFolderId;
+                                          : folder == DriveFolder.resolutions
+                                              ? _resolutionsFolderId
+                                              : _incomingFolderId;
 
       // Convert bytes to base64
       final base64Data = base64Encode(bytes);

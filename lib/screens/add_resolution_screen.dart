@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show TextInputFormatter, TextEditingValue, TextSelection;
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,7 +13,6 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
-import '../constants/document_types.dart';
 
 class AddResolutionScreen extends StatefulWidget {
   const AddResolutionScreen({super.key});
@@ -24,13 +24,17 @@ class AddResolutionScreen extends StatefulWidget {
 class _AddResolutionScreenState extends State<AddResolutionScreen> {
   final ImagePicker _picker = ImagePicker();
   final codeController = TextEditingController();
-  String? selectedType;
-  DateTime? selectedDate;
   final titleController = TextEditingController();
   final descriptionController = TextEditingController();
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+
+  DateTime? selectedDate;
+  String _typeValue = '';
+  List<String> _resolutionTypes = [];
+  // Reference to the controller provided by Autocomplete's fieldViewBuilder
+  TextEditingController? _typeFieldController;
 
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
@@ -55,9 +59,21 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   @override
   void initState() {
     super.initState();
-    codeController.text = _generateCode();
+    codeController.text = '-';
     UploadQueueManager().addListener(_onUploadStatusChanged);
     _loadUsername();
+    _loadResolutionTypes();
+  }
+
+  Future<void> _loadResolutionTypes() async {
+    final docs = await CachedDocumentService().fetchDocuments();
+    final types = docs
+        .where((d) => d.mode == 'Resolutions' && d.category != null && d.category!.isNotEmpty)
+        .map((d) => d.category!)
+        .toSet()
+        .toList()
+      ..sort();
+    if (mounted) setState(() => _resolutionTypes = types);
   }
 
   @override
@@ -94,16 +110,9 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   }
 
   String _generateCode() {
-    final nowUtc = DateTime.now().toUtc();
-    final phTime = nowUtc.add(const Duration(hours: 8));
-    final month = phTime.month.toString().padLeft(2, '0');
-    final day = phTime.day.toString().padLeft(2, '0');
-    final year = phTime.year;
-    final hour = phTime.hour.toString().padLeft(2, '0');
-    final minute = phTime.minute.toString().padLeft(2, '0');
-    final second = phTime.second.toString().padLeft(2, '0');
-    final typeCode = typeMapping[selectedType] ?? 'RES';
-    return '$typeCode-$month$day$year-$hour$minute$second';
+    final title = titleController.text.trim();
+    if (title.isEmpty) return '-';
+    return 'RES-${title.replaceAll(RegExp(r'\s+'), '-')}';
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -114,10 +123,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
       lastDate: DateTime(2030),
     );
     if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-        codeController.text = _generateCode();
-      });
+      setState(() => selectedDate = picked);
     }
   }
 
@@ -348,39 +354,92 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedType,
-                          decoration: InputDecoration(
-                            labelText: 'Resolution Type',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            errorText: _showValidationErrors && selectedType == null
-                                ? 'Resolution type is required'
-                                : null,
+                        Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue value) {
+                            final query = value.text.toLowerCase();
+                            if (query.isEmpty) return _resolutionTypes;
+                            return _resolutionTypes.where(
+                              (t) => t.toLowerCase().contains(query));
+                          },
+                          onSelected: (String selection) {
+                            setState(() => _typeValue = selection);
+                          },
+                          fieldViewBuilder: (context, controller, focusNode, _) {
+                            _typeFieldController = controller;
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              enabled: !_isSaving,
+                              onChanged: (value) => setState(() => _typeValue = value),
+                              decoration: InputDecoration(
+                                labelText: 'Resolution Type',
+                                hintText: 'Type or select existing…',
+                                border: const OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                errorText: _showValidationErrors && _typeValue.trim().isEmpty
+                                    ? 'Resolution type is required'
+                                    : null,
+                              ),
+                            );
+                          },
+                          optionsViewBuilder: (context, onSelected, options) => Align(
+                            alignment: Alignment.topLeft,
+                            child: Material(
+                              elevation: 4,
+                              borderRadius: BorderRadius.circular(8),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 200, maxWidth: 320),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: options.length,
+                                  itemBuilder: (context, index) {
+                                    final option = options.elementAt(index);
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(option),
+                                      onTap: () => onSelected(option),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
                           ),
-                          items: resolutionTypes.map((type) =>
-                            DropdownMenuItem(value: type, child: Text(type))).toList(),
-                          onChanged: _isSaving
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    selectedType = value;
-                                    codeController.text = _generateCode();
-                                  });
-                                },
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: titleController,
-                          enabled: !_isSaving,
-                          decoration: InputDecoration(
-                            labelText: 'Resolution No. / Title',
-                            hintText: 'e.g. Resolution No. 001-2024',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                          ),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: titleController,
+                          builder: (context, value, _) {
+                            final wordCount = value.text.trim().isEmpty
+                                ? 0
+                                : value.text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+                            return TextField(
+                              controller: titleController,
+                              enabled: !_isSaving,
+                              inputFormatters: [const _WordLimitFormatter(6)],
+                              onChanged: (text) {
+                                final oldCode = codeController.text;
+                                final newCode = _generateCode();
+                                if (oldCode != newCode) {
+                                  setState(() => codeController.text = newCode);
+                                  if (newCode != '-') {
+                                    UploadQueueManager().updateDocumentCode(oldCode, newCode);
+                                  }
+                                }
+                              },
+                              decoration: InputDecoration(
+                                labelText: 'Resolution No. / Title',
+                                hintText: 'e.g. Resolution No. 001-2024',
+                                border: const OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                helperText: '$wordCount/6 words',
+                                errorText: _showValidationErrors && value.text.trim().isEmpty
+                                    ? 'Resolution No. / Title is required'
+                                    : null,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         TextField(
@@ -640,8 +699,12 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                   onPressed: _isSaving
                       ? null
                       : () async {
-                          setState(() => _showValidationErrors = true);
-                          if (selectedType == null || selectedDate == null || descriptionController.text.trim().isEmpty || personController.text.trim().isEmpty) return;
+                          final typeText = (_typeFieldController?.text ?? _typeValue).trim();
+                          setState(() {
+                            _typeValue = typeText;
+                            _showValidationErrors = true;
+                          });
+                          if (typeText.isEmpty || titleController.text.trim().isEmpty || selectedDate == null || descriptionController.text.trim().isEmpty || personController.text.trim().isEmpty) return;
 
                           final code = codeController.text;
                           final description = descriptionController.text.trim();
@@ -655,7 +718,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             referenceLink: referenceLinkController.text.trim().isNotEmpty
                                 ? referenceLinkController.text.trim()
                                 : null,
-                            type: selectedType!,
+                            type: typeText,
                             fromOrTo: dateStr,
                             mode: 'Resolutions',
                             assignedTo: personController.text,
@@ -668,7 +731,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             fileUrls: [],
                             localImagePaths: _selectedImagePaths,
                             localFilePaths: _selectedDocumentPaths,
-                            category: selectedType,
+                            category: typeText,
                             createdAt: getPhilippineTime(),
                           );
 
@@ -709,6 +772,22 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WordLimitFormatter extends TextInputFormatter {
+  final int maxWords;
+  const _WordLimitFormatter(this.maxWords);
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final words = newValue.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.length <= maxWords) return newValue;
+    final truncated = words.take(maxWords).join(' ');
+    return newValue.copyWith(
+      text: truncated,
+      selection: TextSelection.collapsed(offset: truncated.length),
     );
   }
 }
