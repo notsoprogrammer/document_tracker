@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:com.cpdco.docutracker/screens/add_attendance_movs_screen.dart';
+import 'package:com.cpdco.docutracker/screens/add_resolution_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,7 +20,7 @@ import 'edit_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 
-class AttendanceMovsScreen extends StatefulWidget {
+class ResolutionsScreen extends StatefulWidget {
   final List<Document> documents;
   final Function(int, String, String, {String? notes}) transferDocument;
   final Function(int, String, String, {String? notes, DateTime? complianceDeadline, String? complianceAssignee}) updateDocumentStatus;
@@ -28,7 +28,7 @@ class AttendanceMovsScreen extends StatefulWidget {
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
 
-  const AttendanceMovsScreen({
+  const ResolutionsScreen({
     super.key,
     required this.documents,
     required this.transferDocument,
@@ -39,12 +39,10 @@ class AttendanceMovsScreen extends StatefulWidget {
   });
 
   @override
-  State<AttendanceMovsScreen> createState() =>
-      _AttendanceMovsScreenState();
+  State<ResolutionsScreen> createState() => _ResolutionsScreenState();
 }
 
-class _AttendanceMovsScreenState
-    extends State<AttendanceMovsScreen> {
+class _ResolutionsScreenState extends State<ResolutionsScreen> {
   late List<Document> _filteredDocuments;
   String _searchQuery = '';
   DateTime? _startDate;
@@ -56,16 +54,15 @@ class _AttendanceMovsScreenState
   late UploadQueueManager _uploadQueueManager;
   String? _username;
 
+  static const Color _purple = Color(0xFF9C27B0);
+
   DateTime _parseDate(String dateStr) {
     try {
       final parts = dateStr.split('/');
       if (parts.length == 3) {
-        final month = int.parse(parts[0]);
-        final day = int.parse(parts[1]);
-        final year = int.parse(parts[2]);
-        return DateTime(year, month, day);
+        return DateTime(int.parse(parts[2]), int.parse(parts[0]), int.parse(parts[1]));
       }
-    } catch (e) {}
+    } catch (_) {}
     return DateTime.now();
   }
 
@@ -75,8 +72,7 @@ class _AttendanceMovsScreenState
     final minute = dateTime.minute.toString().padLeft(2, '0');
     final month = dateTime.month.toString().padLeft(2, '0');
     final day = dateTime.day.toString().padLeft(2, '0');
-    final year = dateTime.year;
-    return '$month/$day/$year $hour:$minute $amPm';
+    return '$month/$day/${dateTime.year} $hour:$minute $amPm';
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -105,26 +101,13 @@ class _AttendanceMovsScreenState
     );
   }
 
-  bool _titleExceedsMaxLines(String text, BuildContext context) {
-    final TextStyle style = const TextStyle(fontWeight: FontWeight.w400);
-    final double maxWidth = MediaQuery.of(context).size.width - 120; // approximate available width
-    final TextPainter textPainter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      maxLines: 2,
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: maxWidth);
-    return textPainter.didExceedMaxLines;
-  }
-
   Widget _buildGlobalUploadStatusIndicator() {
     final queueManager = UploadQueueManager();
     final allUploads = queueManager.getAllItems();
     final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
     final pendingUploads = allUploads.where((item) => item['status'] == 'pending').toList();
 
-    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) return const SizedBox.shrink();
 
     final totalUploading = uploadingUploads.length;
     final totalPending = pendingUploads.length;
@@ -133,13 +116,13 @@ class _AttendanceMovsScreenState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
@@ -175,22 +158,20 @@ class _AttendanceMovsScreenState
     final uploadedFiles = doc.imageUrls.length + doc.fileUrls.length;
     final hasUploads = pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty;
 
-    if (!hasUploads && totalFiles == 0) {
-      return const SizedBox.shrink();
-    }
+    if (!hasUploads && totalFiles == 0) return const SizedBox.shrink();
 
     if (hasUploads) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.1),
+          color: Colors.orange.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
@@ -200,7 +181,7 @@ class _AttendanceMovsScreenState
             ),
             const SizedBox(width: 8),
             Text(
-              'Uploading ${uploadedFiles}/${totalFiles} files...',
+              'Uploading $uploadedFiles/$totalFiles files...',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.orange[700],
@@ -218,44 +199,36 @@ class _AttendanceMovsScreenState
   @override
   void initState() {
     super.initState();
-    _searchController.text = _searchQuery;
     _searchController.addListener(() {
       _searchQuery = _searchController.text;
       _filterDocuments();
     });
     _filteredDocuments = widget.documents
-        .where((doc) => doc.mode == 'Office Function MOVs' || doc.mode == 'Flag Ceremony')
+        .where((doc) => doc.mode == 'Resolutions')
         .toList()
       ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
-    // Simulate loading for better UX
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     });
   }
 
-  void _onUploadChanged() {
-    setState(() {});
-  }
+  void _onUploadChanged() => setState(() {});
 
   @override
   void dispose() {
     _uploadQueueManager.removeListener(_onUploadChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
   void _filterDocuments() {
     setState(() {
       _filteredDocuments = widget.documents.where((doc) {
-        if (doc.mode != 'Office Function MOVs' && doc.mode != 'Flag Ceremony') return false;
+        if (doc.mode != 'Resolutions') return false;
 
-        // Search filter
         bool matchesSearch =
             _searchQuery.isEmpty ||
             doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -263,19 +236,16 @@ class _AttendanceMovsScreenState
             doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            (doc.title?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
             (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+            (doc.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
             (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
 
-        // Date filter
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
           final docDate = _parseDate(doc.fromOrTo);
-          if (_startDate != null && docDate.isBefore(_startDate!)) {
-            matchesDate = false;
-          }
-          if (_endDate != null && docDate.isAfter(_endDate!)) {
-            matchesDate = false;
-          }
+          if (_startDate != null && docDate.isBefore(_startDate!)) matchesDate = false;
+          if (_endDate != null && docDate.isAfter(_endDate!)) matchesDate = false;
         }
 
         return matchesSearch && matchesDate;
@@ -289,7 +259,7 @@ class _AttendanceMovsScreenState
     if (!mounted) return;
     setState(() {
       _filteredDocuments = allDocs.where((doc) {
-        if (doc.mode != 'Office Function MOVs' && doc.mode != 'Flag Ceremony') return false;
+        if (doc.mode != 'Resolutions') return false;
         bool matchesSearch =
             _searchQuery.isEmpty ||
             doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -297,7 +267,9 @@ class _AttendanceMovsScreenState
             doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            (doc.title?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
             (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+            (doc.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
             (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
@@ -322,415 +294,346 @@ class _AttendanceMovsScreenState
   Widget build(BuildContext context) {
     return ConnectivityBanner(
       child: Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddAttendanceMovScreen(),
-            ),
-          );
-          await _refreshDocuments();
-          if (widget.onRefresh != null) {
-            widget.onRefresh!();
-          }
-        },
-        backgroundColor: const Color(0xFFDC7DED),
-        child: const Icon(Icons.add),
-      ),
-      appBar: AppBar(
-        title: const Text("Office Function MOVs"),
-        backgroundColor: const Color(0xFFDC7DED),
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search documents...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showFilterDialog(context, setState),
-                  tooltip: 'Filter by Date',
-                ),
-              ],
-            ),
-          ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddResolutionScreen(),
+              ),
+            );
+            await _refreshDocuments();
+            if (widget.onRefresh != null) widget.onRefresh!();
+          },
+          backgroundColor: _purple,
+          child: const Icon(Icons.add),
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          if (widget.onRefresh != null) {
-            widget.onRefresh!();
-          }
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              ],
-            ),
-          ),
-          child: _isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Loading documents...',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                )
-              : _filteredDocuments.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No Office Function MOVs found',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
-              : Column(
+        appBar: AppBar(
+          title: const Text("Resolutions"),
+          backgroundColor: _purple,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(80),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
                 children: [
-                  _buildGlobalUploadStatusIndicator(),
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 16,
-                      ),
-                      itemCount: _filteredDocuments.length,
-                      itemBuilder: (context, index) {
-                        final document = _filteredDocuments[index];
-                        final originalIndex = widget.documents.indexOf(document);
-                        final queueManager = UploadQueueManager();
-                        final pendingUploads = queueManager.getPendingUploads(
-                          document.code,
-                        );
-                        final uploadingUploads = queueManager
-                            .getAllItems()
-                            .where(
-                              (item) =>
-                                  item['documentCode'] == document.code &&
-                                  item['status'] == 'uploading',
-                            )
-                            .toList();
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          elevation: 2,
-                          color: document.needsSync ? Colors.grey[100] : null,
-                          child: ExpansionTile(
-                            onExpansionChanged: (expanded) {
-                              setState(() {
-                                if (expanded) {
-                                  _expandedTiles.add(index);
-                                } else {
-                                  _expandedTiles.remove(index);
-                                }
-                              });
-                            },
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF9C27B0),
-                              child: const Icon(
-                                Icons.event_note,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              "${document.category}",
-                              style: const TextStyle(fontWeight: FontWeight.w400),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text("${document.code}  "),
-                                if (_expandedTiles.contains(index))
-                                  IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    onPressed: () {
-                                      Clipboard.setData(
-                                        ClipboardData(text: document.code),
-                                      );
-                                      SnackbarUtils.showInfoSnackBar(
-                                        context,
-                                        'Code copied to clipboard',
-                                      );
-                                    },
-                                    tooltip: 'Copy Code',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            _buildUploadStatusIndicator(document),
-                          ],
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search resolutions...',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceVariant.withOpacity(0.3),
-                                  borderRadius: const BorderRadius.only(
-                                    bottomLeft: Radius.circular(12),
-                                    bottomRight: Radius.circular(12),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (_titleExceedsMaxLines(document.type, context)) ...[
-                                      _buildDetailRow(
-                                        Icons.description,
-                                        "Document Type",
-                                        document.type,
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    if (document.description != null && document.description!.isNotEmpty) ...[
-                                      _buildDetailRow(
-                                        Icons.description,
-                                        "Description",
-                                        document.description!,
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    _buildDetailRow(
-                                      Icons.calendar_today,
-                                      "Receiving Date",
-                                      document.fromOrTo,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildDetailRow(
-                                      Icons.person,
-                                      "Recorded by",
-                                      document.person,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildDetailRow(
-                                      Icons.access_time,
-                                      "Timestamp",
-                                      document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown',
-                                    ),
-                                    if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      GestureDetector(
-                                        onTap: () async {
-                                          final uri = Uri.parse(document.referenceLink!);
-                                          if (await canLaunchUrl(uri)) {
-                                            await launchUrl(uri);
-                                          }
-                                        },
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.link, color: Colors.blue),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                document.referenceLink!,
-                                                style: const TextStyle(
-                                                  color: Colors.blue,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                    if (document.remarks.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      _buildDetailRow(
-                                        Icons.comment,
-                                        "Remarks",
-                                        document.remarks,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        Wrap(
-                                          spacing: 2,
-                                          runSpacing: 2,
-                                          crossAxisAlignment: WrapCrossAlignment.center,
-                                          children: [
-                                        if (_username == document.person)
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => EditDocumentScreen(document: document),
-                                                ),
-                                              ).then((_) {
-                                                if (widget.onRefresh != null) {
-                                                  widget.onRefresh!();
-                                                }
-                                              });
-                                            },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color.fromARGB(255, 78, 127, 218),
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(40, 36),
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                              child: const Icon(Icons.edit, size: 18),
-                                          ),
-                                        if (_username == document.person)
-                                          ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color.fromARGB(255, 218, 87, 78),
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(40, 36),
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                                ),
-                                            ),
-                                            onPressed: () async {
-                                              final deleted = await confirmAndDeleteRecord(
-                                                context,
-                                                document,
-                                                CachedDocumentService(),
-                                              );
-                                              if (deleted && mounted) {
-                                                setState(() {
-                                                  _filteredDocuments.removeAt(index);
-                                                });
-                                                if (widget.onRefresh != null) {
-                                                  widget.onRefresh!();
-                                                }
-                                              }
-                                            },
-                                            child: const Icon(Icons.delete, size: 18),
-                                          ),
-                                        if (document.imageUrls.isNotEmpty ||
-                                            document.localImagePaths.isNotEmpty)
-                                          ElevatedButton(
-                                            onPressed: () => _showImageDialog(
-                                              context,
-                                              document.imageUrls.isNotEmpty
-                                                  ? document.imageUrls
-                                                  : document.localImagePaths,
-                                              documentCode: document.code,
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              minimumSize: const Size(40, 36),
-                                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  8,
-                                                ),
-                                              ),
-                                            ),
-                                            child: const Icon(Icons.image, size: 18),
-                                          ),
-                                        if (document.filePath != null ||
-                                            document.fileUrls.isNotEmpty)
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              final allFiles = <String>[];
-                                              if (document.filePath != null) {
-                                                allFiles.add(document.filePath!);
-                                              }
-                                              allFiles.addAll(document.fileUrls);
-                                              if (allFiles.length == 1) {
-                                                _viewFile(allFiles[0], title: document.title ?? document.type, documentCode: document.code);
-                                              } else {
-                                                _showFileDialog(context, document);
-                                              }
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                                minimumSize: const Size(40, 36),
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  8,
-                                                ),
-                                              ),
-                                            ),
-                                            child: const Icon(Icons.attach_file, size: 18),
-                                          ),
-                                        if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
-                                          ElevatedButton(
-                                            onPressed: () => _shareDocument(document),
-                                            style: ElevatedButton.styleFrom(
-                                                minimumSize: const Size(40, 36),
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            child: const Icon(Icons.share, size: 18),
-                                          ),
-                                      ],
-                                    ),
-                                        const Spacer(),
-                                        if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
-                                          IconButton(
-                                            icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
-                                            tooltip: 'View who opened attachments',
-                                            onPressed: () => _showViewersDialog(context, document.code),
-                                            style: IconButton.styleFrom(
-                                              foregroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      ),
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: () => _showFilterDialog(context, setState),
+                    tooltip: 'Filter by Date',
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            if (widget.onRefresh != null) widget.onRefresh!();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).colorScheme.surface,
+                  Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                ],
+              ),
+            ),
+            child: _isLoading
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading resolutions...', style: TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  )
+                : _filteredDocuments.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No resolutions found',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                : Column(
+                  children: [
+                    _buildGlobalUploadStatusIndicator(),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                        itemCount: _filteredDocuments.length,
+                        itemBuilder: (context, index) {
+                          final document = _filteredDocuments[index];
 
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            elevation: 2,
+                            color: document.needsSync ? Colors.grey[100] : null,
+                            child: ExpansionTile(
+                              onExpansionChanged: (expanded) {
+                                setState(() {
+                                  if (expanded) {
+                                    _expandedTiles.add(index);
+                                  } else {
+                                    _expandedTiles.remove(index);
+                                  }
+                                });
+                              },
+                              leading: const CircleAvatar(
+                                backgroundColor: _purple,
+                                child: Icon(Icons.gavel, color: Colors.white, size: 20),
+                              ),
+                              title: Text(
+                                document.category ?? document.type,
+                                style: const TextStyle(fontWeight: FontWeight.w400),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (document.title != null && document.title!.isNotEmpty)
+                                    Text(
+                                      document.title!,
+                                      style: const TextStyle(fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  Row(
+                                    children: [
+                                      Text("${document.code}  "),
+                                      if (_expandedTiles.contains(index))
+                                        IconButton(
+                                          icon: const Icon(Icons.copy, size: 16),
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: document.code));
+                                            SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                                          },
+                                          tooltip: 'Copy Code',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                    ],
+                                  ),
+                                  _buildUploadStatusIndicator(document),
+                                ],
+                              ),
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                    borderRadius: const BorderRadius.only(
+                                      bottomLeft: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (document.title != null && document.title!.isNotEmpty) ...[
+                                        _buildDetailRow(Icons.title, "Resolution No./Title", document.title!),
+                                        const SizedBox(height: 8),
+                                      ],
+                                      if (document.description != null && document.description!.isNotEmpty) ...[
+                                        _buildDetailRow(Icons.description, "Subject/Description", document.description!),
+                                        const SizedBox(height: 8),
+                                      ],
+                                      _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
+                                      const SizedBox(height: 8),
+                                      _buildDetailRow(Icons.person, "Recorded by", document.person),
+                                      const SizedBox(height: 8),
+                                      _buildDetailRow(
+                                        Icons.access_time,
+                                        "Timestamp",
+                                        document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown',
+                                      ),
+                                      if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final uri = Uri.parse(document.referenceLink!);
+                                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                                          },
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.link, color: Colors.blue),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  document.referenceLink!,
+                                                  style: const TextStyle(
+                                                    color: Colors.blue,
+                                                    decoration: TextDecoration.underline,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      if (document.remarks.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        _buildDetailRow(Icons.comment, "Remarks", document.remarks),
+                                      ],
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Wrap(
+                                            spacing: 2,
+                                            runSpacing: 2,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              if (_username == document.person)
+                                                ElevatedButton(
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => EditDocumentScreen(document: document),
+                                                      ),
+                                                    ).then((_) {
+                                                      if (widget.onRefresh != null) widget.onRefresh!();
+                                                    });
+                                                  },
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: const Color.fromARGB(255, 78, 127, 218),
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(40, 36),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(Icons.edit, size: 18),
+                                                ),
+                                              if (_username == document.person)
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: const Color.fromARGB(255, 218, 87, 78),
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(40, 36),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  onPressed: () async {
+                                                    final deleted = await confirmAndDeleteRecord(
+                                                      context,
+                                                      document,
+                                                      CachedDocumentService(),
+                                                    );
+                                                    if (deleted && mounted) {
+                                                      setState(() => _filteredDocuments.removeAt(index));
+                                                      if (widget.onRefresh != null) widget.onRefresh!();
+                                                    }
+                                                  },
+                                                  child: const Icon(Icons.delete, size: 18),
+                                                ),
+                                              if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty)
+                                                ElevatedButton(
+                                                  onPressed: () => _showImageDialog(
+                                                    context,
+                                                    document.imageUrls.isNotEmpty
+                                                        ? document.imageUrls
+                                                        : document.localImagePaths,
+                                                    documentCode: document.code,
+                                                  ),
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(40, 36),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(Icons.image, size: 18),
+                                                ),
+                                              if (document.filePath != null || document.fileUrls.isNotEmpty)
+                                                ElevatedButton(
+                                                  onPressed: () {
+                                                    final allFiles = <String>[];
+                                                    if (document.filePath != null) allFiles.add(document.filePath!);
+                                                    allFiles.addAll(document.fileUrls);
+                                                    if (allFiles.length == 1) {
+                                                      _viewFile(allFiles[0], title: document.title ?? document.type, documentCode: document.code);
+                                                    } else {
+                                                      _showFileDialog(context, document);
+                                                    }
+                                                  },
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(40, 36),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(Icons.attach_file, size: 18),
+                                                ),
+                                              if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
+                                                ElevatedButton(
+                                                  onPressed: () => _shareDocument(document),
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(40, 36),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(Icons.share, size: 18),
+                                                ),
+                                            ],
+                                          ),
+                                          const Spacer(),
+                                          if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
+                                            IconButton(
+                                              icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
+                                              tooltip: 'View who opened attachments',
+                                              onPressed: () => _showViewersDialog(context, document.code),
+                                              style: IconButton.styleFrom(
+                                                foregroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
           ),
         ),
       ),
     );
   }
-
 
   Future<void> _shareDocument(Document doc) async {
     final title = (doc.title != null && doc.title!.isNotEmpty)
@@ -742,7 +645,6 @@ class _AttendanceMovsScreenState
       return;
     }
 
-    // Web: Google Drive blocks cross-origin fetches (CORS). Share view links instead.
     if (kIsWeb) {
       String? extractFileId(String url) {
         if (url.contains('uc?id=')) return Uri.parse(url).queryParameters['id'];
@@ -786,9 +688,6 @@ class _AttendanceMovsScreenState
       final xFiles = <XFile>[];
       final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*\r\n]'), '').replaceAll(RegExp(r'\s+'), '_').trim();
 
-      // Download images through the Supabase proxy, which authenticates with
-      // the service account — the same mechanism used by the in-app image viewer.
-      // Direct Google Drive downloads are not possible because the folders are private.
       Future<List<int>?> fetchImageViaProxy(String imageUrl) async {
         try {
           final fileId = imageUrl.contains('drive.google.com/uc?id=')
@@ -815,7 +714,6 @@ class _AttendanceMovsScreenState
         }
       }
 
-      // PDFs → Google Drive view links (no download; Messenger can't open PDFs natively)
       String? toViewLink(String url) {
         if (url.contains('uc?id=')) {
           final id = Uri.parse(url).queryParameters['id'];
@@ -837,10 +735,7 @@ class _AttendanceMovsScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      // Clipboard: title + any PDF links so user can paste them in Messenger
-      final clipboardText = pdfLinks.isEmpty
-          ? title
-          : '$title\n\n${pdfLinks.join('\n')}';
+      final clipboardText = pdfLinks.isEmpty ? title : '$title\n\n${pdfLinks.join('\n')}';
       await Clipboard.setData(ClipboardData(text: clipboardText));
 
       if (mounted) {
@@ -853,7 +748,6 @@ class _AttendanceMovsScreenState
       }
 
       if (xFiles.isNotEmpty) {
-        // Omit text: title — Messenger drops attached files when a text extra is present.
         await Share.shareXFiles(xFiles, subject: title);
       } else if (pdfLinks.isNotEmpty) {
         await Share.share(clipboardText, subject: title);
@@ -941,17 +835,12 @@ class _AttendanceMovsScreenState
       barrierDismissible: true,
       builder: (_) => StatefulBuilder(
         builder: (context, dialogSetState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(
-                Icons.filter_list,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              const Text("Filter Documents", style: TextStyle(fontSize: 16)),
+              const Text("Filter Resolutions", style: TextStyle(fontSize: 16)),
             ],
           ),
           content: SingleChildScrollView(
@@ -969,9 +858,7 @@ class _AttendanceMovsScreenState
                   decoration: InputDecoration(
                     labelText: "Specific Date",
                     prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -1001,9 +888,7 @@ class _AttendanceMovsScreenState
                   decoration: InputDecoration(
                     labelText: "Start Date",
                     prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -1016,8 +901,7 @@ class _AttendanceMovsScreenState
                       dialogSetState(() {});
                       setState(() {
                         _startDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
                       });
                     }
                   },
@@ -1033,9 +917,7 @@ class _AttendanceMovsScreenState
                   decoration: InputDecoration(
                     labelText: "End Date",
                     prefixIcon: const Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -1048,8 +930,7 @@ class _AttendanceMovsScreenState
                       dialogSetState(() {});
                       setState(() {
                         _endDate = picked;
-                        _specificDate =
-                            null; // Clear specific date if range is used
+                        _specificDate = null;
                       });
                     }
                   },
@@ -1075,9 +956,7 @@ class _AttendanceMovsScreenState
               icon: const Icon(Icons.filter_list),
               label: const Text("Apply"),
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () {
                 _filterDocuments();
@@ -1090,26 +969,20 @@ class _AttendanceMovsScreenState
     );
   }
 
-  /// Extract file ID from various Google Drive URL formats
   String? _extractFileId(String url) {
     if (url.contains('drive.google.com')) {
       final uri = Uri.parse(url);
       if (url.contains('/file/d/')) {
-        // Format: https://drive.google.com/file/d/FILE_ID/view
         final segments = uri.pathSegments;
         final fileIndex = segments.indexOf('d');
         if (fileIndex != -1 && fileIndex + 1 < segments.length) {
           return segments[fileIndex + 1];
         }
       } else if (url.contains('uc?id=')) {
-        // Format: https://drive.google.com/uc?id=FILE_ID
         return uri.queryParameters['id'];
       }
     }
-    // Assume it's already a file ID if it matches the pattern
-    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) {
-      return url;
-    }
+    if (RegExp(r'^[a-zA-Z0-9_-]{20,}$').hasMatch(url)) return url;
     return null;
   }
 
@@ -1150,13 +1023,10 @@ class _AttendanceMovsScreenState
     }
   }
 
-
   Future<void> _loadUsername() async {
     final username = await AuthService.getUsername();
     if (username != null && username.isNotEmpty) {
-      setState(() {
-        _username = username;
-      });
+      if (mounted) setState(() => _username = username);
     }
   }
 }
@@ -1175,6 +1045,7 @@ class _ViewersDialogState extends State<_ViewersDialog> {
     super.initState();
     _future = AttachmentViewService.getViewers(widget.documentCode);
   }
+
   String _formatDate(DateTime dt) {
     final h = dt.hour;
     final m = dt.minute.toString().padLeft(2, '0');
@@ -1182,6 +1053,7 @@ class _ViewersDialogState extends State<_ViewersDialog> {
     final displayH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
     return '${dt.month}/${dt.day}/${dt.year} $displayH:$m $amPm';
   }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -1205,7 +1077,7 @@ class _ViewersDialogState extends State<_ViewersDialog> {
             }
             return ListView.separated(
               itemCount: viewers.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final v = viewers[i];
                 return ListTile(

@@ -38,6 +38,8 @@ const Map<String, String> typeMapping = {
   'Dept. Heads Meeting': 'DHM',
   'DTR': 'DTR',
   'Earthquake Drills': 'EQD',
+  'Flag Lowering': 'FL',
+  'Flag Raising': 'FR',
   'Ecological Profile': 'ECO',
   'L&D/IDP/DNA': 'LID',
   'Liquidation/Reimbursement': 'LIQ',
@@ -163,6 +165,8 @@ const List<String> supportFunctions = [
   'Dept. Heads Meeting',
   'DTR',
   'Earthquake Drills',
+  'Flag Lowering',
+  'Flag Raising',
   'L&D/IDP/DNA',
   'Man. Com',
   'Monthly Accomplishment Report',
@@ -171,4 +175,12 @@ const List<String> supportFunctions = [
   'Quarterly Accomplishment Report',
   'Tree Planting',
   'Others',
+];
+
+const List<String> resolutionTypes = [
+  'CDC – Resolution',
+  'Execom Resolution',
+  'Resolution',
+  'SP Ordinance',
+  'SP Resolution',
 ];

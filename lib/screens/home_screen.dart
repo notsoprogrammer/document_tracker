@@ -14,8 +14,8 @@ import '../services/user_activity_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
-import 'add_flag_ceremony_screen.dart';
-import 'flag_ceremony_documents_screen.dart';
+import 'add_resolution_screen.dart';
+import 'resolutions_screen.dart';
 import 'attendance_movs_screen.dart';
 import 'add_attendance_movs_screen.dart';
 import 'delete_history_screen.dart';
@@ -734,8 +734,8 @@ Positioned(
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
-                  _buildPill('Flag Ceremony', '', () {
-                    _showFlagCeremonyForm(context);
+                  _buildPill('Resolutions', '', () {
+                    _showResolutionsForm(context);
                     setState(() => _showPills = false);
                   }),
                   const SizedBox(height: 8),
@@ -862,7 +862,7 @@ Positioned(
   Widget _buildFoldersSection() {
     final incomingCount = documents.where((d) =>
         d.incoming &&
-        d.mode != 'Flag Ceremony' &&
+        d.mode != 'Resolutions' &&
         d.mode != 'Office Function MOVs' &&
         d.mode != 'Locational & Zoning' &&
         d.mode != 'CDC Documents' &&
@@ -870,14 +870,14 @@ Positioned(
         d.mode != 'Reclassification').length;
     final outgoingCount = documents.where((d) =>
         !d.incoming &&
-        d.mode != 'Flag Ceremony' &&
+        d.mode != 'Resolutions' &&
         d.mode != 'Office Function MOVs' &&
         d.mode != 'Locational & Zoning' &&
         d.mode != 'CDC Documents' &&
         d.mode != 'SP Documents' &&
         d.mode != 'Reclassification').length;
-    final flagCount = documents.where((d) => d.mode == 'Flag Ceremony').length;
-    final movsCount = documents.where((d) => d.mode == 'Office Function MOVs').length;
+    final resolutionCount = documents.where((d) => d.mode == 'Resolutions').length;
+    final movsCount = documents.where((d) => d.mode == 'Office Function MOVs' || d.mode == 'Flag Ceremony').length;
     final lzCount = documents.where((d) => d.mode == 'Locational & Zoning').length;
     final cdcCount = documents.where((d) => d.mode == 'CDC Documents').length;
     final spCount = documents.where((d) => d.mode == 'SP Documents').length;
@@ -968,21 +968,21 @@ Positioned(
           children: [
             Expanded(
               child: _buildFolderCard(
-                icon: Icons.flag_outlined,
-                title: "Flag Ceremony",
-                subtitle: "Ceremony docs",
-                count: flagCount,
+                icon: Icons.gavel_outlined,
+                title: "Resolutions",
+                subtitle: "All resolution types",
+                count: resolutionCount,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF80CBC4), Color(0xFF00695C)],
+                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Flag Ceremony');
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Resolutions');
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => FlagCeremonyDocumentsScreen(
+                      builder: (context) => ResolutionsScreen(
                         documents: documents,
                         transferDocument: _transferDocument,
                         updateDocumentStatus: _updateDocumentStatus,
@@ -1566,12 +1566,12 @@ Positioned(
     await Future.wait([_loadDocuments(), _loadTodayActivities()]);
   }
 
-  void _showFlagCeremonyForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Flag Ceremony');
+  void _showResolutionsForm(BuildContext context) async {
+    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Resolution');
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AddFlagCeremonyScreen(),
+        builder: (context) => const AddResolutionScreen(),
       ),
     );
     await Future.wait([_loadDocuments(), _loadTodayActivities()]);
