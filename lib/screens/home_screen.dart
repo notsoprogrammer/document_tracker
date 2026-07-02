@@ -1276,7 +1276,7 @@ Positioned(
     if (doc.mode == 'CDC Documents') return 'CDC Documents';
     if (doc.mode == 'SP Documents') return 'SP Documents';
     if (doc.mode == 'Reclassification') return 'Reclassification';
-    return doc.incoming ? 'Incoming' : 'Outgoing';
+    return doc.flowStage == 'incoming' ? 'Incoming' : 'Outgoing';
   }
 
   void _navigateToDocumentFolder(Document doc) {
@@ -1341,7 +1341,7 @@ Positioned(
         onRefresh: _loadDocuments,
         initialDocumentCode: doc.code,
       );
-    } else if (doc.incoming) {
+    } else if (doc.flowStage == 'incoming') {
       screen = IncomingDocumentsScreen(
         documents: documents,
         transferDocument: _transferDocument,
