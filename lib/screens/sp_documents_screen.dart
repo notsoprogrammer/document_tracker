@@ -28,6 +28,7 @@ class SpDocumentsScreen extends StatefulWidget {
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
+  final String? initialDocumentCode;
 
   const SpDocumentsScreen({
     super.key,
@@ -37,6 +38,7 @@ class SpDocumentsScreen extends StatefulWidget {
     required this.deleteDocument,
     required this.syncDocument,
     this.onRefresh,
+    this.initialDocumentCode,
   });
 
   @override
@@ -120,6 +122,13 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
           final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
           return bDate.compareTo(aDate);
         });
+    if (widget.initialDocumentCode != null) {
+      _filteredDocuments = _filteredDocuments
+          .where((d) => d.code == widget.initialDocumentCode)
+          .toList();
+      _searchQuery = widget.initialDocumentCode!;
+      _searchController.text = widget.initialDocumentCode!;
+    }
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();

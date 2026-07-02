@@ -27,6 +27,7 @@ class ResolutionsScreen extends StatefulWidget {
   final Function(int) deleteDocument;
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
+  final String? initialDocumentCode;
 
   const ResolutionsScreen({
     super.key,
@@ -36,6 +37,7 @@ class ResolutionsScreen extends StatefulWidget {
     required this.deleteDocument,
     required this.syncDocument,
     this.onRefresh,
+    this.initialDocumentCode,
   });
 
   @override
@@ -207,6 +209,13 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
         .where((doc) => doc.mode == 'Resolutions')
         .toList()
       ..sort((a, b) => _parseDate(b.fromOrTo).compareTo(_parseDate(a.fromOrTo)));
+    if (widget.initialDocumentCode != null) {
+      _filteredDocuments = _filteredDocuments
+          .where((d) => d.code == widget.initialDocumentCode)
+          .toList();
+      _searchQuery = widget.initialDocumentCode!;
+      _searchController.text = widget.initialDocumentCode!;
+    }
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();

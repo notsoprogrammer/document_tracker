@@ -35,6 +35,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
   final Function(String) syncDocument;
   final VoidCallback? onRefresh;
   final Future<void> Function() syncAllDocuments;
+  final String? initialDocumentCode;
 
   const OutgoingDocumentsScreen({
     super.key,
@@ -46,6 +47,7 @@ class OutgoingDocumentsScreen extends StatefulWidget {
     required this.syncDocument,
     this.onRefresh,
     required this.syncAllDocuments,
+    this.initialDocumentCode,
   });
 
   @override
@@ -144,6 +146,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       final bDate = b.history.isNotEmpty ? b.history.last.timestamp : (b.createdAt ?? DateTime(1900));
       return bDate.compareTo(aDate);
     });
+    if (widget.initialDocumentCode != null) {
+      _filteredDocuments = _filteredDocuments
+          .where((d) => d.code == widget.initialDocumentCode)
+          .toList();
+      _searchQuery = widget.initialDocumentCode!;
+      _searchController.text = widget.initialDocumentCode!;
+    }
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     // Simulate loading for better UX - keep it longer to show the indicator

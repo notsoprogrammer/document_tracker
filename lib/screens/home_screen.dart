@@ -537,6 +537,55 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search_outlined),
+            tooltip: 'Search all documents',
+            onPressed: () async {
+              final doc = await showSearch<Document?>(
+                context: context,
+                delegate: _DocumentSearchDelegate(
+                  documents: documents,
+                  getFolderName: _getFolderName,
+                ),
+              );
+              if (doc != null && mounted) _navigateToDocumentFolder(doc);
+            },
+          ),
+          if (documents.any((d) => d.status == 'Urgent'))
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.warning_amber_rounded, color: Colors.red[700]),
+                  tooltip: 'Urgent documents',
+                  onPressed: () async {
+                    final doc = await showSearch<Document?>(
+                      context: context,
+                      delegate: _DocumentSearchDelegate(
+                        documents: documents,
+                        getFolderName: _getFolderName,
+                        urgentOnly: true,
+                      ),
+                    );
+                    if (doc != null && mounted) _navigateToDocumentFolder(doc);
+                  },
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${documents.where((d) => d.status == 'Urgent').length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_outlined),
             onSelected: (value) {
@@ -684,11 +733,6 @@ body: Container(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 34,
-                    child: Center(child: _buildUrgentIndicator()),
-                  ),
                   const SizedBox(height: 10),
                   _buildHeaderCard(),
                   const SizedBox(height: 14),
@@ -991,7 +1035,7 @@ Positioned(
             Expanded(
               child: _buildFolderCard(
                 icon: Icons.gavel_outlined,
-                title: "Resolutions",
+                title: "Other Resolutions",
                 subtitle: "All resolution types",
                 count: resolutionCount,
                 gradient: const LinearGradient(
@@ -1225,27 +1269,105 @@ Positioned(
     );
   }
 
-  Widget _buildUrgentIndicator() {
-    final urgentCount = documents.where((doc) => doc.status == 'Urgent').length;
-    if (urgentCount == 0) {
-      return const SizedBox.shrink();
-    }
-    return Chip(
-      avatar: const Icon(Icons.warning, color: Colors.red, size: 16),
-      label: Text(
-        'Urgent: $urgentCount',
-        style: const TextStyle(
-          color: Colors.red,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
-      ),
-      backgroundColor: Colors.redAccent.withOpacity(0.1),
-      side: BorderSide(color: Colors.redAccent.withOpacity(0.4)),
-      elevation: 2,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    );
+  String _getFolderName(Document doc) {
+    if (doc.mode == 'Resolutions') return 'Other Resolutions';
+    if (doc.mode == 'Office Function MOVs' || doc.mode == 'Flag Ceremony') return 'Function MOVs';
+    if (doc.mode == 'Locational & Zoning') return 'Locational & Zoning';
+    if (doc.mode == 'CDC Documents') return 'CDC Documents';
+    if (doc.mode == 'SP Documents') return 'SP Documents';
+    if (doc.mode == 'Reclassification') return 'Reclassification';
+    return doc.incoming ? 'Incoming' : 'Outgoing';
   }
+
+  void _navigateToDocumentFolder(Document doc) {
+    Widget screen;
+    if (doc.mode == 'Resolutions') {
+      screen = ResolutionsScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.mode == 'Office Function MOVs' || doc.mode == 'Flag Ceremony') {
+      screen = AttendanceMovsScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.mode == 'Locational & Zoning') {
+      screen = LocalationalZoningScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.mode == 'CDC Documents') {
+      screen = CdcScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.mode == 'SP Documents') {
+      screen = SpDocumentsScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.mode == 'Reclassification') {
+      screen = ReclassificationScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else if (doc.incoming) {
+      screen = IncomingDocumentsScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        syncAllDocuments: _syncAllDocuments,
+        initialDocumentCode: doc.code,
+      );
+    } else {
+      screen = OutgoingDocumentsScreen(
+        documents: documents,
+        transferDocument: _transferDocument,
+        updateDocumentStatus: _updateDocumentStatus,
+        deleteDocument: _deleteDocument,
+        syncDocument: _syncDocument,
+        onRefresh: _loadDocuments,
+        syncAllDocuments: _syncAllDocuments,
+        initialDocumentCode: doc.code,
+      );
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
+        .then((_) { if (mounted) _loadDocuments(); });
+  }
+
 
   Widget _buildTodayActivitiesSection() {
     return Container(
@@ -1812,4 +1934,143 @@ Positioned(
   }
 
 
+}
+
+class _DocumentSearchDelegate extends SearchDelegate<Document?> {
+  final List<Document> documents;
+  final String Function(Document) getFolderName;
+  final bool urgentOnly;
+
+  _DocumentSearchDelegate({
+    required this.documents,
+    required this.getFolderName,
+    this.urgentOnly = false,
+  });
+
+  @override
+  String get searchFieldLabel => 'Search all documents...';
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+    if (query.isNotEmpty)
+      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+  ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+    icon: const Icon(Icons.arrow_back),
+    onPressed: () => close(context, null),
+  );
+
+  @override
+  Widget buildResults(BuildContext context) => _buildList(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildList(context);
+
+  List<Document> get _filtered {
+    final base = urgentOnly
+        ? documents.where((d) => d.status == 'Urgent').toList()
+        : List<Document>.from(documents);
+    if (query.trim().isEmpty) return base;
+    final q = query.toLowerCase();
+    return base.where((d) =>
+      d.code.toLowerCase().contains(q) ||
+      (d.title?.toLowerCase().contains(q) ?? false) ||
+      d.type.toLowerCase().contains(q) ||
+      d.status.toLowerCase().contains(q) ||
+      (d.assignedTo.toLowerCase().contains(q))
+    ).toList();
+  }
+
+  Widget _buildList(BuildContext context) {
+    final results = _filtered;
+    if (results.isEmpty) {
+      return Center(
+        child: Text(
+          query.isEmpty ? 'Type to search documents' : 'No documents found',
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: results.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final doc = results[i];
+        final folder = getFolderName(doc);
+        return ListTile(
+          leading: _statusIcon(doc.status),
+          title: Text(
+            doc.code,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (doc.title != null && doc.title!.isNotEmpty)
+                Text(
+                  doc.title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      folder,
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF1565C0), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _statusColor(doc.status).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      doc.status,
+                      style: TextStyle(fontSize: 10, color: _statusColor(doc.status), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          trailing: const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+          onTap: () => close(context, doc),
+        );
+      },
+    );
+  }
+
+  Widget _statusIcon(String status) {
+    switch (status) {
+      case 'Urgent':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20);
+      case 'Completed':
+        return const Icon(Icons.check_circle_outline, color: Colors.green, size: 20);
+      case 'For Compliance':
+        return const Icon(Icons.access_time, color: Colors.orange, size: 20);
+      default:
+        return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Urgent': return Colors.red;
+      case 'Completed': return Colors.green;
+      case 'For Compliance': return Colors.orange;
+      default: return Colors.blueGrey;
+    }
+  }
 }
