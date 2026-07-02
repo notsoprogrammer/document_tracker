@@ -389,6 +389,7 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
     try {
       final updates = {
         'type': _selectedCeremonyType,
+        'category': _selectedCeremonyType,
         'from_or_to': dateStr,
         'remarks': _remarksController.text.trim(),
         'image_urls': _currentImageUrls,

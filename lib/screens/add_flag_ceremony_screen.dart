@@ -564,18 +564,28 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       lastDate: DateTime(2030),
     );
     if (picked != null && picked != selectedDate) {
+      final oldCode = codeController.text;
       setState(() {
         selectedDate = picked;
         codeController.text = _generateCode();
       });
+      final newCode = codeController.text;
+      if (oldCode != newCode && newCode != '-') {
+        UploadQueueManager().updateDocumentCode(oldCode, newCode);
+      }
     }
   }
 
   void _onCeremonyTypeChanged(String? value) {
+    final oldCode = codeController.text;
     setState(() {
       selectedCeremonyType = value;
       codeController.text = _generateCode();
     });
+    final newCode = codeController.text;
+    if (oldCode != newCode && newCode != '-') {
+      UploadQueueManager().updateDocumentCode(oldCode, newCode);
+    }
   }
 
   @override
@@ -1033,6 +1043,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                       final doc = Document(
                         code: code,
                         type: ceremonyType,
+                        category: ceremonyType,
                         fromOrTo: dateStr,
                         mode: 'Flag Ceremony',
                         assignedTo: person,

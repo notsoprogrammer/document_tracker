@@ -149,6 +149,32 @@ class UploadQueueManager extends ChangeNotifier {
     return _webBytesCache['$documentCode:$filePath'];
   }
 
+  /// Re-key all queue entries from [oldCode] to [newCode] (e.g. when '-' placeholder is replaced by the real code)
+  void updateDocumentCode(String oldCode, String newCode) async {
+    if (oldCode == newCode) return;
+    for (final item in _uploadQueue) {
+      if (item['documentCode'] == oldCode) {
+        item['documentCode'] = newCode;
+      }
+    }
+    // Re-key web bytes cache
+    final keysToUpdate = _webBytesCache.keys.where((k) => k.startsWith('$oldCode:')).toList();
+    for (final key in keysToUpdate) {
+      final filePath = key.substring(oldCode.length + 1);
+      final bytes = _webBytesCache.remove(key);
+      if (bytes != null) _webBytesCache['$newCode:$filePath'] = bytes;
+    }
+    // Persist to SQLite
+    if (!kIsWeb) {
+      try {
+        await SQLiteDatabaseService().updatePendingUploadsDocumentCode(oldCode, newCode);
+      } catch (e) {
+        debugPrint('Error updating document code in SQLite: $e');
+      }
+    }
+    debugPrint('Renamed queue entries from $oldCode to $newCode');
+  }
+
   /// Remove a file from the upload queue
   void removeFromQueue(String documentCode, String filePath) async {
     _uploadQueue.removeWhere(

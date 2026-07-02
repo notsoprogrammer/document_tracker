@@ -771,6 +771,16 @@ class SQLiteDatabaseService {
     await db.delete('pending_uploads', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> updatePendingUploadsDocumentCode(String oldCode, String newCode) async {
+    final db = await database;
+    await db.update(
+      'pending_uploads',
+      {'document_code': newCode},
+      where: 'document_code = ?',
+      whereArgs: [oldCode],
+    );
+  }
+
   Future<void> removePendingUploadByDocumentAndPath(String documentCode, String filePath) async {
     final db = await database;
     await db.delete(

@@ -397,6 +397,10 @@ class SQLiteDatabaseService {
   }
 
   /// Remove a pending upload by document code and file path (stub for web)
+  Future<void> updatePendingUploadsDocumentCode(String oldCode, String newCode) async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+  }
+
   Future<void> removePendingUploadByDocumentAndPath(String documentCode, String filePath) async {
     // Stub: Web version handles uploads in-memory via UploadQueueManager
     print('removePendingUploadByDocumentAndPath called on web - uploads handled in-memory');
