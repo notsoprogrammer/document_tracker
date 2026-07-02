@@ -996,23 +996,23 @@ Positioned(
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
+                        Expanded(
               child: _buildFolderCard(
-                icon: Icons.event_note_outlined,
-                title: "Function MOVs",
-                subtitle: "Office activities",
-                count: movsCount,
+                icon: Icons.gavel_outlined,
+                title: "SP Documents",
+                subtitle: "Resolutions & ordinances",
+                count: spCount,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
+                  colors: [Color(0xFF7986CB), Color(0xFF283593)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'SP Documents');
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AttendanceMovsScreen(
+                      builder: (context) => SpDocumentsScreen(
                         documents: documents,
                         transferDocument: _transferDocument,
                         updateDocumentStatus: _updateDocumentStatus,
@@ -1098,21 +1098,21 @@ Positioned(
           children: [
             Expanded(
               child: _buildFolderCard(
-                icon: Icons.gavel_outlined,
-                title: "SP Documents",
-                subtitle: "Resolutions & ordinances",
-                count: spCount,
+                icon: Icons.event_note_outlined,
+                title: "Function MOVs",
+                subtitle: "Office activities",
+                count: movsCount,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF7986CB), Color(0xFF283593)],
+                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'SP Documents');
+                  UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => SpDocumentsScreen(
+                      builder: (context) => AttendanceMovsScreen(
                         documents: documents,
                         transferDocument: _transferDocument,
                         updateDocumentStatus: _updateDocumentStatus,
