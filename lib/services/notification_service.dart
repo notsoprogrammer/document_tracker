@@ -310,7 +310,7 @@ class NotificationService {
 
     final thirtyMinBefore = startTime.subtract(const Duration(minutes: 30));
     final floor = DateTime(
-      thirtyMinBefore.year, thirtyMinBefore.month, thirtyMinBefore.day, 7, 50,
+      thirtyMinBefore.year, thirtyMinBefore.month, thirtyMinBefore.day, 8, 10,
     );
     final reminderTime = thirtyMinBefore.isBefore(floor) ? floor : thirtyMinBefore;
 

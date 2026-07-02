@@ -241,11 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isTodayActivitiesLoading = false;
       });
 
-      // Fire a once-per-day local notification summarising today's events
-      NotificationService().showTodayActivityNotification(
-        activities: activities,
-        calendarDocs: calendarDocs,
-      );
+
     } catch (_) {
       setState(() {
         _isTodayActivitiesLoading = false;
