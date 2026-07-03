@@ -19,6 +19,7 @@ import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
+import '../widgets/document_search_bar.dart';
 
 class ResolutionsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -214,10 +215,6 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      _searchQuery = _searchController.text;
-      _filterDocuments();
-    });
     _filteredDocuments = widget.documents
         .where((doc) => doc.mode == 'Resolutions')
         .toList()
@@ -335,33 +332,18 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
           backgroundColor: _purple,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(80),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search resolutions...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.filter_list),
-                    onPressed: () => _showFilterDialog(context, setState),
-                    tooltip: 'Filter by Date',
-                  ),
-                ],
-              ),
+            preferredSize: const Size.fromHeight(104),
+            child: DocumentSearchBar(
+              controller: _searchController,
+              onSearch: (query) {
+                _searchQuery = query;
+                _filterDocuments();
+              },
+              onFilterTap: () => _showFilterDialog(context, setState),
+              hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
+              resultCount: _filteredDocuments.length,
+              totalCount: widget.documents.where((d) => d.mode == 'Resolutions').length,
+              hintText: 'Search by code, title, category...',
             ),
           ),
         ),

@@ -25,6 +25,7 @@ import 'edit_document_screen.dart';
 import 'add_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
+import '../widgets/document_search_bar.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -72,12 +73,6 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   void initState() {
     super.initState();
     _searchController.text = _searchQuery;
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-        _updateFilteredDocuments();
-      });
-    });
     _filteredDocuments = widget.documents.where((doc) => doc.flowStage == 'incoming').toList();
     _subscribeToDocumentChanges();
     _filteredDocuments.sort((a, b) {
@@ -1393,46 +1388,17 @@ Widget _buildUploadStatusIndicator(Document doc) {
         foregroundColor: Colors.white,
 
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    textDirection: TextDirection.ltr,
-                    decoration: InputDecoration(
-                      hintText: 'Search documents...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  _searchQuery = '';
-                                  _searchController.clear();
-                                  _updateFilteredDocuments();
-                                });
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showFilterDialog(context, setState),
-                  tooltip: 'Filter by Date',
-                ),
-              ],
-            ),
+          preferredSize: const Size.fromHeight(104),
+          child: DocumentSearchBar(
+            controller: _searchController,
+            onSearch: (query) {
+              _searchQuery = query;
+              _updateFilteredDocuments();
+            },
+            onFilterTap: () => _showFilterDialog(context, setState),
+            hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
+            resultCount: _filteredDocuments.length,
+            totalCount: widget.documents.where((d) => d.flowStage == 'incoming').length,
           ),
         ),
       ),

@@ -19,6 +19,7 @@ import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
+import '../widgets/document_search_bar.dart';
 
 class AttendanceMovsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -234,10 +235,6 @@ class _AttendanceMovsScreenState
   void initState() {
     super.initState();
     _searchController.text = _searchQuery;
-    _searchController.addListener(() {
-      _searchQuery = _searchController.text;
-      _filterDocuments();
-    });
     _filteredDocuments = widget.documents
         .where((doc) => doc.mode == 'Office Function MOVs' || doc.mode == 'Flag Ceremony')
         .toList()
@@ -365,33 +362,17 @@ class _AttendanceMovsScreenState
         backgroundColor: const Color(0xFFDC7DED),
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search documents...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () => _showFilterDialog(context, setState),
-                  tooltip: 'Filter by Date',
-                ),
-              ],
-            ),
+          preferredSize: const Size.fromHeight(104),
+          child: DocumentSearchBar(
+            controller: _searchController,
+            onSearch: (query) {
+              _searchQuery = query;
+              _filterDocuments();
+            },
+            onFilterTap: () => _showFilterDialog(context, setState),
+            hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
+            resultCount: _filteredDocuments.length,
+            totalCount: widget.documents.where((d) => d.mode == 'Office Function MOVs' || d.mode == 'Flag Ceremony').length,
           ),
         ),
       ),
