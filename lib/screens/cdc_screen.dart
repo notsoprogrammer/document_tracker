@@ -21,6 +21,7 @@ import 'edit_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
+import '../widgets/document_filter_dialog.dart';
 
 class CdcScreen extends StatefulWidget {
   final List<Document> documents;
@@ -643,32 +644,19 @@ class _CdcScreenState extends State<CdcScreen> {
   }
 
   void _showFilterDialog(BuildContext context, StateSetter setState) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => StatefulBuilder(
-        builder: (context, dialogSetState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(children: [Icon(Icons.filter_list, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 8), const Text("Filter Documents", style: TextStyle(fontSize: 16))]),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 16),
-                TextField(readOnly: true, controller: TextEditingController(text: _specificDate != null ? "${_specificDate!.month}/${_specificDate!.day}/${_specificDate!.year}" : ''), decoration: InputDecoration(labelText: "Specific Date", prefixIcon: const Icon(Icons.calendar_today), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), onTap: () async { final picked = await showDatePicker(context: context, initialDate: _specificDate ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime.now()); if (picked != null) { dialogSetState(() {}); setState(() { _specificDate = picked; _startDate = picked; _endDate = picked; }); } }),
-                const SizedBox(height: 16),
-                TextField(readOnly: true, controller: TextEditingController(text: _startDate != null ? "${_startDate!.month}/${_startDate!.day}/${_startDate!.year}" : ''), decoration: InputDecoration(labelText: "Start Date", prefixIcon: const Icon(Icons.calendar_today), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), onTap: () async { final picked = await showDatePicker(context: context, initialDate: _startDate ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime.now()); if (picked != null) { dialogSetState(() {}); setState(() { _startDate = picked; _specificDate = null; }); } }),
-                const SizedBox(height: 16),
-                TextField(readOnly: true, controller: TextEditingController(text: _endDate != null ? "${_endDate!.month}/${_endDate!.day}/${_endDate!.year}" : ''), decoration: InputDecoration(labelText: "End Date", prefixIcon: const Icon(Icons.calendar_today), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), onTap: () async { final picked = await showDatePicker(context: context, initialDate: _endDate ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime.now()); if (picked != null) { dialogSetState(() {}); setState(() { _endDate = picked; _specificDate = null; }); } }),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () { dialogSetState(() {}); setState(() { _specificDate = null; _startDate = null; _endDate = null; }); _filterDocuments(); Navigator.pop(context); }, child: const Text("Clear All")),
-            ElevatedButton.icon(icon: const Icon(Icons.filter_list), label: const Text("Apply"), style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), onPressed: () { _filterDocuments(); Navigator.pop(context); }),
-          ],
-        ),
-      ),
+    DocumentFilterDialog.show(
+      context,
+      specificDate: _specificDate,
+      startDate: _startDate,
+      endDate: _endDate,
+      onApply: (specific, start, end) {
+        setState(() {
+          _specificDate = specific;
+          _startDate = start;
+          _endDate = end;
+        });
+        _filterDocuments();
+      },
     );
   }
 
