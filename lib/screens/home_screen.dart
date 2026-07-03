@@ -316,11 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _transferDocument(int index, String newAssignee, String transferredBy, {String? notes}) async {
     try {
       // Update local document
-      if (!documents[index].incoming) {
-        documents[index].addHistoryEntry(newAssignee, transferredBy, notes: notes);
-      } else {
-        documents[index].transferTo(newAssignee, transferredBy, notes: notes);
-      }
+      documents[index].transferTo(newAssignee, transferredBy, notes: notes);
 
       // Update through cached service (handles both local and remote)
       Map<String, dynamic> updates = {'addressed_to': documents[index].assignedTo};
@@ -1036,7 +1032,7 @@ Positioned(
               child: _buildFolderCard(
                 icon: Icons.gavel_outlined,
                 title: "Other Resolutions",
-                subtitle: "All resolution types",
+                subtitle: "City resolutions and others",
                 count: resolutionCount,
                 gradient: const LinearGradient(
                   colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
