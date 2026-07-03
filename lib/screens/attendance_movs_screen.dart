@@ -81,6 +81,19 @@ class _AttendanceMovsScreenState
     return '$month/$day/$year $hour:$minute $amPm';
   }
 
+  Widget _statusIcon(String status) {
+    switch (status) {
+      case 'Urgent':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20);
+      case 'Completed':
+        return const Icon(Icons.check_circle_outline, color: Colors.green, size: 20);
+      case 'For Compliance':
+        return const Icon(Icons.access_time, color: Colors.orange, size: 20);
+      default:
+        return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
+    }
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,12 +437,13 @@ class _AttendanceMovsScreenState
                 children: [
                   _buildGlobalUploadStatusIndicator(),
                   Expanded(
-                    child: ListView.builder(
+                    child: ListView.separated(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 16,
                       ),
                       itemCount: _filteredDocuments.length,
+                      separatorBuilder: (_, __) => const Divider(height: 8, thickness: 1),
                       itemBuilder: (context, index) {
                         final document = _filteredDocuments[index];
                         final originalIndex = widget.documents.indexOf(document);
@@ -446,13 +460,8 @@ class _AttendanceMovsScreenState
                             )
                             .toList();
 
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          elevation: 2,
-                          color: document.needsSync ? Colors.grey[100] : null,
+                        return Container(
+                          color: document.needsSync ? Colors.yellow[100] : null,
                           child: ExpansionTile(
                             onExpansionChanged: (expanded) {
                               setState(() {
@@ -463,48 +472,40 @@ class _AttendanceMovsScreenState
                                 }
                               });
                             },
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF9C27B0),
-                              child: const Icon(
-                                Icons.event_note,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              "${document.category}",
-                              style: const TextStyle(fontWeight: FontWeight.w400),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                            leading: _statusIcon(document.status),
+                            title: Row(
                               children: [
-                                Text("${document.code}  "),
-                                if (_expandedTiles.contains(index))
-                                  IconButton(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    onPressed: () {
-                                      Clipboard.setData(
-                                        ClipboardData(text: document.code),
-                                      );
-                                      SnackbarUtils.showInfoSnackBar(
-                                        context,
-                                        'Code copied to clipboard',
-                                      );
-                                    },
-                                    tooltip: 'Copy Code',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
+                                Expanded(
+                                  child: _expandedTiles.contains(index)
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          Clipboard.setData(ClipboardData(text: document.code));
+                                          SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                                        },
+                                        child: Text(document.code, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline)),
+                                      )
+                                    : Text(document.code, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                ),
+                                if (document.needsSync) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.sync, size: 16, color: Colors.orange),
+                                ],
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            _buildUploadStatusIndicator(document),
-                          ],
-                        ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (document.category != null)
+                                  Text(document.category!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                                const SizedBox(height: 3),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.blueGrey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                  child: Text(document.assignedTo, style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                ),
+                                _buildUploadStatusIndicator(document),
+                              ],
+                            ),
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(16),

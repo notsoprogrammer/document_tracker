@@ -73,6 +73,19 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
     return '${dateTime.month.toString().padLeft(2, '0')}/${dateTime.day.toString().padLeft(2, '0')}/${dateTime.year} $hour:$minute $amPm';
   }
 
+  Widget _statusIcon(String status) {
+    switch (status) {
+      case 'Urgent':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20);
+      case 'Completed':
+        return const Icon(Icons.check_circle_outline, color: Colors.green, size: 20);
+      case 'For Compliance':
+        return const Icon(Icons.access_time, color: Colors.orange, size: 20);
+      default:
+        return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
+    }
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 8), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.primary, fontSize: 12)), Text(value, style: const TextStyle(fontSize: 14))]))]);
   }
@@ -256,27 +269,50 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                     children: [
                       _buildGlobalUploadStatusIndicator(),
                       Expanded(
-                        child: ListView.builder(
+                        child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                           itemCount: _filteredDocuments.length,
+                          separatorBuilder: (_, __) => const Divider(height: 8, thickness: 1),
                           itemBuilder: (context, index) {
                             final document = _filteredDocuments[index];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              elevation: 2,
-                              color: document.needsSync ? Colors.grey[100] : null,
+                            return Container(
+                              color: document.needsSync ? Colors.yellow[100] : null,
                               child: ExpansionTile(
                                 onExpansionChanged: (expanded) { setState(() { if (expanded) _expandedTiles.add(index); else _expandedTiles.remove(index); }); },
-                                leading: CircleAvatar(backgroundColor: const Color(0xFF283593), child: const Icon(Icons.gavel_outlined, color: Colors.white, size: 20)),
-                                title: Text(
-                                  (document.title != null && document.title!.isNotEmpty)
-                                      ? '${document.type} - ${document.title}'
-                                      : document.type,
-                                  style: const TextStyle(fontWeight: FontWeight.w400),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                leading: _statusIcon(document.status),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _expandedTiles.contains(index)
+                                        ? GestureDetector(
+                                            onTap: () {
+                                              Clipboard.setData(ClipboardData(text: document.code));
+                                              SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                                            },
+                                            child: Text(document.code, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline)),
+                                          )
+                                        : Text(document.code, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                    ),
+                                    if (document.needsSync) ...[
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.sync, size: 16, color: Colors.orange),
+                                    ],
+                                  ],
                                 ),
-                                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text('${document.code}  '), if (_expandedTiles.contains(index)) IconButton(icon: const Icon(Icons.copy, size: 16), onPressed: () { Clipboard.setData(ClipboardData(text: document.code)); SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard'); }, tooltip: 'Copy Code', padding: EdgeInsets.zero, constraints: const BoxConstraints())]), const SizedBox(height: 4), _buildUploadStatusIndicator(document)]),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (document.title != null && document.title!.isNotEmpty)
+                                      Text('${document.type} - ${document.title}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(color: Colors.blueGrey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                      child: Text(document.assignedTo, style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                    ),
+                                    _buildUploadStatusIndicator(document),
+                                  ],
+                                ),
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(16),

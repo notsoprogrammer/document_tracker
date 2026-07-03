@@ -364,6 +364,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     return const SizedBox.shrink();
   }
 
+  Widget _statusIcon(String status) {
+    switch (status) {
+      case 'Urgent':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20);
+      case 'Completed':
+        return const Icon(Icons.check_circle_outline, color: Colors.green, size: 20);
+      case 'For Compliance':
+        return const Icon(Icons.access_time, color: Colors.orange, size: 20);
+      default:
+        return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
+    }
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -925,9 +938,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   updatedByController.text,
                                   notes: combinedNotes,
                                 );
-                                Navigator.of(
-                                  context,
-                                ).popUntil((route) => route.isFirst);
+                                Navigator.of(context).pop();
                               }
                             },
                           ),
@@ -1218,19 +1229,15 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               children: [
                 _buildGlobalUploadStatusIndicator(),
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView.separated(
                     padding: const EdgeInsets.only(bottom: 80),
                     itemCount: _filteredDocuments.length,
+                    separatorBuilder: (_, __) => const Divider(height: 8, thickness: 1),
                     itemBuilder: (context, index) {
                       final doc = _filteredDocuments[index];
                       final originalIndex = widget.documents.indexOf(doc);
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  elevation: 2,
-                  color: doc.needsSync ? Colors.grey[100] : null,
+                return Container(
+                  color: doc.needsSync ? Colors.yellow[100] : null,
                   child: ExpansionTile(
                           onExpansionChanged: (expanded) {
                             setState(() {
@@ -1241,88 +1248,70 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                               }
                             });
                           },
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFF2196F3),
-                            child: const Icon(
-                              Icons.arrow_upward,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
+                          leading: _statusIcon(doc.status),
                           title: Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  "${doc.type} - ${doc.title}",
-                                  style: const TextStyle(fontWeight: FontWeight.w400),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: _expandedTiles.contains(index)
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: doc.code));
+                                        SnackbarUtils.showInfoSnackBar(context, 'Code copied to clipboard');
+                                      },
+                                      child: Text(
+                                        doc.code,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline),
+                                      ),
+                                    )
+                                  : Text(
+                                      doc.code,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
                               ),
                               if (doc.needsSync) ...[
                                 const SizedBox(width: 8),
-                                Icon(
-                                  Icons.sync,
-                                  size: 16,
-                                  color: Colors.orange,
-                                ),
+                                Icon(Icons.sync, size: 16, color: Colors.orange),
                               ],
                             ],
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (doc.title != null && doc.title!.isNotEmpty)
+                                Text(
+                                  "${doc.type} - ${doc.title}",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              const SizedBox(height: 3),
                               Row(
                                 children: [
-                                  Icon(
-                                    Icons.output,
-                                    size: 16,
-                                    color: const Color(0xFF2196F3),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  if (_expandedTiles.contains(index))
-                                  GestureDetector(
-                                    onTap: () {
-                                      Clipboard.setData(ClipboardData(text: doc.code));
-                                      SnackbarUtils.showInfoSnackBar(
-                                        context,
-                                        'Code copied to clipboard',
-                                      );
-                                    },
-                                    child: Text(
-                                      doc.code,
-                                      style: const TextStyle(
-                                        color: Colors.blue, // visually indicate it's clickable
-                                        decoration: TextDecoration.underline, // optional
+                                  if (doc.flowStage != 'incoming' && doc.incoming) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFB74D).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFFFB74D).withValues(alpha: 0.4)),
                                       ),
+                                      child: const Text('Fr. Incoming', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D), fontWeight: FontWeight.w500)),
                                     ),
-                                  )
-                                  else
-                                  Text(
-                                    doc.code,
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueGrey.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      doc.assignedTo,
+                                      style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500),
+                                    ),
                                   ),
                                 ],
                               ),
-                              if (doc.flowStage != 'incoming' && doc.incoming) ...[
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFB74D).withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
-                                  ),
-                                  child: const Text(
-                                    'Fr. Incoming',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFFFFB74D),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 4),
                               _buildUploadStatusIndicator(doc),
                             ],
                           ),
