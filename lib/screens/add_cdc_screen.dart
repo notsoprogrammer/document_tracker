@@ -104,7 +104,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
 
     if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
       _isSaving = false;
-      Navigator.pop(context, null);
+      if (mounted) Navigator.pop(context, null);
     }
   }
 
@@ -667,7 +667,6 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         await CachedDocumentService().processPendingUploads();
-                        if (mounted) Navigator.pop(context);
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e');
                         if (mounted) setState(() => _isSaving = false);

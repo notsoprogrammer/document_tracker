@@ -739,7 +739,6 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                           try {
                             await CachedDocumentService().createDocument(doc);
                             await CachedDocumentService().processPendingUploads();
-                            if (mounted) Navigator.pop(context);
                           } catch (e) {
                             if (context.mounted) {
                               SnackbarUtils.showErrorSnackBar(context, 'Failed to save resolution: $e');

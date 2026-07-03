@@ -464,6 +464,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                           onPressed: () {
                             if (imageFiles.isNotEmpty) {
                               final currentIndex = _pageController.page?.round() ?? 0;
+                              UploadQueueManager().removeFromQueue(codeController.text, imageFiles[currentIndex]);
                               setState(() {
                                 _selectedImagePaths.remove(imageFiles[currentIndex]);
                               });

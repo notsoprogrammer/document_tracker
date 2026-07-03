@@ -127,7 +127,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     // If all uploads are done and we were saving, pop the screen
     if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
       _isSaving = false;
-      Navigator.pop(context, null); // Document was already saved
+      if (mounted) Navigator.pop(context, null);
     }
   }
 
@@ -1140,7 +1140,6 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         await CachedDocumentService().processPendingUploads();
-                        if (mounted) Navigator.pop(context);
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);

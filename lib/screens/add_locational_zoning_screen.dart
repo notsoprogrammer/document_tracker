@@ -79,7 +79,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
       _completedUploads = completedUploads.length;
       _uploadStatus = uploadingUploads.isNotEmpty ? 'Uploading ${uploadingUploads.length} file(s)...' : pendingUploads.isEmpty ? 'All uploads completed' : 'Preparing uploads...';
     });
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) { _isSaving = false; Navigator.pop(context, null); }
+    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) { _isSaving = false; if (mounted) Navigator.pop(context, null); }
   }
 
   @override
@@ -461,7 +461,6 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         await CachedDocumentService().processPendingUploads();
-                        if (mounted) Navigator.pop(context);
                       } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e'); if (mounted) setState(() => _isSaving = false); }
                     }
                   },
