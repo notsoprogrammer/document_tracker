@@ -308,10 +308,22 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                                     if (document.title != null && document.title!.isNotEmpty)
                                       Text('${document.type} - ${document.title}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                                     const SizedBox(height: 3),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(color: Colors.blueGrey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                                      child: Text(document.assignedTo, style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(color: Colors.blueGrey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                          child: Text(document.assignedTo, style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                                        ),
+                                        if (document.imageUrls.isEmpty && document.fileUrls.isEmpty && document.filePath == null && document.localImagePaths.isEmpty && document.localFilePaths.isEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          Tooltip(
+                                            message: 'No attachment',
+                                            child: Icon(Icons.image_not_supported_outlined, size: 12, color: Colors.grey[400]),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     _buildUploadStatusIndicator(document),
                                   ],

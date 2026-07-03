@@ -1150,6 +1150,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                       style: const TextStyle(fontSize: 10, color: Colors.blueGrey, fontWeight: FontWeight.w500),
                                     ),
                                   ),
+                                  if (doc.imageUrls.isEmpty && doc.fileUrls.isEmpty && doc.filePath == null && doc.localImagePaths.isEmpty && doc.localFilePaths.isEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Tooltip(
+                                      message: 'No attachment',
+                                      child: Icon(Icons.image_not_supported_outlined, size: 12, color: Colors.grey[400]),
+                                    ),
+                                  ],
                                 ],
                               ),
                               _buildUploadStatusIndicator(doc),
