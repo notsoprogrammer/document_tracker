@@ -79,7 +79,6 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
       _completedUploads = completedUploads.length;
       _uploadStatus = uploadingUploads.isNotEmpty ? 'Uploading ${uploadingUploads.length} file(s)...' : pendingUploads.isEmpty ? 'All uploads completed' : 'Preparing uploads...';
     });
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) { _isSaving = false; if (mounted) Navigator.pop(context, null); }
   }
 
   @override
@@ -476,10 +475,12 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
                         category: selectedType,
                         createdAt: getPhilippineTime(),
                       );
+                      final navigator = Navigator.of(context);
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
-                        await CachedDocumentService().processPendingUploads();
+                        CachedDocumentService().processPendingUploads();
+                        navigator.pop();
                       } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e'); if (mounted) setState(() => _isSaving = false); }
                     }
                   },

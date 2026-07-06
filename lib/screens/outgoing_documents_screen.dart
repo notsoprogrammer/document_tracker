@@ -1031,7 +1031,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
               )
             : Column(
               children: [
-                const UploadStatusBanner(),
+                UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.only(bottom: 80),

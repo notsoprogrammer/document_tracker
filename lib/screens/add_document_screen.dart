@@ -241,12 +241,6 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     });
 
     // If all uploads are done and we were saving, pop the screen
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
-      _isSaving = false;
-      if (mounted) {
-        Navigator.pop(context, null); // Document was already saved
-      }
-    }
   }
 
   Future<ImageSource?> _chooseWebScanSource() {
@@ -1643,50 +1637,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ] : [],
                       );
 
+                      final navigator = Navigator.of(context);
                       setState(() => _isSaving = true);
                       try {
-                        // Create document first
                         await CachedDocumentService().createDocument(doc);
-
-                        // Process pending uploads (files were already queued when selected)
-                        final documentService = CachedDocumentService();
-                        await documentService.processPendingUploads();
-
-                        // Wait a bit for uploads to complete and check status
-                        await Future.delayed(const Duration(seconds: 2));
-
-                        // Check if there are still any pending uploads for this document
-                        final queueManager = UploadQueueManager();
-                        final pendingUploads = queueManager.getPendingUploads(code);
-                        final uploadingUploads = queueManager.getAllItems().where((item) =>
-                          item['documentCode'] == code && item['status'] == 'uploading'
-                        ).toList();
-
-                        if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          if (mounted) {
-                            SnackbarUtils.showInfoSnackBar(context, 'Uploads still in progress — saving when complete.');
-                            setState(() => _isSaving = false);
-                          }
-                          return;
-                        }
-
-                        // Fetch the updated document to get the Google Drive file names
-                        final allDocs = await documentService.fetchDocuments();
-                        final updatedDoc = allDocs.firstWhere((doc) => doc.code == code);
-                        final newAttachmentCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
-                        // Safety check to prevent negative start index
-                        final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
-                        final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
-
-
-                        // Do not add "Files Uploaded" history entry
-
-                        // Sync the document
-                        await documentService.syncSpecificDocument(code);
-
-                        if (mounted) {
-                          Navigator.pop(context);
-                        }
+                        CachedDocumentService().processPendingUploads();
+                        navigator.pop();
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);

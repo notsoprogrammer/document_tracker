@@ -381,7 +381,7 @@ class _AttendanceMovsScreenState
                 )
               : Column(
                 children: [
-                  const UploadStatusBanner(),
+                  UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                   Expanded(
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(

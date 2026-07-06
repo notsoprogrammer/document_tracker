@@ -95,19 +95,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
     }
   }
 
-  void _onUploadStatusChanged() {
-    if (!mounted) return;
-    final queueManager = UploadQueueManager();
-    final pendingUploads = queueManager.getPendingUploads(codeController.text);
-    final allItems = queueManager.getAllItems();
-    final uploadingUploads = allItems.where((item) =>
-        item['documentCode'] == codeController.text && item['status'] == 'uploading').toList();
-
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
-      _isSaving = false;
-      if (mounted) Navigator.pop(context);
-    }
-  }
+  void _onUploadStatusChanged() {}
 
   String _generateCode() {
     final title = titleController.text.trim();
@@ -735,12 +723,14 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             createdAt: getPhilippineTime(),
                           );
 
+                          final navigator = Navigator.of(context);
                           setState(() => _isSaving = true);
                           try {
                             await CachedDocumentService().createDocument(doc);
-                            await CachedDocumentService().processPendingUploads();
+                            CachedDocumentService().processPendingUploads();
+                            navigator.pop();
                           } catch (e) {
-                            if (context.mounted) {
+                            if (mounted) {
                               SnackbarUtils.showErrorSnackBar(context, 'Failed to save resolution: $e');
                               setState(() => _isSaving = false);
                             }

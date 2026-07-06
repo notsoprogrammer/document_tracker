@@ -386,7 +386,7 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
                   )
                 : Column(
                     children: [
-                      const UploadStatusBanner(),
+                      UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                       Expanded(
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),

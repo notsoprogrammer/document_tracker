@@ -269,7 +269,7 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                 ? const Center(child: Text('No SP Documents records found', style: TextStyle(fontSize: 16, color: Colors.grey)))
                 : Column(
                     children: [
-                      const UploadStatusBanner(),
+                      UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                       Expanded(
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),

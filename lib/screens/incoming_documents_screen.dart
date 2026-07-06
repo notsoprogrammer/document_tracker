@@ -1263,7 +1263,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             : _filteredDocuments.isEmpty
             ? Column(
               children: [
-                const UploadStatusBanner(),
+                UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -1296,7 +1296,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             )
             : Column(
               children: [
-                const UploadStatusBanner(),
+                UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.only(bottom: 80),

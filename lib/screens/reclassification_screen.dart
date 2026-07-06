@@ -255,7 +255,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
                 ? const Center(child: Text('No Reclassification records found', style: TextStyle(fontSize: 16, color: Colors.grey)))
                 : Column(
                     children: [
-                      const UploadStatusBanner(),
+                      UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                       Expanded(
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),

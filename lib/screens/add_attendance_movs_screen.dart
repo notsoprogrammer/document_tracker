@@ -124,11 +124,6 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
           : 'Preparing uploads...';
     });
 
-    // If all uploads are done and we were saving, pop the screen
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
-      _isSaving = false;
-      if (mounted) Navigator.pop(context, null);
-    }
   }
 
   Future<ImageSource?> _chooseWebScanSource() {
@@ -1136,10 +1131,12 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         createdAt: getPhilippineTime(),
                       );
 
+                      final navigator = Navigator.of(context);
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
-                        await CachedDocumentService().processPendingUploads();
+                        CachedDocumentService().processPendingUploads();
+                        navigator.pop();
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
                         if (mounted) setState(() => _isSaving = false);

@@ -394,7 +394,7 @@ class _FlagCeremonyDocumentsScreenState
                 )
               : Column(
                 children: [
-                  const UploadStatusBanner(),
+                  UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(
