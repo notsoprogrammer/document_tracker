@@ -77,15 +77,14 @@ class AutoSyncService {
       final allDocuments = await SQLiteDatabaseService().fetchDocuments();
       final unsyncedDocuments = allDocuments.where((doc) => doc.needsSync).toList();
 
-      if (unsyncedDocuments.isEmpty) {
-        return;
+      // Sync documents to Supabase first (so they exist before uploads reference them)
+      if (unsyncedDocuments.isNotEmpty) {
+        await _syncToSupabase(unsyncedDocuments);
       }
 
-
-      // Sync documents to Supabase first
-      await _syncToSupabase(unsyncedDocuments);
-
-      // Then process any pending file uploads (now that documents exist in Supabase)
+      // Always process pending file uploads — not just when there are unsynced docs.
+      // Queue items persist across sessions (SQLite on mobile); without this, a pending
+      // upload on a document that is already synced would never be retried.
       await cachedService.processPendingUploads();
 
     } catch (e) {

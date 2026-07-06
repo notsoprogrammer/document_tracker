@@ -14,6 +14,19 @@ class UploadQueueManager extends ChangeNotifier {
   bool _isProcessing = false;
   bool _isInitialized = false;
 
+  // Debug log — ring buffer of the last 200 events, visible in the upload debug dialog
+  static final List<String> _debugLog = [];
+  static List<String> get debugLog => List.unmodifiable(_debugLog);
+
+  static void log(String message) {
+    final now = DateTime.now();
+    final ts = '${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}:${now.second.toString().padLeft(2,'0')}.${now.millisecond.toString().padLeft(3,'0')}';
+    final entry = '[$ts] $message';
+    _debugLog.add(entry);
+    if (_debugLog.length > 200) _debugLog.removeAt(0);
+    debugPrint('UploadQueue: $entry');
+  }
+
   /// Initialize the queue from SQLite persistence
   Future<void> initialize() async {
     if (_isInitialized) return;

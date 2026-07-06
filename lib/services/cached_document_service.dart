@@ -489,29 +489,83 @@ class CachedDocumentService {
     }
   }
 
+  /// Re-queue any local paths found in documents that are missing from the upload queue.
+  /// This recovers from app restarts where the in-memory queue was lost (web) or items
+  /// were cleared without the uploads completing.
+  Future<void> _recoverStalledUploads() async {
+    try {
+      final queueManager = UploadQueueManager();
+      final queuedPaths = queueManager.getAllItems()
+          .map((item) => item['filePath']?.toString() ?? '')
+          .where((p) => p.isNotEmpty)
+          .toSet();
+
+      final docs = await _localDb.fetchDocuments();
+      int added = 0;
+      for (final doc in docs) {
+        for (final localPath in doc.localImagePaths) {
+          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
+          if (kIsWeb && (localPath.startsWith('blob:') || localPath.startsWith('web_image_'))) continue;
+          queueManager.addToQueue(
+            documentCode: doc.code,
+            filePath: localPath,
+            isImage: true,
+            localPath: localPath,
+          );
+          added++;
+        }
+        for (final localPath in doc.localFilePaths) {
+          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
+          if (kIsWeb && localPath.startsWith('blob:')) continue;
+          queueManager.addToQueue(
+            documentCode: doc.code,
+            filePath: localPath,
+            isImage: false,
+            localPath: localPath,
+          );
+          added++;
+        }
+      }
+      if (added > 0) UploadQueueManager.log('recover: re-queued $added stalled item(s)');
+    } catch (e) {
+      UploadQueueManager.log('recover ERROR: $e');
+      // Never let recovery errors block the upload processing below.
+    }
+  }
+
   /// Process pending file uploads
   Future<void> processPendingUploads({VoidCallback? onUploadComplete}) async {
-    if (!(await isOnline)) return;
+    if (!(await isOnline)) {
+      UploadQueueManager.log('processPendingUploads: skipped — offline');
+      return;
+    }
 
     final queueManager = UploadQueueManager();
 
+    // Recover any local paths in documents that are not yet in the queue
+    await _recoverStalledUploads();
+
     // Prevent concurrent processing
     if (!queueManager.startProcessing()) {
+      UploadQueueManager.log('processPendingUploads: skipped — already processing');
       return;
     }
 
     try {
-      // Get all items: process pending ones and failed ones that haven't hit the retry cap
       final allItems = queueManager.getAllItems();
       final uploadsToProcess = allItems.where((item) {
         if (item['status'] == 'pending') return true;
         if (item['status'] == 'failed') return (item['retryCount'] as int? ?? 0) < 3;
         return false;
       }).toList();
+
+      UploadQueueManager.log('processPendingUploads: starting — ${uploadsToProcess.length} item(s) to process (queue total: ${allItems.length})');
+
       bool hasCompletedUploads = false;
       final Set<String> documentsWithUploads = {};
 
       for (final upload in uploadsToProcess) {
+        final shortPath = (upload['filePath']?.toString() ?? '').split('/').last.split('\\').last;
         try {
           queueManager.updateStatus(
             upload['documentCode'],
@@ -526,7 +580,7 @@ class CachedDocumentService {
           final docs = await _localDb.fetchDocuments();
           final doc = docs.where((d) => d.code == upload['documentCode']).firstOrNull;
           if (doc == null) {
-            // Document not saved yet (e.g. auto-sync fired before user tapped Save) — defer
+            UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — deferring');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
             continue;
           }
@@ -605,9 +659,11 @@ class CachedDocumentService {
           String? driveUrl;
           String uploadedFileName;
 
+          UploadQueueManager.log('  [$shortPath] uploading to folder:${folder.name} isImage:$isImage');
+
           // Check if this is a web camera image (blob URL that we can't handle)
           if (kIsWeb && upload['localPath'].startsWith('blob:')) {
-            // Skip blob URLs - these should have been replaced with bytes in the screens
+            UploadQueueManager.log('  [$shortPath] SKIP — blob URL has no bytes after page reload');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
@@ -672,12 +728,13 @@ class CachedDocumentService {
               uploadedFileName = docFileName;
             }
           } else {
-            // Web file without bytes - this shouldn't happen with our new implementation
+            UploadQueueManager.log('  [$shortPath] FAIL — web file with no bytes');
             queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
             continue;
           }
 
           if (driveUrl != null) {
+            UploadQueueManager.log('  [$shortPath] uploaded OK → $driveUrl');
             // Update document with the uploaded URL
             final documentCode = upload['documentCode'];
             final isImage = upload['isImage'];
@@ -762,24 +819,18 @@ class CachedDocumentService {
             throw Exception('Upload returned null URL');
           }
         } catch (e) {
-          final newRetryCount = upload['retryCount'] + 1;
-          if (newRetryCount >= 3) {
-            queueManager.updateStatus(
-              upload['documentCode'],
-              upload['filePath'],
-              'failed',
-              retryCount: newRetryCount
-            );
-          } else {
-            queueManager.updateStatus(
-              upload['documentCode'],
-              upload['filePath'],
-              'failed',
-              retryCount: newRetryCount
-            );
-          }
+          final newRetryCount = (upload['retryCount'] as int? ?? 0) + 1;
+          UploadQueueManager.log('  [$shortPath] ERROR (retry $newRetryCount/3): $e');
+          queueManager.updateStatus(
+            upload['documentCode'],
+            upload['filePath'],
+            'failed',
+            retryCount: newRetryCount,
+          );
         }
       }
+
+      UploadQueueManager.log('processPendingUploads: done');
 
       // Call the callback if uploads were completed
       if (hasCompletedUploads && onUploadComplete != null) {
@@ -787,6 +838,7 @@ class CachedDocumentService {
       }
     } finally {
       queueManager.endProcessing();
+      UploadQueueManager.log('processPendingUploads: lock released');
     }
   }
 

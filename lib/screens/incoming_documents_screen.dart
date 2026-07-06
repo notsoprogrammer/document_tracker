@@ -13,6 +13,7 @@ import '../services/connectivity_service.dart';
 import '../utils/search_filter_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/upload_queue_manager.dart';
+import '../widgets/upload_status_banner.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
@@ -100,7 +101,22 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
           _isLoading = false;
         });
       }
+      // Kick off any uploads that are pending but not being processed.
+      // This handles the case where auto-sync hasn't fired yet, or the queue
+      // was re-seeded from SQLite after an app restart.
+      _triggerPendingUploads();
     });
+  }
+
+  void _triggerPendingUploads() {
+    final allItems = _uploadQueueManager.getAllItems();
+    final hasPending = allItems.any((item) =>
+      item['status'] == 'pending' ||
+      (item['status'] == 'failed' && (item['retryCount'] as int? ?? 0) < 3)
+    );
+    if (hasPending) {
+      CachedDocumentService().processPendingUploads();
+    }
   }
 
   void _onUploadChanged() {
@@ -1187,55 +1203,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
     }
   }
 
-  Widget _buildGlobalUploadStatusIndicator() {
-    final queueManager = UploadQueueManager();
-    final allUploads = queueManager.getAllItems();
-    final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
-    final pendingUploads = allUploads.where((item) => item['status'] == 'pending').toList();
-
-    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final totalUploading = uploadingUploads.length;
-    final totalPending = pendingUploads.length;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              totalUploading > 0
-                  ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
-                  : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.orange[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ConnectivityBanner(
@@ -1296,7 +1263,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             : _filteredDocuments.isEmpty
             ? Column(
               children: [
-                _buildGlobalUploadStatusIndicator(),
+                const UploadStatusBanner(),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -1329,7 +1296,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             )
             : Column(
               children: [
-                _buildGlobalUploadStatusIndicator(),
+                const UploadStatusBanner(),
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.only(bottom: 80),

@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../widgets/scrollable_image_viewer.dart';
 import '../models/document.dart';
 import '../services/upload_queue_manager.dart';
+import '../widgets/upload_status_banner.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
@@ -116,55 +117,6 @@ class _FlagCeremonyDocumentsScreenState
     );
   }
 
-  Widget _buildGlobalUploadStatusIndicator() {
-    final queueManager = UploadQueueManager();
-    final allUploads = queueManager.getAllItems();
-    final uploadingUploads = allUploads.where((item) => item['status'] == 'uploading').toList();
-    final pendingUploads = allUploads.where((item) => item['status'] == 'pending').toList();
-
-    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final totalUploading = uploadingUploads.length;
-    final totalPending = pendingUploads.length;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              totalUploading > 0
-                  ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
-                  : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.orange[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUploadStatusIndicator(Document doc) {
     final queueManager = UploadQueueManager();
     final pendingUploads = queueManager.getPendingUploads(doc.code);
@@ -238,11 +190,23 @@ class _FlagCeremonyDocumentsScreenState
           _isLoading = false;
         });
       }
+      _triggerPendingUploads();
     });
   }
 
   void _onUploadChanged() {
     setState(() {});
+  }
+
+  void _triggerPendingUploads() {
+    final allItems = _uploadQueueManager.getAllItems();
+    final hasPending = allItems.any((item) =>
+      item['status'] == 'pending' ||
+      (item['status'] == 'failed' && (item['retryCount'] as int? ?? 0) < 3)
+    );
+    if (hasPending) {
+      CachedDocumentService().processPendingUploads();
+    }
   }
 
   @override
@@ -430,7 +394,7 @@ class _FlagCeremonyDocumentsScreenState
                 )
               : Column(
                 children: [
-                  _buildGlobalUploadStatusIndicator(),
+                  const UploadStatusBanner(),
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(

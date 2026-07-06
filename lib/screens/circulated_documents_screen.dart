@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../services/upload_queue_manager.dart';
+import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 
 class CirculatedDocumentsScreen extends StatefulWidget {
@@ -81,6 +82,7 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
           _isLoading = false;
         });
       }
+      _triggerPendingUploads();
     });
 
     _loadUsername();
@@ -97,6 +99,17 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
 
   void _onUploadChanged() {
     setState(() {});
+  }
+
+  void _triggerPendingUploads() {
+    final allItems = _uploadQueueManager.getAllItems();
+    final hasPending = allItems.any((item) =>
+      item['status'] == 'pending' ||
+      (item['status'] == 'failed' && (item['retryCount'] as int? ?? 0) < 3)
+    );
+    if (hasPending) {
+      CachedDocumentService().processPendingUploads();
+    }
   }
 
   @override

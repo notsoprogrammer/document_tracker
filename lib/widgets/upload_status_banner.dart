@@ -1,0 +1,290 @@
+import 'package:flutter/material.dart';
+import '../services/upload_queue_manager.dart';
+import '../services/cached_document_service.dart';
+
+/// Shared banner that shows active upload progress across all list screens.
+/// Tap it to open the debug dialog (queue state + recent log).
+class UploadStatusBanner extends StatelessWidget {
+  const UploadStatusBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final queueManager = UploadQueueManager();
+    final allUploads = queueManager.getAllItems();
+    final uploadingUploads = allUploads.where((i) => i['status'] == 'uploading').toList();
+    final pendingUploads  = allUploads.where((i) => i['status'] == 'pending').toList();
+    final failedUploads   = allUploads.where((i) => i['status'] == 'failed').toList();
+
+    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final totalUploading = uploadingUploads.length;
+    final totalPending   = pendingUploads.length;
+
+    final label = totalUploading > 0
+        ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
+        : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...';
+
+    return GestureDetector(
+      onTap: () => _showDebugDialog(context, allUploads, uploadingUploads, pendingUploads, failedUploads),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.orange[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(Icons.info_outline, size: 16, color: Colors.orange[400]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDebugDialog(
+    BuildContext context,
+    List<Map<String, dynamic>> allUploads,
+    List<Map<String, dynamic>> uploading,
+    List<Map<String, dynamic>> pending,
+    List<Map<String, dynamic>> failed,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _UploadDebugDialog(
+        allUploads: allUploads,
+        uploading: uploading,
+        pending: pending,
+        failed: failed,
+      ),
+    );
+  }
+}
+
+class _UploadDebugDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> allUploads;
+  final List<Map<String, dynamic>> uploading;
+  final List<Map<String, dynamic>> pending;
+  final List<Map<String, dynamic>> failed;
+
+  const _UploadDebugDialog({
+    required this.allUploads,
+    required this.uploading,
+    required this.pending,
+    required this.failed,
+  });
+
+  @override
+  State<_UploadDebugDialog> createState() => _UploadDebugDialogState();
+}
+
+class _UploadDebugDialogState extends State<_UploadDebugDialog>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final log = UploadQueueManager.debugLog;
+    final stats = UploadQueueManager().getQueueStats();
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: SizedBox(
+        width: double.maxFinite,
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.upload, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Upload Debug',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+
+            // Stats row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  _chip('Uploading', widget.uploading.length, Colors.blue),
+                  _chip('Pending', widget.pending.length, Colors.orange),
+                  _chip('Failed', widget.failed.length, Colors.red),
+                  _chip('Total', stats['total'] as int, Colors.grey),
+                  _chip('Lock', (stats['isProcessing'] as bool) ? 1 : 0, Colors.purple,
+                    override: (stats['isProcessing'] as bool) ? 'LOCKED' : 'FREE'),
+                ],
+              ),
+            ),
+
+            // Force retry button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Force Retry Now'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange[700],
+                        side: BorderSide(color: Colors.orange.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onPressed: () {
+                        UploadQueueManager.log('DEBUG: manual force-retry triggered');
+                        CachedDocumentService().processPendingUploads();
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Tabs
+            TabBar(
+              controller: _tabs,
+              labelColor: Colors.orange[700],
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Colors.orange,
+              tabs: [
+                Tab(text: 'Queue (${widget.allUploads.length})'),
+                Tab(text: 'Log (${log.length})'),
+              ],
+            ),
+
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
+                children: [
+                  // Queue tab
+                  widget.allUploads.isEmpty
+                    ? const Center(child: Text('Queue is empty', style: TextStyle(color: Colors.grey)))
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: widget.allUploads.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final item = widget.allUploads[i];
+                          final status = item['status'] as String? ?? '?';
+                          final retry  = item['retryCount'] as int? ?? 0;
+                          final path   = item['filePath']?.toString() ?? '';
+                          final shortPath = path.split('/').last.split('\\').last;
+                          final code   = item['documentCode']?.toString() ?? '?';
+                          final color  = status == 'uploading' ? Colors.blue
+                              : status == 'pending' ? Colors.orange
+                              : status == 'failed'  ? Colors.red
+                              : Colors.green;
+                          return ListTile(
+                            dense: true,
+                            leading: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: color.withValues(alpha: 0.15),
+                              child: Text(
+                                status[0].toUpperCase(),
+                                style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            title: Text(shortPath, style: const TextStyle(fontSize: 12)),
+                            subtitle: Text('code: $code  retry: $retry', style: const TextStyle(fontSize: 11)),
+                            trailing: Text(status, style: TextStyle(fontSize: 11, color: color)),
+                          );
+                        },
+                      ),
+
+                  // Log tab
+                  log.isEmpty
+                    ? const Center(child: Text('No log entries yet', style: TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        reverse: true, // newest at top
+                        padding: const EdgeInsets.all(8),
+                        itemCount: log.length,
+                        itemBuilder: (_, i) {
+                          final entry = log[log.length - 1 - i];
+                          final isError = entry.contains('ERROR') || entry.contains('FAIL');
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 1),
+                            child: Text(
+                              entry,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                color: isError ? Colors.red : null,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, int count, Color color, {String? override}) {
+    return Chip(
+      padding: EdgeInsets.zero,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      label: Text(
+        override != null ? '$label: $override' : '$label: $count',
+        style: TextStyle(fontSize: 11, color: color),
+      ),
+      backgroundColor: color.withValues(alpha: 0.1),
+      side: BorderSide(color: color.withValues(alpha: 0.3)),
+    );
+  }
+}
