@@ -49,10 +49,13 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
   late final ScrollController _scrollController;
   bool _exportingPdf = false;
   bool _pdfSuccess = false;
+  int _rebuildKey = 0;
+  late List<String> _proxyUrls;
 
   @override
   void initState() {
     super.initState();
+    _proxyUrls = widget.imageUrls.map(_proxyUrl).toList();
     _scrollController = ScrollController();
     if (widget.initialIndex > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -70,6 +73,13 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    for (final url in _proxyUrls) {
+      await CachedNetworkImage.evictFromCache(url);
+    }
+    if (mounted) setState(() => _rebuildKey++);
   }
 
   String _proxyUrl(String imageUrl) {
@@ -119,8 +129,6 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
 
   @override
   Widget build(BuildContext context) {
-    final proxyUrls = widget.imageUrls.map(_proxyUrl).toList();
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -161,29 +169,35 @@ class _ScrollableImageViewerState extends State<ScrollableImageViewer> {
           const SizedBox(width: 4),
         ],
       ),
-      body: ListView.separated(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        itemCount: widget.imageUrls.length,
-        separatorBuilder: (_, _) =>
-            const Divider(color: Colors.white24, height: 24),
-        itemBuilder: (context, index) {
-          return _ImageListCard(
-            imageUrl: widget.imageUrls[index],
-            proxyUrl: proxyUrls[index],
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => _ImageZoomPage(
-                  imageUrls: widget.imageUrls,
-                  proxyUrls: proxyUrls,
-                  fileNames: widget.fileNames,
-                  initialIndex: index,
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: Colors.white,
+        backgroundColor: Colors.grey[900],
+        child: ListView.separated(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          itemCount: widget.imageUrls.length,
+          separatorBuilder: (_, _) =>
+              const Divider(color: Colors.white24, height: 24),
+          itemBuilder: (context, index) {
+            return _ImageListCard(
+              key: ValueKey('${_proxyUrls[index]}_$_rebuildKey'),
+              imageUrl: widget.imageUrls[index],
+              proxyUrl: _proxyUrls[index],
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => _ImageZoomPage(
+                    imageUrls: widget.imageUrls,
+                    proxyUrls: _proxyUrls,
+                    fileNames: widget.fileNames,
+                    initialIndex: index,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -213,6 +227,7 @@ class _ImageZoomPage extends StatefulWidget {
 class _ImageZoomPageState extends State<_ImageZoomPage> {
   late int _currentIndex;
   late final PageController _pageController;
+  final Map<int, int> _retryKeys = {};
 
   @override
   void initState() {
@@ -261,6 +276,7 @@ class _ImageZoomPageState extends State<_ImageZoomPage> {
           maxScale: 6.0,
           child: Center(
             child: CachedNetworkImage(
+              key: ValueKey('${widget.proxyUrls[index]}_${_retryKeys[index] ?? 0}'),
               imageUrl: widget.proxyUrls[index],
               httpHeaders: {
                 'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
@@ -269,10 +285,28 @@ class _ImageZoomPageState extends State<_ImageZoomPage> {
               placeholder: (_, _) => const Center(
                 child: CircularProgressIndicator(color: Colors.white),
               ),
-              errorWidget: (_, _, _) => const Center(
-                child: Text(
-                  'Failed to load image',
-                  style: TextStyle(color: Colors.white),
+              errorWidget: (_, _, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 56),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Failed to load image',
+                      style: TextStyle(color: Colors.white54, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: () async {
+                        await CachedNetworkImage.evictFromCache(widget.proxyUrls[index]);
+                        if (mounted) {
+                          setState(() => _retryKeys[index] = (_retryKeys[index] ?? 0) + 1);
+                        }
+                      },
+                      icon: const Icon(Icons.refresh, color: Colors.white70, size: 18),
+                      label: const Text('Tap to retry', style: TextStyle(color: Colors.white70)),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -287,25 +321,34 @@ class _ImageZoomPageState extends State<_ImageZoomPage> {
 // Scroll-list card — thumbnail + tap hint + download
 // ---------------------------------------------------------------------------
 
-class _ImageListCard extends StatelessWidget {
+class _ImageListCard extends StatefulWidget {
   final String imageUrl;
   final String proxyUrl;
   final VoidCallback onTap;
 
   const _ImageListCard({
+    super.key,
     required this.imageUrl,
     required this.proxyUrl,
     required this.onTap,
   });
 
   @override
+  State<_ImageListCard> createState() => _ImageListCardState();
+}
+
+class _ImageListCardState extends State<_ImageListCard> {
+  int _retryKey = 0;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.65,
         child: CachedNetworkImage(
-          imageUrl: proxyUrl,
+          key: ValueKey('${widget.proxyUrl}_$_retryKey'),
+          imageUrl: widget.proxyUrl,
           httpHeaders: {
             'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'
           },
@@ -313,10 +356,26 @@ class _ImageListCard extends StatelessWidget {
           placeholder: (_, _) => const Center(
             child: CircularProgressIndicator(color: Colors.white),
           ),
-          errorWidget: (_, _, _) => const Center(
-            child: Text(
-              'Failed to load image',
-              style: TextStyle(color: Colors.white),
+          errorWidget: (_, _, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 48),
+                const SizedBox(height: 8),
+                const Text(
+                  'Failed to load image',
+                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () async {
+                    await CachedNetworkImage.evictFromCache(widget.proxyUrl);
+                    if (mounted) setState(() => _retryKey++);
+                  },
+                  icon: const Icon(Icons.refresh, color: Colors.white70, size: 18),
+                  label: const Text('Tap to retry', style: TextStyle(color: Colors.white70)),
+                ),
+              ],
             ),
           ),
         ),
