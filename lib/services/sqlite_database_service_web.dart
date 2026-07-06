@@ -414,6 +414,10 @@ class SQLiteDatabaseService {
     // This method exists for API compatibility but does nothing in web
   }
 
+  Future<void> clearAllPendingUploads() async {
+    // Stub: web queue is in-memory only; UploadQueueManager.clearAll() handles it
+  }
+
   // Pending drive deletions methods (stub implementations for web)
   // Note: Web version cannot directly delete Drive files - user must be on mobile
 

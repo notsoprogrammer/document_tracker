@@ -1,71 +1,39 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/cached_document_service.dart';
 
 /// Shared banner that shows active upload progress across all list screens.
-/// Tap it to open the debug dialog (queue state + recent log).
-class UploadStatusBanner extends StatelessWidget {
+/// Self-subscribes to UploadQueueManager so it rebuilds without parent setState.
+/// In debug builds only: tappable to open the debug dialog.
+class UploadStatusBanner extends StatefulWidget {
   const UploadStatusBanner({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final queueManager = UploadQueueManager();
-    final allUploads = queueManager.getAllItems();
-    final uploadingUploads = allUploads.where((i) => i['status'] == 'uploading').toList();
-    final pendingUploads  = allUploads.where((i) => i['status'] == 'pending').toList();
-    final failedUploads   = allUploads.where((i) => i['status'] == 'failed').toList();
+  State<UploadStatusBanner> createState() => _UploadStatusBannerState();
+}
 
-    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
-      return const SizedBox.shrink();
-    }
+class _UploadStatusBannerState extends State<UploadStatusBanner> {
+  late final UploadQueueManager _queueManager;
 
-    final totalUploading = uploadingUploads.length;
-    final totalPending   = pendingUploads.length;
+  @override
+  void initState() {
+    super.initState();
+    _queueManager = UploadQueueManager();
+    _queueManager.addListener(_onQueueChanged);
+  }
 
-    final label = totalUploading > 0
-        ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
-        : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...';
+  void _onQueueChanged() {
+    if (mounted) setState(() {});
+  }
 
-    return GestureDetector(
-      onTap: () => _showDebugDialog(context, allUploads, uploadingUploads, pendingUploads, failedUploads),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Icon(Icons.info_outline, size: 16, color: Colors.orange[400]),
-          ],
-        ),
-      ),
-    );
+  @override
+  void dispose() {
+    _queueManager.removeListener(_onQueueChanged);
+    super.dispose();
   }
 
   void _showDebugDialog(
-    BuildContext context,
     List<Map<String, dynamic>> allUploads,
     List<Map<String, dynamic>> uploading,
     List<Map<String, dynamic>> pending,
@@ -80,6 +48,68 @@ class UploadStatusBanner extends StatelessWidget {
         failed: failed,
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allUploads = _queueManager.getAllItems();
+    final uploadingUploads = allUploads.where((i) => i['status'] == 'uploading').toList();
+    final pendingUploads   = allUploads.where((i) => i['status'] == 'pending').toList();
+    final failedUploads    = allUploads.where((i) => i['status'] == 'failed').toList();
+
+    if (uploadingUploads.isEmpty && pendingUploads.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final totalUploading = uploadingUploads.length;
+    final totalPending   = pendingUploads.length;
+
+    final label = totalUploading > 0
+        ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
+        : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...';
+
+    final banner = Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.orange[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (kDebugMode)
+            Icon(Icons.info_outline, size: 16, color: Colors.orange[400]),
+        ],
+      ),
+    );
+
+    if (kDebugMode) {
+      return GestureDetector(
+        onTap: () => _showDebugDialog(allUploads, uploadingUploads, pendingUploads, failedUploads),
+        child: banner,
+      );
+    }
+    return banner;
   }
 }
 
@@ -166,7 +196,7 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
               ),
             ),
 
-            // Force retry button
+            // Action buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
@@ -184,6 +214,41 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                         UploadQueueManager.log('DEBUG: manual force-retry triggered');
                         CachedDocumentService().processPendingUploads();
                         Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.delete_sweep, size: 16),
+                      label: const Text('Clear All'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red[700],
+                        side: BorderSide(color: Colors.red.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Clear upload queue?'),
+                            content: const Text(
+                              'This removes all pending uploads from the queue. '
+                              'Files will be re-queued automatically on the next upload cycle if local paths still exist.',
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Clear', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await UploadQueueManager().clearAll();
+                          if (context.mounted) Navigator.pop(context);
+                        }
                       },
                     ),
                   ),

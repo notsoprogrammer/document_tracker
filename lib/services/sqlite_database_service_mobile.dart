@@ -810,6 +810,11 @@ class SQLiteDatabaseService {
     );
   }
 
+  Future<void> clearAllPendingUploads() async {
+    final db = await database;
+    await db.delete('pending_uploads');
+  }
+
   // Pending drive deletions methods (for offline Drive file deletion)
   Future<void> addPendingDriveDeletion({
     required String fileId,

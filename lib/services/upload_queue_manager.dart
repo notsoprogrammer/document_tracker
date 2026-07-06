@@ -332,8 +332,22 @@ class UploadQueueManager extends ChangeNotifier {
     return List.from(_uploadQueue);
   }
 
-  /// Clear all items
+  /// Clear all items (in-memory only)
   void clear() {
     _uploadQueue.clear();
+  }
+
+  /// Clear all items from both memory and SQLite persistence
+  Future<void> clearAll() async {
+    _uploadQueue.clear();
+    if (!kIsWeb) {
+      try {
+        await SQLiteDatabaseService().clearAllPendingUploads();
+      } catch (e) {
+        log('clearAll ERROR: $e');
+      }
+    }
+    log('DEBUG: queue cleared by user');
+    notifyListeners();
   }
 }
