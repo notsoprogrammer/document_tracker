@@ -587,7 +587,7 @@ class CachedDocumentService {
           DriveFolder folder;
           if (doc.mode == 'Resolutions') {
             folder = DriveFolder.resolutions;
-          } else if (doc.mode == 'Flag Ceremony') {
+          } else if (doc.mode == 'Flag Ceremony' || ['Flag Raising', 'Flag Lowering'].contains(doc.category)) {
             folder = DriveFolder.flagCeremony;
           } else if (doc.mode == 'Locational & Zoning' || [
             'Locational Clearance',

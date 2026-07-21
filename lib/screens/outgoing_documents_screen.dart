@@ -62,6 +62,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   static const _ownScreenModes = {
     'Flag Ceremony', 'Office Function MOVs',
     'Locational & Zoning', 'SP Documents', 'Reclassification', 'CDC Documents',
+    'Resolutions',
   };
 
   late List<Document> _filteredDocuments;
