@@ -342,15 +342,13 @@ class SupabaseService {
     List<String> assignees,
   ) async {
     if (assignees.isEmpty) return;
-    try {
-      await _client.from('pending_assignment_notifications').insert({
-        'document_code': documentCode,
-        'document_title': documentTitle,
-        'assignees': assignees,
-        'notify_at': DateTime.now().add(const Duration(minutes: 5)).toUtc().toIso8601String(),
-        'sent': false,
-      });
-    } catch (_) {}
+    await _client.from('pending_assignment_notifications').insert({
+      'document_code': documentCode,
+      'document_title': documentTitle,
+      'assignees': assignees,
+      'notify_at': DateTime.now().add(const Duration(minutes: 1)).toUtc().toIso8601String(),
+      'sent': false,
+    });
   }
 
   // Invoke send compliance notifications Edge Function

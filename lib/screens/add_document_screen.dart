@@ -1855,22 +1855,33 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       );
 
                       final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
                       setState(() => _isSaving = true);
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
                         final notifyAssignees = _selectedAssignees.where((a) => a != 'N/A').toList();
                         if (widget.incoming && notifyAssignees.isNotEmpty) {
-                          SupabaseService().scheduleAssignmentNotification(
-                            doc.code,
-                            doc.title ?? 'Document',
-                            notifyAssignees,
-                          );
+                          try {
+                            await SupabaseService().scheduleAssignmentNotification(
+                              doc.code,
+                              doc.title ?? 'Document',
+                              notifyAssignees,
+                            );
+                          } catch (e) {
+                            messenger.showSnackBar(SnackBar(
+                              content: Text('Notification scheduling failed: $e'),
+                              backgroundColor: Colors.red,
+                            ));
+                          }
                         }
                         _saved = true;
                         navigator.pop();
                       } catch (e) {
-                        SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');
+                        messenger.showSnackBar(SnackBar(
+                          content: Text('Failed to save document: $e'),
+                          backgroundColor: Colors.red,
+                        ));
                         if (mounted) setState(() => _isSaving = false);
                       }
                     }
@@ -1898,9 +1909,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.07),
+                      color: Colors.blue.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withOpacity(0.22)),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.22)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1936,7 +1947,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             child: LinearProgressIndicator(
                               value: _completedUploads / _totalUploads,
                               minHeight: 8,
-                              backgroundColor: Colors.blue.withOpacity(0.15),
+                              backgroundColor: Colors.blue.withValues(alpha: 0.15),
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                             ),
                           ),

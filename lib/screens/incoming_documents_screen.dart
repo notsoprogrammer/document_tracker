@@ -28,6 +28,7 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
+import '../services/supabase_service.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -70,6 +71,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   late UploadQueueManager _uploadQueueManager;
   String? _username;
   RealtimeChannel? _docsChannel;
+  List<String> _availableUsers = [];
 
   @override
   void initState() {
@@ -92,6 +94,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
+    _loadAvailableUsers();
     // Start loading immediately
     _isLoading = true;
     // Simulate loading for better UX - keep it longer to show the indicator
@@ -291,26 +294,184 @@ Widget _buildUploadStatusIndicator(Document doc) {
     return textPainter.didExceedMaxLines;
   }
 
+  Future<void> _showTransferAssigneePicker(
+    List<String> current,
+    StateSetter setDialogState,
+  ) async {
+    final temp = List<String>.from(current);
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            final sorted = List<String>.from(_availableUsers)
+              ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+            final filtered = query.isEmpty
+                ? sorted
+                : sorted.where((u) => u.toLowerCase().contains(query.toLowerCase())).toList();
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.85,
+              builder: (_, scrollController) => Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 10),
+                        Text('Assign Personnel',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        if (temp.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text('${temp.length} selected',
+                                style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: TextField(
+                      autofocus: false,
+                      decoration: InputDecoration(
+                        hintText: 'Search personnel...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      ),
+                      onChanged: (v) => setS(() => query = v),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // Pinned N/A option
+                  Builder(builder: (_) {
+                    final naSelected = temp.contains('N/A');
+                    return CheckboxListTile(
+                      title: const Text('N/A', style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
+                      subtitle: const Text('Not applicable / no specific assignee', style: TextStyle(fontSize: 11)),
+                      value: naSelected,
+                      activeColor: Colors.grey.shade600,
+                      secondary: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: naSelected ? Colors.grey.shade600 : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.block, size: 15, color: naSelected ? Colors.white : Colors.grey.shade400),
+                      ),
+                      onChanged: (checked) => setS(() {
+                        if (checked == true) {
+                          temp..clear()..add('N/A');
+                        } else {
+                          temp.remove('N/A');
+                        }
+                      }),
+                    );
+                  }),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: _availableUsers.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                        : filtered.isEmpty
+                            ? Center(child: Text('No match for "$query"', style: TextStyle(color: Colors.grey.shade500)))
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: filtered.length,
+                                itemBuilder: (_, i) {
+                                  final user = filtered[i];
+                                  final selected = temp.contains(user);
+                                  return CheckboxListTile(
+                                    title: Text(user, style: const TextStyle(fontSize: 14)),
+                                    value: selected,
+                                    activeColor: Theme.of(context).colorScheme.primary,
+                                    secondary: CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: selected
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                      child: Text(
+                                        user[0].toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 13, fontWeight: FontWeight.bold,
+                                          color: selected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (checked) => setS(() {
+                                      if (checked == true) {
+                                        temp..remove('N/A')..add(user);
+                                      } else {
+                                        temp.remove(user);
+                                      }
+                                    }),
+                                  );
+                                },
+                              ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(ctx).viewInsets.bottom),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(ctx, temp),
+                            child: const Text('Confirm'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (result != null) {
+      setDialogState(() => current
+        ..clear()
+        ..addAll(result));
+    }
+  }
+
   void _showTransferDialog(BuildContext context, int index) {
-    final newAssigneeController = TextEditingController();
     final transferredByController = TextEditingController();
     final notesController = TextEditingController();
+    final List<String> selectedNewAssignees = [];
 
     final List<String> cpdcoStaff = [
-      'Sir Arnie',
-      'Rex',
-      'Floro',
-      'Arlene',
-      'Sharmaine',
-      'Path',
-      'Jess',
-      'Emiliana',
-      'Pau',
-      'Chris',
-      'Wena',
-      'N/A',
-      'Arlyn',
-      'Dari',
+      'Sir Arnie', 'Rex', 'Floro', 'Arlene', 'Sharmaine', 'Path',
+      'Jess', 'Emiliana', 'Pau', 'Chris', 'Wena', 'N/A', 'Arlyn', 'Dari',
     ];
 
     showDialog(
@@ -320,9 +481,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
         return StatefulBuilder(
           builder: (context, setState) {
             return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: SingleChildScrollView(
                 child: Container(
                   width: 400,
@@ -332,90 +491,53 @@ Widget _buildUploadStatusIndicator(Document doc) {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.swap_horiz,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                          Icon(Icons.swap_horiz, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
-                          const Text(
-                            "Transfer Document",
-                            style: TextStyle(fontSize: 16),
-                          ),
+                          const Text("Transfer Document", style: TextStyle(fontSize: 16)),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      RawAutocomplete<String>(
-                        textEditingController: newAssigneeController,
-                        focusNode: FocusNode(),
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text == '') {
-                            return const Iterable<String>.empty();
-                          }
-                          return cpdcoStaff.where((String option) {
-                            return option.toLowerCase().contains(
-                              textEditingValue.text.toLowerCase(),
-                            );
-                          });
-                        },
-                        onSelected: (String selection) {
-                          setState(() => newAssigneeController.text = selection);
-                        },
-                        fieldViewBuilder:
-                            (
-                              BuildContext context,
-                              TextEditingController textEditingController,
-                              FocusNode focusNode,
-                              VoidCallback onFieldSubmitted,
-                            ) {
-                              return TextField(
-                                controller: textEditingController,
-                                focusNode: focusNode,
-                                decoration: InputDecoration(
-                                  labelText: "New Assignee",
-                                  prefixIcon: const Icon(Icons.person),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                      // New Assignee — multi-select picker
+                      InkWell(
+                        onTap: () => _showTransferAssigneePicker(selectedNewAssignees, setState),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'New Assignee',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.people_outline, size: 20),
+                            suffixIcon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.primary),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                          child: selectedNewAssignees.isEmpty
+                              ? Text('Tap to select personnel',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                                    fontStyle: FontStyle.italic, fontSize: 14,
+                                  ))
+                              : Wrap(
+                                  spacing: 6, runSpacing: 6,
+                                  children: selectedNewAssignees.map((a) {
+                                    final isNA = a == 'N/A';
+                                    return Chip(
+                                      avatar: CircleAvatar(
+                                        backgroundColor: isNA ? Colors.grey.shade500 : Theme.of(context).colorScheme.primary,
+                                        child: isNA
+                                            ? const Icon(Icons.block, size: 12, color: Colors.white)
+                                            : Text(a[0].toUpperCase(),
+                                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                                      ),
+                                      label: Text(a, style: TextStyle(fontSize: 12, fontStyle: isNA ? FontStyle.italic : FontStyle.normal)),
+                                      backgroundColor: isNA ? Colors.grey.shade200 : Theme.of(context).colorScheme.primaryContainer,
+                                      labelStyle: TextStyle(color: isNA ? Colors.grey.shade700 : Theme.of(context).colorScheme.onPrimaryContainer),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    );
+                                  }).toList(),
                                 ),
-                              );
-                            },
-                        optionsViewBuilder:
-                            (
-                              BuildContext context,
-                              AutocompleteOnSelected<String> onSelected,
-                              Iterable<String> options,
-                            ) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  elevation: 4.0,
-                                  child: SizedBox(
-                                    width: 350,
-                                    height: (options.length * 56.0 + 16.0).clamp(
-                                      0.0,
-                                      200.0,
-                                    ),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.all(8.0),
-                                      itemCount: options.length,
-                                      itemBuilder:
-                                          (BuildContext context, int index) {
-                                            final String option = options
-                                                .elementAt(index);
-                                            return GestureDetector(
-                                              onTap: () {
-                                                onSelected(option);
-                                              },
-                                              child: ListTile(
-                                                title: Text(option),
-                                              ),
-                                            );
-                                          },
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                        ),
                       ),
                       const SizedBox(height: 16),
                       RawAutocomplete<String>(
@@ -522,16 +644,26 @@ Widget _buildUploadStatusIndicator(Document doc) {
                               ),
                             ),
                             onPressed: () {
-                              if (newAssigneeController.text.isNotEmpty &&
+                              if (selectedNewAssignees.isNotEmpty &&
                                   transferredByController.text.isNotEmpty) {
+                                final assigneeText = selectedNewAssignees.join(', ');
                                 widget.transferDocument(
                                   index,
-                                  newAssigneeController.text,
+                                  assigneeText,
                                   transferredByController.text,
                                   notes: notesController.text.isNotEmpty
                                       ? notesController.text
                                       : null,
                                 );
+                                final notifyAssignees = selectedNewAssignees.where((a) => a != 'N/A').toList();
+                                if (notifyAssignees.isNotEmpty) {
+                                  final doc = _filteredDocuments[index];
+                                  SupabaseService().scheduleAssignmentNotification(
+                                    doc.code,
+                                    doc.title ?? 'Document',
+                                    notifyAssignees,
+                                  );
+                                }
                                 _updateFilteredDocuments();
                                 Navigator.of(context).pop();
                               }
@@ -1161,6 +1293,11 @@ Widget _buildUploadStatusIndicator(Document doc) {
         _username = username;
       });
     }
+  }
+
+  Future<void> _loadAvailableUsers() async {
+    final users = await SupabaseService().fetchAllUsernames();
+    if (mounted) setState(() => _availableUsers = users);
   }
 
 
