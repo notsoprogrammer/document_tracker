@@ -96,6 +96,15 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
     }
   }
 
+  bool _saved = false;
+
+  @override
+  void dispose() {
+    UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
+    super.dispose();
+  }
+
   void _setupUploadListener() {
     final queueManager = UploadQueueManager();
     queueManager.addListener(_onUploadStatusChanged);
@@ -1060,6 +1069,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        _saved = true;
                         navigator.pop();
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');

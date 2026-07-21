@@ -810,6 +810,15 @@ class SQLiteDatabaseService {
     );
   }
 
+  Future<void> removeAllPendingUploadsForDocument(String documentCode) async {
+    final db = await database;
+    await db.delete(
+      'pending_uploads',
+      where: 'document_code = ?',
+      whereArgs: [documentCode],
+    );
+  }
+
   Future<void> clearAllPendingUploads() async {
     final db = await database;
     await db.delete('pending_uploads');

@@ -81,9 +81,12 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
     });
   }
 
+  bool _saved = false;
+
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
     titleController.removeListener(_onNameChanged);
     titleController.dispose();
     codeController.dispose(); descriptionController.dispose(); referenceLinkController.dispose(); remarksController.dispose(); personController.dispose();
@@ -508,6 +511,7 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        _saved = true;
                         navigator.pop();
                       } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e'); if (mounted) setState(() => _isSaving = false); }
                     }

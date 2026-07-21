@@ -213,6 +213,15 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     }
   }
 
+  bool _saved = false;
+
+  @override
+  void dispose() {
+    UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
+    super.dispose();
+  }
+
   void _setupUploadListener() {
     final queueManager = UploadQueueManager();
     queueManager.addListener(_onUploadStatusChanged);
@@ -1642,6 +1651,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        _saved = true;
                         navigator.pop();
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save document: $e');

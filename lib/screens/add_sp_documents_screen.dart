@@ -81,9 +81,12 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
     });
   }
 
+  bool _saved = false;
+
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
     titleController.removeListener(_onTitleChanged);
     titleController.dispose();
     codeController.dispose(); descriptionController.dispose(); referenceLinkController.dispose(); remarksController.dispose(); personController.dispose();
@@ -480,6 +483,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        _saved = true;
                         navigator.pop();
                       } catch (e) { SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e'); if (mounted) setState(() => _isSaving = false); }
                     }

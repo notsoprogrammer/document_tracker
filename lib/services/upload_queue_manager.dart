@@ -179,6 +179,24 @@ class UploadQueueManager extends ChangeNotifier {
     }
   }
 
+  /// Remove all queued items for a document (e.g. when the add screen is cancelled)
+  Future<void> removeAllForDocument(String documentCode) async {
+    final paths = _uploadQueue
+        .where((item) => item['documentCode'] == documentCode)
+        .map((item) => item['filePath'] as String)
+        .toList();
+    _uploadQueue.removeWhere((item) => item['documentCode'] == documentCode);
+    for (final path in paths) {
+      _webBytesCache.remove('$documentCode:$path');
+    }
+    if (!kIsWeb) {
+      try {
+        await SQLiteDatabaseService().removeAllPendingUploadsForDocument(documentCode);
+      } catch (e) {}
+    }
+    if (paths.isNotEmpty) notifyListeners();
+  }
+
   /// Remove a file from the upload queue
   void removeFromQueue(String documentCode, String filePath) async {
     _uploadQueue.removeWhere(

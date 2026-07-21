@@ -104,9 +104,12 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
 
   }
 
+  bool _saved = false;
+
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
     codeController.dispose();
     descriptionController.dispose();
     referenceLinkController.dispose();
@@ -664,6 +667,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        _saved = true;
                         navigator.pop();
                       } catch (e) {
                         SnackbarUtils.showErrorSnackBar(context, 'Failed to save: $e');

@@ -414,6 +414,10 @@ class SQLiteDatabaseService {
     // This method exists for API compatibility but does nothing in web
   }
 
+  Future<void> removeAllPendingUploadsForDocument(String documentCode) async {
+    // Stub: Web version handles uploads in-memory via UploadQueueManager
+  }
+
   Future<void> clearAllPendingUploads() async {
     // Stub: web queue is in-memory only; UploadQueueManager.clearAll() handles it
   }

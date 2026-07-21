@@ -76,9 +76,12 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
     if (mounted) setState(() => _resolutionTypes = types);
   }
 
+  bool _saved = false;
+
   @override
   void dispose() {
     UploadQueueManager().removeListener(_onUploadStatusChanged);
+    if (!_saved) UploadQueueManager().removeAllForDocument(codeController.text);
     codeController.dispose();
     titleController.dispose();
     descriptionController.dispose();
@@ -728,6 +731,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                           try {
                             await CachedDocumentService().createDocument(doc);
                             CachedDocumentService().processPendingUploads();
+                            _saved = true;
                             navigator.pop();
                           } catch (e) {
                             if (mounted) {
