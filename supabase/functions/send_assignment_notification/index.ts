@@ -147,10 +147,10 @@ serve(async (req: Request) => {
         fcmResults.push(result)
       }
 
-      // Mark as sent
+      // Delete after sending
       await supabase
         .from('pending_assignment_notifications')
-        .update({ sent: true })
+        .delete()
         .eq('id', notif.id)
 
       results.push({ id: notif.id, docCode, assignees, fcmResults })

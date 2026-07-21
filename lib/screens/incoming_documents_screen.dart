@@ -646,6 +646,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                             onPressed: () {
                               if (selectedNewAssignees.isNotEmpty &&
                                   transferredByController.text.isNotEmpty) {
+                                Navigator.of(context).pop();
                                 final assigneeText = selectedNewAssignees.join(', ');
                                 widget.transferDocument(
                                   index,
@@ -665,7 +666,6 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   );
                                 }
                                 _updateFilteredDocuments();
-                                Navigator.of(context).pop();
                               }
                             },
                           ),
