@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -storepass Rleu5ew0bLsEYXz2cOt5 -keypass QkGZw462dlaUInUrsMh6 -dname 'CN=CPDCO, OU=Development, O=CPDCO, L=Unknown, ST=Unknown, C=US')"
+    ]
+  }
+}
