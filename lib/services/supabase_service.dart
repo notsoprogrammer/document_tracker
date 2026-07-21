@@ -327,6 +327,32 @@ class SupabaseService {
     return tokens;
   }
 
+  Future<List<String>> fetchAllUsernames() async {
+    try {
+      final response = await _client.from('users').select('username').order('username');
+      return (response as List<dynamic>).map((r) => r['username'] as String).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> scheduleAssignmentNotification(
+    String documentCode,
+    String documentTitle,
+    List<String> assignees,
+  ) async {
+    if (assignees.isEmpty) return;
+    try {
+      await _client.from('pending_assignment_notifications').insert({
+        'document_code': documentCode,
+        'document_title': documentTitle,
+        'assignees': assignees,
+        'notify_at': DateTime.now().add(const Duration(minutes: 5)).toUtc().toIso8601String(),
+        'sent': false,
+      });
+    } catch (_) {}
+  }
+
   // Invoke send compliance notifications Edge Function
   Future<void> sendComplianceNotifications({String? documentCode}) async {
     try {

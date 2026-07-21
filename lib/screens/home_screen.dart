@@ -332,6 +332,13 @@ class _HomeScreenState extends State<HomeScreen> {
       // Update the document
       await _documentService.updateDocument(documents[index].code, updates);
 
+      // Notify the new assignee 5 minutes after transfer
+      SupabaseService().scheduleAssignmentNotification(
+        documents[index].code,
+        documents[index].title ?? 'Document',
+        [newAssignee],
+      );
+
       setState(() {});
     } catch (e) {
       // Could show error snackbar here
@@ -1845,90 +1852,264 @@ Positioned(
     bool twentyFourHour = currentPrefs['twentyFourHourNotifications'] ?? true;
     bool overdue = currentPrefs['overdueNotifications'] ?? true;
     bool activity = currentPrefs['activityNotifications'] ?? true;
+    bool assignment = currentPrefs['assignmentNotifications'] ?? true;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Notification Settings'),
-          content: Column(
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SwitchListTile(
-                title: const Text('Immediate Notifications'),
-                subtitle: const Text('Show notifications as soon as they arrive'),
+              // Handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.notifications_outlined,
+                          color: Theme.of(context).colorScheme.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Notification Settings',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                )),
+                        Text('Choose which alerts you receive',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey.shade500,
+                                )),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Section label
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                child: Text('COMPLIANCE',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        )),
+              ),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
+                icon: Icons.flash_on_outlined,
+                iconColor: Colors.orange,
+                title: 'Immediate',
+                subtitle: 'Notify as soon as a document needs action',
                 value: immediate,
-                onChanged: (value) {
-                  setState(() => immediate = value);
-                },
+                onChanged: (v) => setS(() => immediate = v),
               ),
-              SwitchListTile(
-                title: const Text('24 Hours Before Deadline'),
-                subtitle: const Text('Notifies 24 hours before a compliance deadline'),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
+                icon: Icons.schedule_outlined,
+                iconColor: Colors.blue,
+                title: '24 Hours Before Deadline',
+                subtitle: 'Remind a day before compliance deadlines',
                 value: twentyFourHour,
-                onChanged: (value) {
-                  setState(() => twentyFourHour = value);
-                },
+                onChanged: (v) => setS(() => twentyFourHour = v),
               ),
-              SwitchListTile(
-                title: const Text('Overdue Notifications'),
-                subtitle: const Text('Show notifications for overdue items'),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
+                icon: Icons.warning_amber_outlined,
+                iconColor: Colors.red,
+                title: 'Overdue',
+                subtitle: 'Alert when a compliance deadline has passed',
                 value: overdue,
-                onChanged: (value) {
-                  setState(() => overdue = value);
-                },
+                onChanged: (v) => setS(() => overdue = v),
               ),
-              SwitchListTile(
-                title: const Text('Today\'s Activity Notifications'),
-                subtitle: const Text('Show a daily summary of today\'s activities and events'),
+              const Divider(height: 24, indent: 20, endIndent: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                child: Text('ACTIVITY & ASSIGNMENTS',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        )),
+              ),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
+                icon: Icons.today_outlined,
+                iconColor: Colors.teal,
+                title: 'Daily Activity Summary',
+                subtitle: 'Morning push with today\'s events at 8:10 AM',
                 value: activity,
-                onChanged: (value) {
-                  setState(() => activity = value);
-                },
+                onChanged: (v) => setS(() => activity = v),
+              ),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
+                icon: Icons.person_add_alt_outlined,
+                iconColor: Colors.purple,
+                title: 'Assignment',
+                subtitle: 'Notify when a document is addressed or transferred to you',
+                value: assignment,
+                onChanged: (v) => setS(() => assignment = v),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('Save'),
+                        onPressed: () async {
+                          try {
+                            await notificationService.setNotificationPreferences(
+                              immediateNotifications: immediate,
+                              twentyFourHourNotifications: twentyFourHour,
+                              overdueNotifications: overdue,
+                              activityNotifications: activity,
+                              assignmentNotifications: assignment,
+                            );
+                            if (!ctx.mounted) return;
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('Notification settings saved')),
+                            );
+                          } catch (e) {
+                            if (!ctx.mounted) return;
+                            if (e.toString().contains('Notification') ||
+                                e.toString().contains('permission')) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Settings saved, but notification permission is blocked')),
+                              );
+                              Navigator.of(ctx).pop();
+                            } else {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Failed to save settings: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await notificationService.setNotificationPreferences(
-                    immediateNotifications: immediate,
-                    twentyFourHourNotifications: twentyFourHour,
-                    overdueNotifications: overdue,
-                    activityNotifications: activity,
-                  );
-                  if (!context.mounted) return;
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notification settings saved')),
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  if (e.toString().contains('Notification') || e.toString().contains('permission')) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Settings saved, but notification permission is blocked')),
-                    );
-                    Navigator.of(context).pop();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to save settings: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
         ),
       ),
     );
   }
 
+  Widget _notifTile({
+    required BuildContext ctx,
+    required StateSetter setS,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: value
+            ? Theme.of(ctx).colorScheme.primaryContainer.withValues(alpha: 0.35)
+            : Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setS(() => onChanged(!value)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: value
+                        ? iconColor.withValues(alpha: 0.15)
+                        : Colors.grey.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon,
+                      size: 20,
+                      color: value ? iconColor : Colors.grey.shade400),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: value
+                                ? Theme.of(ctx).colorScheme.onSurface
+                                : Colors.grey.shade500,
+                          )),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          )),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: value,
+                  onChanged: (v) => setS(() => onChanged(v)),
+                  activeThumbColor: Theme.of(ctx).colorScheme.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
 }
 

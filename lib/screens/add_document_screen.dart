@@ -15,6 +15,7 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../constants/document_types.dart';
+import '../services/supabase_service.dart';
 import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -72,6 +73,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final ext = fileName.split('.').last.toLowerCase();
     return ['pdf', 'docx'].contains(ext);
   }
+
+  // Outgoing multi-select assignees
+  List<String> _selectedAssignees = [];
+  List<String> _availableUsers = [];
 
   // Validation flags
   bool _showValidationErrors = false;
@@ -202,6 +207,215 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     codeController.text = _generateCode(widget.incoming, null);
     _setupUploadListener();
     _loadUsername();
+    if (widget.incoming) _loadAvailableUsers();
+  }
+
+  Future<void> _loadAvailableUsers() async {
+    final users = await SupabaseService().fetchAllUsernames();
+    if (mounted) setState(() => _availableUsers = users);
+  }
+
+  Future<void> _showAssigneePicker() async {
+    final temp = List<String>.from(_selectedAssignees);
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            final sorted = List<String>.from(_availableUsers)..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+            final filtered = query.isEmpty
+                ? sorted
+                : sorted
+                    .where((u) => u.toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.85,
+              builder: (_, scrollController) => Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Assign Personnel',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const Spacer(),
+                        if (temp.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${temp.length} selected',
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Search field
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: TextField(
+                      autofocus: false,
+                      decoration: InputDecoration(
+                        hintText: 'Search personnel...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                      ),
+                      onChanged: (v) => setS(() => query = v),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // Pinned N/A option
+                  Builder(builder: (_) {
+                    final naSelected = temp.contains('N/A');
+                    return CheckboxListTile(
+                      title: const Text('N/A', style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
+                      subtitle: const Text('Not applicable / no specific assignee', style: TextStyle(fontSize: 11)),
+                      value: naSelected,
+                      activeColor: Colors.grey.shade600,
+                      secondary: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: naSelected ? Colors.grey.shade600 : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.block, size: 15, color: naSelected ? Colors.white : Colors.grey.shade400),
+                      ),
+                      onChanged: (checked) => setS(() {
+                        if (checked == true) {
+                          temp
+                            ..clear()
+                            ..add('N/A');
+                        } else {
+                          temp.remove('N/A');
+                        }
+                      }),
+                    );
+                  }),
+                  const Divider(height: 1),
+                  // List
+                  Expanded(
+                    child: _availableUsers.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                        : filtered.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No match for "$query"',
+                                  style: TextStyle(color: Colors.grey.shade500),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: filtered.length,
+                                itemBuilder: (_, i) {
+                                  final user = filtered[i];
+                                  final selected = temp.contains(user);
+                                  return CheckboxListTile(
+                                    title: Text(user,
+                                        style: const TextStyle(fontSize: 14)),
+                                    value: selected,
+                                    activeColor:
+                                        Theme.of(context).colorScheme.primary,
+                                    secondary: CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: selected
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                      child: Text(
+                                        user[0].toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: selected
+                                              ? Colors.white
+                                              : Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (checked) => setS(() {
+                                      if (checked == true) {
+                                        temp
+                                          ..remove('N/A')
+                                          ..add(user);
+                                      } else {
+                                        temp.remove(user);
+                                      }
+                                    }),
+                                  );
+                                },
+                              ),
+                  ),
+                  const Divider(height: 1),
+                  // Actions
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        16, 12, 16, 12 + MediaQuery.of(ctx).viewInsets.bottom),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(ctx, temp),
+                            child: const Text('Confirm'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (result != null) {
+      setState(() {
+        _selectedAssignees = result;
+        assignedToController.text = result.join(', ');
+      });
+    }
   }
 
   Future<void> _loadUsername() async {
@@ -1155,63 +1369,57 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ),
                         const SizedBox(height: 16),
                         if (widget.incoming) ...[
-                          RawAutocomplete<String>(
-                            optionsBuilder: (TextEditingValue textEditingValue) {
-                              if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
-                              }
-                              return cpdcoStaff.where((String option) {
-                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                              });
-                            },
-                            onSelected: (String selection) {
-                              assignedToController.text = selection;
-                            },
-                            fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
-                              fieldTextEditingController.text = assignedToController.text;
-                              return TextField(
-                                controller: fieldTextEditingController,
-                                focusNode: fieldFocusNode,
-                                enabled: !_isSaving,
-                                decoration: InputDecoration(
-                                  labelText: "Delivered / Addressed to",
-                                  hintText: "Enter assigned personnel",
-                                  border: OutlineInputBorder(),
-                                  filled: true,
-                                  fillColor: Theme.of(context).colorScheme.surface,
+                          InkWell(
+                            onTap: _isSaving ? null : _showAssigneePicker,
+                            borderRadius: BorderRadius.circular(8),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: "Delivered / Addressed to",
+                                border: const OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                prefixIcon: const Icon(Icons.people_outline, size: 20),
+                                suffixIcon: Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
-                                onChanged: (value) {
-                                  assignedToController.text = value;
-                                },
-                              );
-                            },
-                            optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  elevation: 4.0,
-                                  child: SizedBox(
-                                    width: 350,
-                                    height: (options.length * 56.0 + 16.0).clamp(0.0, 200.0),
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.all(8.0),
-                                      itemCount: options.length,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        final String option = options.elementAt(index);
-                                        return GestureDetector(
-                                          onTap: () {
-                                            onSelected(option);
-                                          },
-                                          child: ListTile(
-                                            title: Text(option),
-                                          ),
-                                        );
-                                      },
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              ),
+                              child: _selectedAssignees.isEmpty
+                                  ? Text(
+                                      'Tap to select personnel',
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                                        fontStyle: FontStyle.italic,
+                                        fontSize: 14,
+                                      ),
+                                    )
+                                  : Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: _selectedAssignees
+                                          .map((a) {
+                                            final isNA = a == 'N/A';
+                                            return Chip(
+                                              avatar: CircleAvatar(
+                                                backgroundColor: isNA ? Colors.grey.shade500 : Theme.of(context).colorScheme.primary,
+                                                child: isNA
+                                                    ? const Icon(Icons.block, size: 12, color: Colors.white)
+                                                    : Text(
+                                                        a[0].toUpperCase(),
+                                                        style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                                      ),
+                                              ),
+                                              label: Text(a, style: TextStyle(fontSize: 12, fontStyle: isNA ? FontStyle.italic : FontStyle.normal)),
+                                              backgroundColor: isNA ? Colors.grey.shade200 : Theme.of(context).colorScheme.primaryContainer,
+                                              labelStyle: TextStyle(color: isNA ? Colors.grey.shade700 : Theme.of(context).colorScheme.onPrimaryContainer),
+                                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            );
+                                          })
+                                          .toList(),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
+                            ),
                           ),
                         ] else ...[
                           TextField(
@@ -1219,8 +1427,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                             enabled: !_isSaving,
                             decoration: InputDecoration(
                               labelText: "Delivered / Addressed to",
-                              hintText: "Enter recipient personnel",
-                              border: OutlineInputBorder(),
+                              hintText: "Enter recipient name",
+                              border: const OutlineInputBorder(),
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                             ),
@@ -1651,6 +1859,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        final notifyAssignees = _selectedAssignees.where((a) => a != 'N/A').toList();
+                        if (widget.incoming && notifyAssignees.isNotEmpty) {
+                          SupabaseService().scheduleAssignmentNotification(
+                            doc.code,
+                            doc.title ?? 'Document',
+                            notifyAssignees,
+                          );
+                        }
                         _saved = true;
                         navigator.pop();
                       } catch (e) {

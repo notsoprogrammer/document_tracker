@@ -37,6 +37,7 @@ class NotificationService {
   static const String _prefOverdue = 'overdue_notifications';
   static const String _prefActivity = 'activity_notifications';
   static const String _prefActivityLastShown = 'activity_notification_last_shown';
+  static const String _prefAssignment = 'assignment_notifications';
 
   /* -----------------------------------------------------------
    * INITIALIZATION
@@ -352,6 +353,7 @@ class NotificationService {
     bool? twentyFourHourNotifications,
     bool? overdueNotifications,
     bool? activityNotifications,
+    bool? assignmentNotifications,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (immediateNotifications != null) {
@@ -365,6 +367,9 @@ class NotificationService {
     }
     if (activityNotifications != null) {
       await prefs.setBool(_prefActivity, activityNotifications);
+    }
+    if (assignmentNotifications != null) {
+      await prefs.setBool(_prefAssignment, assignmentNotifications);
     }
 
     await _syncPreferencesToDevice();
@@ -381,6 +386,7 @@ class NotificationService {
       'twentyFourHourNotifications': prefs.getBool(_prefTwentyFourHour) ?? true,
       'overdueNotifications': prefs.getBool(_prefOverdue) ?? true,
       'activityNotifications': prefs.getBool(_prefActivity) ?? true,
+      'assignmentNotifications': prefs.getBool(_prefAssignment) ?? true,
     };
   }
 
@@ -399,6 +405,8 @@ class NotificationService {
       case 'activity':
       case 'daily_summary':
         return prefs['activityNotifications'] ?? true;
+      case 'assignment':
+        return prefs['assignmentNotifications'] ?? true;
       default:
         return prefs['immediateNotifications'] ?? true;
     }
