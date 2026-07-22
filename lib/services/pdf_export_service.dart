@@ -11,6 +11,24 @@ import '../services/google_drive_service.dart';
 import '../utils/pdf_download_helper.dart';
 
 class PdfExportService {
+  /// Builds a PDF from a list of raw image byte arrays (JPEG/PNG).
+  /// Each image becomes one A4 page, auto-rotated to landscape when wider than tall.
+  static Future<Uint8List> buildPdfFromLocalImages(List<Uint8List> imageBytesList) async {
+    final doc = pw.Document();
+    for (final bytes in imageBytesList) {
+      try {
+        final image = pw.MemoryImage(bytes);
+        final isLandscape = image.width != null && image.height != null && image.width! > image.height!;
+        doc.addPage(pw.Page(
+          pageFormat: isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(16),
+          build: (ctx) => pw.Center(child: pw.Image(image, fit: pw.BoxFit.contain)),
+        ));
+      } catch (_) {}
+    }
+    return Uint8List.fromList(await doc.save());
+  }
+
   static Future<void> exportImagesToPdf({
     required List<String> imageUrls,
     required String fileName,

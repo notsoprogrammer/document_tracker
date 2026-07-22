@@ -10,6 +10,7 @@ import '../models/document.dart';
 import '../services/cached_document_service.dart';
 import '../services/document_scanner_service.dart';
 import '../services/mlkit_scanner_service.dart';
+import '../services/pdf_export_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
@@ -45,6 +46,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
   bool _isUploadingImages = false;
   bool _isPickingImage = false;
   bool _isPickingFile = false;
+  bool _isMergingPdf = false;
   int _totalUploads = 0;
   int _completedUploads = 0;
   String _uploadStatus = '';
@@ -149,7 +151,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
     if (!kIsWeb && Platform.isAndroid) { await _scanWithMlKit(); return; }
     final source = await _chooseWebScanSource();
     if (source == null || !mounted) return;
-    if (_selectedImagePaths.where(_isImage).length >= 10) { SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed'); return; }
+    if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
     final image = await _picker.pickImage(source: source);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
@@ -172,17 +174,15 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
   }
 
   Future<void> _scanWithMlKit() async {
-    final remaining = 10 - _selectedImagePaths.where(_isImage).length;
-    if (remaining <= 0) { SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed'); return; }
-    final format = await _chooseScanFormat();
-    if (format == null || !mounted) return;
+    final remaining = 20 - _selectedImagePaths.where(_isImage).length;
+    if (remaining <= 0) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
     ScannerOutput? output;
-    try { output = await MlKitScannerService.scanDocument(maxPages: format == ScanOutputFormat.pdf ? 20 : remaining, format: format); } catch (_) { output = null; }
+    try { output = await MlKitScannerService.scanDocument(maxPages: remaining, format: ScanOutputFormat.image); } catch (_) { output = null; }
     if (!mounted) return;
     if (output == null) {
       setState(() => _isPickingImage = false);
-      if (_selectedImagePaths.where(_isImage).length >= 10) { SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed'); return; }
+      if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
       final image = await _picker.pickImage(source: ImageSource.camera);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
@@ -199,36 +199,57 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
     if (output.wasCancelled) { setState(() => _isPickingImage = false); return; }
     try {
       final tempDir = await getTemporaryDirectory();
-      if (output.hasPdf) {
-        final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.pdf');
-        await tempFile.writeAsBytes(output.pdf!);
+      for (var i = 0; i < output.images.length; i++) {
+        final tempFile = File('${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+        await tempFile.writeAsBytes(output.images[i]);
         if (!mounted) return;
-        setState(() => _selectedDocumentPaths.add(tempFile.path));
-        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: tempFile.path, isImage: false, localPath: tempFile.path);
-      } else {
-        for (var i = 0; i < output.images.length; i++) {
-          final tempFile = File('${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
-          await tempFile.writeAsBytes(output.images[i]);
-          if (!mounted) return;
-          setState(() { _selectedImagePaths.add(tempFile.path); _selectedImageBytes.add(null); });
-          UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: tempFile.path, isImage: true, localPath: tempFile.path);
-        }
+        setState(() { _selectedImagePaths.add(tempFile.path); _selectedImageBytes.add(null); });
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: tempFile.path, isImage: true, localPath: tempFile.path);
       }
     } finally { if (mounted) setState(() => _isPickingImage = false); }
   }
 
-  Future<ScanOutputFormat?> _chooseScanFormat() => showModalBottomSheet<ScanOutputFormat>(
-    context: context, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-    builder: (ctx) => SafeArea(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Save scan as…', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-      const SizedBox(height: 16),
-      Row(children: [
-        Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pop(ctx, ScanOutputFormat.image), icon: const Icon(Icons.image_outlined), label: const Text('Image'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)))),
-        const SizedBox(width: 12),
-        Expanded(child: FilledButton.icon(onPressed: () => Navigator.pop(ctx, ScanOutputFormat.pdf), icon: const Icon(Icons.picture_as_pdf_outlined), label: const Text('PDF'), style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)))),
-      ]),
-    ]))),
-  );
+  Future<void> _mergeImagesToPdf() async {
+    if (_isMergingPdf) return;
+    setState(() => _isMergingPdf = true);
+    try {
+      final imageOnlyPaths = _selectedImagePaths.where(_isImage).toList();
+      final List<Uint8List> imageBytesList = [];
+      for (final path in imageOnlyPaths) {
+        if (kIsWeb) {
+          final idx = _selectedImagePaths.indexOf(path);
+          if (idx >= 0 && idx < _selectedImageBytes.length && _selectedImageBytes[idx] != null) {
+            imageBytesList.add(Uint8List.fromList(_selectedImageBytes[idx]!));
+          } else if (_webFileBytes.containsKey(path)) {
+            imageBytesList.add(Uint8List.fromList(_webFileBytes[path]!));
+          }
+        } else {
+          try { imageBytesList.add(await File(path).readAsBytes()); } catch (_) {}
+        }
+      }
+      if (imageBytesList.isEmpty) { if (mounted) SnackbarUtils.showErrorSnackBar(context, 'No image data available to convert'); return; }
+      final pdfBytes = await PdfExportService.buildPdfFromLocalImages(imageBytesList);
+      for (final path in imageOnlyPaths) { UploadQueueManager().removeFromQueue(codeController.text, path); }
+      if (kIsWeb) {
+        final pdfFileName = 'merged_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        if (!mounted) return;
+        setState(() { _selectedImagePaths.removeWhere(_isImage); _selectedImageBytes.clear(); _selectedDocumentPaths.add(pdfFileName); });
+        _webFileBytes[pdfFileName] = pdfBytes;
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: pdfFileName, isImage: false, localPath: pdfFileName, bytes: pdfBytes);
+      } else {
+        final pdfFile = File('${(await getTemporaryDirectory()).path}/merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await pdfFile.writeAsBytes(pdfBytes);
+        if (!mounted) return;
+        setState(() { _selectedImagePaths.removeWhere(_isImage); _selectedImageBytes.clear(); _selectedDocumentPaths.add(pdfFile.path); });
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: pdfFile.path, isImage: false, localPath: pdfFile.path);
+      }
+      if (mounted) SnackbarUtils.showSuccessSnackBar(context, '${imageOnlyPaths.length} image(s) merged into PDF');
+    } catch (e) {
+      if (mounted) SnackbarUtils.showErrorSnackBar(context, 'Failed to merge PDF: $e');
+    } finally {
+      if (mounted) setState(() => _isMergingPdf = false);
+    }
+  }
 
   Future<bool> _onWillPop() async {
     final result = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Confirm Exit'), content: const Text('Do you want to exit?'), actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('No')), TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Yes'))]));
@@ -424,7 +445,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                         decoration: BoxDecoration(color: Colors.green.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green.withOpacity(0.3))),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [Icon(Icons.cloud_upload_outlined, color: Colors.green.shade600, size: 18), const SizedBox(width: 6), Text("${_selectedImagePaths.length + _selectedDocumentPaths.length} file(s) queued for upload", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green.shade700, fontSize: 13))]),
-                          if (_selectedImagePaths.isNotEmpty) ...[const SizedBox(height: 8), Row(children: [Icon(Icons.image_outlined, size: 15, color: Colors.grey.shade600), const SizedBox(width: 4), Text("${_selectedImagePaths.length} image(s)", style: TextStyle(fontSize: 13, color: Colors.grey.shade700)), const Spacer(), TextButton.icon(onPressed: _isSaving ? null : () => _viewSelectedFiles(context), icon: const Icon(Icons.visibility_outlined, size: 14), label: const Text("View", style: TextStyle(fontSize: 13)), style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap))])],
+                          if (_selectedImagePaths.isNotEmpty) ...[const SizedBox(height: 8), Row(children: [Icon(Icons.image_outlined, size: 15, color: Colors.grey.shade600), const SizedBox(width: 4), Text("${_selectedImagePaths.length} image(s)", style: TextStyle(fontSize: 13, color: Colors.grey.shade700)), const Spacer(), TextButton.icon(onPressed: _isSaving ? null : () => _viewSelectedFiles(context), icon: const Icon(Icons.visibility_outlined, size: 14), label: const Text("View", style: TextStyle(fontSize: 13)), style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap))]), if (_selectedImagePaths.where(_isImage).length > 10) ...[const SizedBox(height: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade300)), child: Row(children: [Icon(Icons.lightbulb_outline, size: 15, color: Colors.amber.shade700), const SizedBox(width: 6), Expanded(child: Text('You have ${_selectedImagePaths.where(_isImage).length} images — saving as PDF keeps them in one file.', style: TextStyle(fontSize: 11, color: Colors.amber.shade800)))]))], const SizedBox(height: 6), SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: (_isSaving || _isMergingPdf) ? null : _mergeImagesToPdf, icon: _isMergingPdf ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.picture_as_pdf_outlined, size: 16), label: Text(_isMergingPdf ? 'Converting...' : 'Save as PDF instead'), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), foregroundColor: Colors.deepOrange, side: BorderSide(color: Colors.deepOrange.shade300), textStyle: const TextStyle(fontSize: 13))))],
                           if (_selectedDocumentPaths.isNotEmpty) ...[const SizedBox(height: 6), Row(children: [Icon(Icons.description_outlined, size: 15, color: Colors.grey.shade600), const SizedBox(width: 4), Text("${_selectedDocumentPaths.length} document(s)", style: TextStyle(fontSize: 13, color: Colors.grey.shade700))]), const SizedBox(height: 6), Wrap(spacing: 6, runSpacing: 6, children: _selectedDocumentPaths.map((path) { final fileName = path.split('\\').last.split('/').last; final isPdf = fileName.toLowerCase().endsWith('.pdf'); return Chip(avatar: Icon(isPdf ? Icons.picture_as_pdf : Icons.description, size: 16, color: isPdf ? Colors.red.shade400 : Colors.blue.shade400), label: Text(fileName.length > 20 ? '${fileName.substring(0, 17)}...' : fileName, style: const TextStyle(fontSize: 12)), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, onDeleted: _isSaving ? null : () { UploadQueueManager().removeFromQueue(codeController.text, path); setState(() => _selectedDocumentPaths.remove(path)); }); }).toList())],
                         ]),
                       ),

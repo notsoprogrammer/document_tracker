@@ -13,6 +13,6 @@ Future<void> showBrowserNotification(String title, String body) async {
     perm = (await _JSNotification.requestPermission().toDart).toDart;
   }
   if (perm == 'granted') {
-    _JSNotification(title, {'body': body}.jsify()! as JSObject);
+    _JSNotification(title, {'body': body, 'icon': '/icons/Icon-192.png', 'badge': '/icons/Icon-192.png'}.jsify()! as JSObject);
   }
 }

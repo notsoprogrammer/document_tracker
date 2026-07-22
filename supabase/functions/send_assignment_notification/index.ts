@@ -80,6 +80,12 @@ async function sendFCMNotification(
           token,
           notification: { title, body },
           data: { type: 'assignment' },
+          webpush: {
+            notification: {
+              icon: 'https://docu-tracker-ac4ea.web.app/icons/Icon-192.png',
+              badge: 'https://docu-tracker-ac4ea.web.app/icons/Icon-192.png',
+            },
+          },
         },
       }),
     }

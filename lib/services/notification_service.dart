@@ -182,6 +182,7 @@ class NotificationService {
       channelDescription: _channelDesc,
       importance: Importance.max,
       priority: Priority.high,
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
     );
 
     const iosDetails = DarwinNotificationDetails();

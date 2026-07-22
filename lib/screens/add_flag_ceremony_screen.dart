@@ -10,6 +10,7 @@ import '../services/cached_document_service.dart';
 import '../services/document_scanner_service.dart';
 import '../services/google_drive_service.dart';
 import '../services/mlkit_scanner_service.dart';
+import '../services/pdf_export_service.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
@@ -39,6 +40,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   bool _isUploadingImages = false;
   bool _isPickingImage = false;
   bool _isPickingFile = false;
+  bool _isMergingPdf = false;
   String _uploadStatus = '';
   int _totalUploads = 0;
   int _completedUploads = 0;
@@ -179,8 +181,8 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
     final ImageSource? source = await _chooseWebScanSource();
     if (source == null || !mounted) return;
     final int count = _selectedImagePaths.where(_isImage).length;
-    if (count >= 10) {
-      SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+    if (count >= 20) {
+      SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed');
       return;
     }
     setState(() => _isPickingImage = true);
@@ -230,32 +232,23 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   }
 
   Future<void> _scanWithMlKit() async {
-    final int remaining = 10 - _selectedImagePaths.where(_isImage).length;
+    final int remaining = 20 - _selectedImagePaths.where(_isImage).length;
     if (remaining <= 0) {
-      SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+      SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed');
       return;
     }
-    final ScanOutputFormat? format = await _chooseScanFormat();
-    if (format == null || !mounted) return;
-
     setState(() => _isPickingImage = true);
-
     ScannerOutput? output;
     try {
-      output = await MlKitScannerService.scanDocument(
-        maxPages: format == ScanOutputFormat.pdf ? 20 : remaining,
-        format: format,
-      );
+      output = await MlKitScannerService.scanDocument(maxPages: remaining, format: ScanOutputFormat.image);
     } catch (_) {
       output = null;
     }
     if (!mounted) return;
-
     if (output == null) {
-      // Fallback to camera + CV pipeline.
       setState(() => _isPickingImage = false);
-      if (_selectedImagePaths.where(_isImage).length >= 10) {
-        SnackbarUtils.showWarningSnackBar(context, 'Only 10 image files allowed');
+      if (_selectedImagePaths.where(_isImage).length >= 20) {
+        SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed');
         return;
       }
       setState(() => _isPickingImage = true);
@@ -267,127 +260,71 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
         return;
       }
       final rawBytes = await image.readAsBytes();
-      final scannedBytes = kIsWeb
-          ? rawBytes
-          : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
+      final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
       if (!mounted) return;
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File(
-        '${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
+      final tempFile = File('${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await tempFile.writeAsBytes(scannedBytes);
       if (!mounted) return;
-      setState(() {
-        _selectedImagePaths.add(tempFile.path);
-        _selectedImageBytes.add(null);
-        _isPickingImage = false;
-      });
-      UploadQueueManager().addToQueue(
-        documentCode: codeController.text,
-        filePath: tempFile.path,
-        isImage: true,
-        localPath: tempFile.path,
-      );
+      setState(() { _selectedImagePaths.add(tempFile.path); _selectedImageBytes.add(null); _isPickingImage = false; });
+      UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: tempFile.path, isImage: true, localPath: tempFile.path);
       return;
     }
-
-    if (output.wasCancelled) {
-      setState(() => _isPickingImage = false);
-      return;
-    }
-
+    if (output.wasCancelled) { setState(() => _isPickingImage = false); return; }
     try {
       final tempDir = await getTemporaryDirectory();
-      if (output.hasPdf) {
-        final tempFile = File(
-          '${tempDir.path}/scanned_${DateTime.now().millisecondsSinceEpoch}.pdf',
-        );
-        await tempFile.writeAsBytes(output.pdf!);
+      for (var i = 0; i < output.images.length; i++) {
+        final tempFile = File('${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+        await tempFile.writeAsBytes(output.images[i]);
         if (!mounted) return;
-        setState(() => _selectedDocumentPaths.add(tempFile.path));
-        UploadQueueManager().addToQueue(
-          documentCode: codeController.text,
-          filePath: tempFile.path,
-          isImage: false,
-          localPath: tempFile.path,
-        );
-      } else {
-        for (var i = 0; i < output.images.length; i++) {
-          final tempFile = File(
-            '${tempDir.path}/mlkit_${DateTime.now().millisecondsSinceEpoch}_$i.jpg',
-          );
-          await tempFile.writeAsBytes(output.images[i]);
-          if (!mounted) return;
-          setState(() {
-            _selectedImagePaths.add(tempFile.path);
-            _selectedImageBytes.add(null);
-          });
-          UploadQueueManager().addToQueue(
-            documentCode: codeController.text,
-            filePath: tempFile.path,
-            isImage: true,
-            localPath: tempFile.path,
-          );
-        }
+        setState(() { _selectedImagePaths.add(tempFile.path); _selectedImageBytes.add(null); });
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: tempFile.path, isImage: true, localPath: tempFile.path);
       }
     } finally {
       if (mounted) setState(() => _isPickingImage = false);
     }
   }
 
-  Future<ScanOutputFormat?> _chooseScanFormat() {
-    return showModalBottomSheet<ScanOutputFormat>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Save scan as…',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          Navigator.pop(ctx, ScanOutputFormat.image),
-                      icon: const Icon(Icons.image_outlined),
-                      label: const Text('Image'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () =>
-                          Navigator.pop(ctx, ScanOutputFormat.pdf),
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('PDF'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _mergeImagesToPdf() async {
+    if (_isMergingPdf) return;
+    setState(() => _isMergingPdf = true);
+    try {
+      final imageOnlyPaths = _selectedImagePaths.where(_isImage).toList();
+      final List<Uint8List> imageBytesList = [];
+      for (final path in imageOnlyPaths) {
+        if (kIsWeb) {
+          final idx = _selectedImagePaths.indexOf(path);
+          if (idx >= 0 && idx < _selectedImageBytes.length && _selectedImageBytes[idx] != null) {
+            imageBytesList.add(Uint8List.fromList(_selectedImageBytes[idx]!));
+          } else if (_webFileBytes.containsKey(path)) {
+            imageBytesList.add(Uint8List.fromList(_webFileBytes[path]!));
+          }
+        } else {
+          try { imageBytesList.add(await File(path).readAsBytes()); } catch (_) {}
+        }
+      }
+      if (imageBytesList.isEmpty) { if (mounted) SnackbarUtils.showErrorSnackBar(context, 'No image data available to convert'); return; }
+      final pdfBytes = await PdfExportService.buildPdfFromLocalImages(imageBytesList);
+      for (final path in imageOnlyPaths) { UploadQueueManager().removeFromQueue(codeController.text, path); }
+      if (kIsWeb) {
+        final pdfFileName = 'merged_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        if (!mounted) return;
+        setState(() { _selectedImagePaths.removeWhere(_isImage); _selectedImageBytes.clear(); _selectedDocumentPaths.add(pdfFileName); });
+        _webFileBytes[pdfFileName] = pdfBytes;
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: pdfFileName, isImage: false, localPath: pdfFileName, bytes: pdfBytes);
+      } else {
+        final pdfFile = File('${(await getTemporaryDirectory()).path}/merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await pdfFile.writeAsBytes(pdfBytes);
+        if (!mounted) return;
+        setState(() { _selectedImagePaths.removeWhere(_isImage); _selectedImageBytes.clear(); _selectedDocumentPaths.add(pdfFile.path); });
+        UploadQueueManager().addToQueue(documentCode: codeController.text, filePath: pdfFile.path, isImage: false, localPath: pdfFile.path);
+      }
+      if (mounted) SnackbarUtils.showSuccessSnackBar(context, '${imageOnlyPaths.length} image(s) merged into PDF');
+    } catch (e) {
+      if (mounted) SnackbarUtils.showErrorSnackBar(context, 'Failed to merge PDF: $e');
+    } finally {
+      if (mounted) setState(() => _isMergingPdf = false);
+    }
   }
 
   Future<bool> _onWillPop() async {
@@ -942,6 +879,24 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                                         ),
                                       ),
                                     ],
+                                  ),
+                                  if (_selectedImagePaths.where(_isImage).length > 10) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade300)),
+                                      child: Row(children: [Icon(Icons.lightbulb_outline, size: 15, color: Colors.amber.shade700), const SizedBox(width: 6), Expanded(child: Text('You have ${_selectedImagePaths.where(_isImage).length} images — saving as PDF keeps them in one file.', style: TextStyle(fontSize: 11, color: Colors.amber.shade800)))]),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: (_isSaving || _isMergingPdf) ? null : _mergeImagesToPdf,
+                                      icon: _isMergingPdf ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                                      label: Text(_isMergingPdf ? 'Converting...' : 'Save as PDF instead'),
+                                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8), foregroundColor: Colors.deepOrange, side: BorderSide(color: Colors.deepOrange.shade300), textStyle: const TextStyle(fontSize: 13)),
+                                    ),
                                   ),
                                 ],
                                 if (_selectedDocumentPaths.isNotEmpty) ...[
