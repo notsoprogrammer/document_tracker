@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
 import '../models/repository_link.dart';
+import '../models/personal_event.dart';
 
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -413,6 +414,33 @@ class SupabaseService {
 
   Future<void> deleteActivity(int activityId) async {
     await _client.from('activities').delete().eq('id', activityId);
+  }
+
+  // Personal events operations
+  Future<List<PersonalEvent>> fetchPersonalEvents(String username) async {
+    try {
+      final response = await _client
+          .from('personal_events')
+          .select('*')
+          .eq('username', username)
+          .order('date', ascending: true);
+      return (response as List<dynamic>).map((e) => PersonalEvent.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<PersonalEvent> createPersonalEvent(PersonalEvent event) async {
+    final response = await _client.from('personal_events').insert(event.toJson()).select().single();
+    return PersonalEvent.fromJson(response);
+  }
+
+  Future<void> updatePersonalEvent(int id, Map<String, dynamic> updates) async {
+    await _client.from('personal_events').update(updates).eq('id', id);
+  }
+
+  Future<void> deletePersonalEvent(int id) async {
+    await _client.from('personal_events').delete().eq('id', id);
   }
 
   // Repository links operations

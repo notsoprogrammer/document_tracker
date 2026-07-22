@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/document.dart';
 import '../models/activity.dart';
+import '../models/personal_event.dart';
+import '../services/notification_service.dart';
 import '../services/supabase_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/cached_document_service.dart';
@@ -48,6 +50,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Document> _calendarDocuments = [];
   List<Activity> _calendarActivities = [];
+  List<PersonalEvent> _personalEvents = [];
+  String? _currentUsername;
 
   Color _rangeHighlightColor = const Color(0xFF90CAF9); // default: light blue
 
@@ -73,6 +77,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selectedEvents = ValueNotifier(_getEventsForDay(_selectedDay!));
     _loadCalendarDocuments();
     _loadCalendarActivities();
+    _loadCurrentUsername();
     if (widget.initialActivity != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showActivityDetails(context, widget.initialActivity!);
@@ -105,11 +110,56 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _loadCalendarActivities() async {
     try {
       final activities = await SupabaseService().fetchActivities();
+      if (!mounted) return;
       setState(() {
         _calendarActivities = activities;
       });
       _selectedEvents.value = _getEventsForDay(_selectedDay!);
+      if (_currentUsername != null) {
+        for (final activity in activities) {
+          NotificationService().scheduleActivityReminderForInvolved(activity, _currentUsername!);
+        }
+      }
     } catch (e) {
+    }
+  }
+
+  Future<void> _loadCurrentUsername() async {
+    final username = await AuthService.getUsername();
+    if (!mounted) return;
+    setState(() => _currentUsername = username);
+    if (username != null) {
+      await _loadPersonalEvents(username);
+      // Schedule 10-min reminders now that we know the user
+      for (final activity in _calendarActivities) {
+        NotificationService().scheduleActivityReminderForInvolved(activity, username);
+      }
+    }
+  }
+
+  Future<void> _loadPersonalEvents(String username) async {
+    try {
+      final events = await SupabaseService().fetchPersonalEvents(username);
+      if (!mounted) return;
+      setState(() => _personalEvents = events);
+      _selectedEvents.value = _getEventsForDay(_selectedDay!);
+    } catch (e) {
+    }
+  }
+
+  Future<void> _deletePersonalEvent(PersonalEvent event) async {
+    if (event.id == null) return;
+    try {
+      await SupabaseService().deletePersonalEvent(event.id!);
+      if (_currentUsername != null && mounted) {
+        await _loadPersonalEvents(_currentUsername!);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete note'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -145,14 +195,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return false;
     }));
 
-    // Add activities (across full start–end range)
+    // Add activities (across full start–end range, plus any extra dates)
     events.addAll(_calendarActivities.where((activity) {
       final startDate = activity.startTime;
       final actStartDay = DateTime(startDate.year, startDate.month, startDate.day);
       final actEndDay = activity.endTime != null
           ? DateTime(activity.endTime!.year, activity.endTime!.month, activity.endTime!.day)
           : actStartDay;
-      return !checkDay.isBefore(actStartDay) && !checkDay.isAfter(actEndDay);
+      if (!checkDay.isBefore(actStartDay) && !checkDay.isAfter(actEndDay)) return true;
+      return activity.extraDates.any((d) => isSameDay(checkDay, d));
+    }));
+
+    // Add personal events for current user only
+    events.addAll(_personalEvents.where((pe) {
+      final peStart = DateTime(pe.date.year, pe.date.month, pe.date.day);
+      final peEnd = pe.endDate != null
+          ? DateTime(pe.endDate!.year, pe.endDate!.month, pe.endDate!.day)
+          : peStart;
+      return !checkDay.isBefore(peStart) && !checkDay.isAfter(peEnd);
     }));
 
     return events;
@@ -244,16 +304,51 @@ class _CalendarScreenState extends State<CalendarScreen> {
           if (!isOnline) return const SizedBox();
           return FloatingActionButton(
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddActivityScreen()),
+              final choice = await showModalBottomSheet<String>(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (ctx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 40, height: 4,
+                        decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: const Icon(Icons.event, color: Colors.blue),
+                        title: const Text('Add Activity / Event'),
+                        onTap: () => Navigator.pop(ctx, 'activity'),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.note_alt_outlined, color: Colors.orange),
+                        title: const Text('Add Personal Note'),
+                        subtitle: const Text('Only visible to you'),
+                        onTap: () => Navigator.pop(ctx, 'personal'),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               );
-              if (result == true) {
-                // Reload activities if added
-                _loadCalendarActivities();
+              if (!context.mounted) return;
+              if (choice == 'activity') {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddActivityScreen()),
+                );
+                if (result == true) _loadCalendarActivities();
+              } else if (choice == 'personal') {
+                if (_currentUsername != null) {
+                  _showPersonalEventDialog();
+                }
               }
             },
-            backgroundColor: const Color(0xFF87CEEB), // pastel blue
+            backgroundColor: const Color(0xFF87CEEB),
             child: const Icon(Icons.add),
           );
         },
@@ -362,6 +457,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 bool hasLeaveDot = false;
                 bool hasPendingCompliance = false;
                 bool hasActivityDot = false;
+                bool hasPersonalDot = false;
 
                 for (var event in events) {
                   if (event is Document) {
@@ -371,7 +467,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       final endDay = event.calendarDeadlineEnd != null
                           ? DateTime(event.calendarDeadlineEnd!.year, event.calendarDeadlineEnd!.month, event.calendarDeadlineEnd!.day)
                           : startDay;
-                      // Dot on single-day events, or on start/end of multi-day ranges
                       final isEndpoint = isSameDay(startDay, endDay) ||
                           isSameDay(date, startDay) ||
                           isSameDay(date, endDay);
@@ -390,10 +485,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     final endDay = event.endTime != null
                         ? DateTime(event.endTime!.year, event.endTime!.month, event.endTime!.day)
                         : startDay;
-                    final isEndpoint = isSameDay(startDay, endDay) ||
+                    final isMainEndpoint = isSameDay(startDay, endDay) ||
                         isSameDay(date, startDay) ||
                         isSameDay(date, endDay);
-                    if (isEndpoint) hasActivityDot = true;
+                    final isExtraDate = event.extraDates.any((d) => isSameDay(date, d));
+                    if (isMainEndpoint || isExtraDate) hasActivityDot = true;
+                  } else if (event is PersonalEvent) {
+                    hasPersonalDot = true;
                   }
                 }
 
@@ -402,6 +500,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   if (hasCalendarDot) _dotMarker(Colors.green),
                   if (hasPendingCompliance) _dotMarker(Colors.red),
                   if (hasActivityDot) _dotMarker(Colors.blue),
+                  if (hasPersonalDot) _dotMarker(Colors.orange),
                 ];
 
                 if (markers.isEmpty) return const SizedBox();
@@ -530,10 +629,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       );
                     } else if (item is Activity) {
                       return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12.0,
-                          vertical: 4.0,
-                        ),
+                        margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
                         child: Card(
                           elevation: 2,
                           child: InkWell(
@@ -542,12 +638,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                border: Border(
-                                  left: BorderSide(
-                                    color: Colors.blue,
-                                    width: 4,
-                                  ),
-                                ),
+                                border: const Border(left: BorderSide(color: Colors.blue, width: 4)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -558,39 +649,101 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       Expanded(
                                         child: Text(
                                           item.title ?? 'No Title',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      const Icon(
-                                        Icons.event,
-                                        color: Colors.blue,
-                                        size: 20,
+                                      const Icon(Icons.event, color: Colors.blue, size: 20),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _formatTime(item.startTime),
+                                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade100,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Text(
+                                          'Activity',
+                                          style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'by ${item.person}',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Text(
-                                      'Activity',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (item is PersonalEvent) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                        child: Card(
+                          elevation: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: const Border(left: BorderSide(color: Colors.orange, width: 4)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.lock_outline, color: Colors.orange, size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.title,
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        'Personal Note',
+                                        style: TextStyle(fontSize: 12, color: Colors.orange),
+                                      ),
+                                      if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.remarks!,
+                                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, color: Colors.orange, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showPersonalEventDialog(existing: item),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _deletePersonalEvent(item),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -694,7 +847,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Flexible(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: _buildActivityContent(ctx, activity),
+                    child: _buildActivityContent(ctx, activity, currentUsername: _currentUsername),
                   ),
                 ),
               ],
@@ -717,7 +870,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           maxChildSize: 0.9,
           builder: (context, scrollController) => _buildSheetContainer(
             scrollController,
-            _buildActivityContent(context, activity),
+            _buildActivityContent(context, activity, currentUsername: _currentUsername),
           ),
         ),
       );
@@ -818,7 +971,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 GestureDetector(
                   onTap: () async {
                     await Clipboard.setData(ClipboardData(text: doc.code));
-                    if (context.mounted) {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Code copied to clipboard')),
                       );
@@ -872,6 +1025,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildDetailRow('From/To', doc.fromOrTo),
+                if (doc.assignedTo.isNotEmpty)
+                  _buildDetailRow('Assigned To', doc.assignedTo),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -987,7 +1142,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildActivityContent(BuildContext context, Activity activity) {
+  Widget _buildActivityContent(BuildContext context, Activity activity, {String? currentUsername}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1030,17 +1185,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 _buildDetailRow('People Involved', activity.peopleInvolved),
                 if (activity.location != null && activity.location!.isNotEmpty)
                   _buildDetailRow('Location', activity.location!),
-                _buildDetailRow('Remarks', activity.remarks),
+                if (activity.remarks.isNotEmpty)
+                  _buildDetailRow('Remarks', activity.remarks),
+                if (activity.linkedDocumentCode != null && activity.linkedDocumentCode!.isNotEmpty)
+                  _buildCopyableRow('Document Ref', activity.linkedDocumentCode!),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
-        // Delete button
-        Center(
-          child: ElevatedButton.icon(
+        // Action buttons
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (currentUsername != null && currentUsername == activity.person) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.edit),
+                label: const Text("Edit"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  final result = await Navigator.push(
+                    this.context,
+                    MaterialPageRoute(
+                      builder: (_) => AddActivityScreen(initialActivity: activity),
+                    ),
+                  );
+                  if (result == true) _loadCalendarActivities();
+                },
+              ),
+              const SizedBox(width: 12),
+            ],
+            ElevatedButton.icon(
             icon: const Icon(Icons.delete),
-            label: const Text("Delete Activity"),
+            label: const Text("Delete"),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red[700],
               foregroundColor: Colors.white,
@@ -1109,8 +1292,112 @@ class _CalendarScreenState extends State<CalendarScreen> {
               }
             },
           ),
+        ],
+      ),
+    ],
+    );
+  }
+
+  void _showPersonalEventDialog({PersonalEvent? existing}) {
+    final isEditing = existing != null;
+    final titleController = TextEditingController(text: existing?.title ?? '');
+    final remarksController = TextEditingController(text: existing?.remarks ?? '');
+    DateTime selectedDate = existing?.date ?? _selectedDay ?? DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text(isEditing ? 'Edit Personal Note' : 'Add Personal Note'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: titleController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Note',
+                  hintText: 'e.g. Out for errand, Sick, Personal meeting',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: remarksController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Details (Optional)',
+                  hintText: 'e.g. Travel Order No. 123, meeting at City Hall',
+                  hintStyle: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) setS(() => selectedDate = picked);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today, size: 18),
+                  ),
+                  child: Text(
+                    '${selectedDate.month}/${selectedDate.day}/${selectedDate.year}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.trim().isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  if (isEditing) {
+                    await SupabaseService().updatePersonalEvent(existing.id!, {
+                      'title': titleController.text.trim(),
+                      'remarks': remarksController.text.trim().isEmpty ? null : remarksController.text.trim(),
+                      'date': '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                    });
+                  } else {
+                    final event = PersonalEvent(
+                      username: _currentUsername!,
+                      date: selectedDate,
+                      title: titleController.text.trim(),
+                      remarks: remarksController.text.trim().isEmpty ? null : remarksController.text.trim(),
+                    );
+                    await SupabaseService().createPersonalEvent(event);
+                  }
+                  if (mounted && _currentUsername != null) {
+                    _loadPersonalEvents(_currentUsername!);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(isEditing ? 'Failed to update note' : 'Failed to save note'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -1368,6 +1655,44 @@ class _CalendarScreenState extends State<CalendarScreen> {
               style: const TextStyle(
                 fontSize: 14,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyableRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: Colors.blue),
+            ),
+          ),
+          GestureDetector(
+            onTap: () async {
+              await Clipboard.setData(ClipboardData(text: value));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Copied to clipboard')),
+                );
+              }
+            },
+            child: const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(Icons.copy, size: 16, color: Colors.blue),
             ),
           ),
         ],

@@ -347,6 +347,72 @@ class NotificationService {
   }
 
   /* -----------------------------------------------------------
+   * 10-MINUTE REMINDER FOR INVOLVED PERSONNEL
+   * ---------------------------------------------------------*/
+  /// Schedules a 10-minute pre-schedule notification if the current user is in
+  /// the activity's peopleInvolved list and has assignmentNotifications enabled.
+  Future<void> scheduleActivityReminderForInvolved(Activity activity, String currentUsername) async {
+    if (kIsWeb) return;
+
+    final prefs = await getNotificationPreferences();
+    if (!(prefs['assignmentNotifications'] ?? true)) return;
+
+    final people = activity.peopleInvolved
+        .split(',')
+        .map((p) => p.trim().toLowerCase())
+        .toList();
+    if (!people.contains(currentUsername.toLowerCase())) return;
+
+    await _scheduleMinutesBeforeReminder(activity.startTime, activity.title, 10);
+
+    // Also schedule for extra dates using the same time-of-day
+    for (final extraDate in activity.extraDates) {
+      final extraDt = DateTime(
+        extraDate.year, extraDate.month, extraDate.day,
+        activity.startTime.hour, activity.startTime.minute,
+      );
+      await _scheduleMinutesBeforeReminder(extraDt, activity.title, 10);
+    }
+  }
+
+  Future<void> _scheduleMinutesBeforeReminder(DateTime startTime, String? title, int minutesBefore) async {
+    if (startTime.isBefore(DateTime.now())) return;
+
+    final reminderTime = startTime.subtract(Duration(minutes: minutesBefore));
+    if (reminderTime.isBefore(DateTime.now())) return;
+
+    final location = tz.getLocation('Asia/Manila');
+    final tzReminder = tz.TZDateTime.from(reminderTime, location);
+
+    const androidDetails = AndroidNotificationDetails(
+      _channelId, _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const notifDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    // Offset by minutesBefore * 1M so 10-min and 30-min IDs don't collide
+    final notifId = (startTime.millisecondsSinceEpoch ~/ 1000 + minutesBefore * 1000000) & 0x7FFFFFFF;
+
+    try {
+      await _plugin.zonedSchedule(
+        notifId,
+        title ?? 'Upcoming Event',
+        'Starting in $minutesBefore minutes',
+        tzReminder,
+        notifDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {}
+  }
+
+  /* -----------------------------------------------------------
    * NOTIFICATION PREFERENCES
    * ---------------------------------------------------------*/
   Future<void> setNotificationPreferences({

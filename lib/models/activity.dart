@@ -1,5 +1,7 @@
+import 'dart:convert';
+
 class Activity {
-  final int? id; // Primary key for SQLite
+  final int? id;
   final String? title;
   final DateTime startTime;
   final DateTime? endTime;
@@ -9,6 +11,8 @@ class Activity {
   final String? location;
   bool needsSync;
   final DateTime? createdAt;
+  final List<DateTime> extraDates;
+  final String? linkedDocumentCode;
 
   Activity({
     this.id,
@@ -21,9 +25,21 @@ class Activity {
     this.location,
     this.needsSync = false,
     this.createdAt,
+    this.extraDates = const [],
+    this.linkedDocumentCode,
   });
 
   factory Activity.fromJson(Map<String, dynamic> json) {
+    List<DateTime> extraDates = [];
+    if (json['extra_dates'] != null) {
+      dynamic raw = json['extra_dates'];
+      if (raw is String) {
+        try { raw = jsonDecode(raw) as List<dynamic>; } catch (_) { raw = <dynamic>[]; }
+      }
+      if (raw is List) {
+        extraDates = raw.map((e) => DateTime.parse(e.toString())).toList();
+      }
+    }
     return Activity(
       id: json['id'],
       title: json['title'],
@@ -35,6 +51,8 @@ class Activity {
       location: json['location'],
       needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      extraDates: extraDates,
+      linkedDocumentCode: json['linked_document_code'],
     );
   }
 
@@ -50,6 +68,8 @@ class Activity {
       'location': location,
       'needs_sync': needsSync,
       'created_at': createdAt?.toIso8601String(),
+      'extra_dates': extraDates.map((d) => d.toIso8601String()).toList(),
+      'linked_document_code': linkedDocumentCode,
     };
   }
 
@@ -64,6 +84,8 @@ class Activity {
     String? location,
     bool? needsSync,
     DateTime? createdAt,
+    List<DateTime>? extraDates,
+    String? linkedDocumentCode,
   }) {
     return Activity(
       id: id ?? this.id,
@@ -76,6 +98,8 @@ class Activity {
       location: location ?? this.location,
       needsSync: needsSync ?? this.needsSync,
       createdAt: createdAt ?? this.createdAt,
+      extraDates: extraDates ?? this.extraDates,
+      linkedDocumentCode: linkedDocumentCode ?? this.linkedDocumentCode,
     );
   }
 }
