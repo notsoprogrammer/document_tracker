@@ -131,14 +131,6 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
           ? 'All uploads completed'
           : 'Preparing uploads...';
     });
-
-    // If all uploads are done and we were saving, pop the screen
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
-      _isSaving = false;
-      if (mounted) {
-        Navigator.pop(context, null); // Document was updated
-      }
-    }
   }
 
   Future<ImageSource?> _chooseWebScanSource() {
@@ -1117,52 +1109,25 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
 
                       setState(() => _isSaving = true);
                       try {
-                        // Update document
-                        await CachedDocumentService().updateDocument(widget.document.code, updates);
-
-                        // Process pending uploads (files were already queued when selected)
                         final documentService = CachedDocumentService();
-                        await documentService.processPendingUploads();
+                        await documentService.updateDocument(widget.document.code, updates);
+                        documentService.processPendingUploads();
 
-                        // Wait a bit for uploads to complete and check status
-                        await Future.delayed(const Duration(seconds: 2));
-
-                        // Check if there are still any pending uploads for this document
-                        final queueManager = UploadQueueManager();
-                        final pendingUploads = queueManager.getPendingUploads(widget.document.code);
-                        final uploadingUploads = queueManager.getAllItems().where((item) =>
-                          item['documentCode'] == widget.document.code && item['status'] == 'uploading'
-                        ).toList();
-
-                        if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait a moment.');
-                          return;
-                        }
-
-                        // Fetch the updated document to get the Google Drive file names
-                        final allDocs = await documentService.fetchDocuments();
-                        final updatedDoc = allDocs.firstWhere((doc) => doc.code == widget.document.code);
-                        final newAttachmentCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
-                        // Safety check to prevent negative start index
-                        final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
-                        final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
-
-                        // Add history entry for edit
                         final username = await AuthService.getUsername();
                         if (username != null) {
+                          final newFileCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
                           await documentService.addHistoryEntry(
                             widget.document.code,
                             HistoryEntry(
                               action: 'Document edited',
                               person: username,
                               timestamp: DateTime.now(),
-                              notes: googleDriveFileNames.isNotEmpty ? 'Added ${googleDriveFileNames.length} attachment(s): ${googleDriveFileNames.join(', ')}' : null,
+                              notes: newFileCount > 0 ? 'Added $newFileCount attachment(s)' : null,
                             ),
                           );
                         }
 
-                        // Sync the document
-                        await documentService.syncSpecificDocument(widget.document.code);
+                        documentService.syncSpecificDocument(widget.document.code);
 
                         if (mounted) {
                           Navigator.pop(context);

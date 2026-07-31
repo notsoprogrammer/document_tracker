@@ -117,10 +117,6 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
               ? 'All uploads completed'
               : 'Preparing uploads...';
     });
-    if (_isSaving && pending.isEmpty && uploading.isEmpty) {
-      _isSaving = false;
-      if (mounted) Navigator.pop(context);
-    }
   }
 
   Future<bool> _onWillPop() async {
@@ -345,23 +341,10 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
         'local_file_paths': _selectedDocumentPaths,
       };
 
-      await CachedDocumentService().updateDocument(widget.document.code, updates);
-      await CachedDocumentService().processPendingUploads();
-      await Future.delayed(const Duration(seconds: 2));
-
-      final queueManager = UploadQueueManager();
-      final pending = queueManager.getPendingUploads(widget.document.code);
-      final uploading = queueManager.getAllItems()
-          .where((i) => i['documentCode'] == widget.document.code && i['status'] == 'uploading')
-          .toList();
-
-      if (pending.isNotEmpty || uploading.isNotEmpty) {
-        SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait.');
-        if (mounted) setState(() => _isSaving = false);
-        return;
-      }
-
-      await CachedDocumentService().syncSpecificDocument(widget.document.code);
+      final svc = CachedDocumentService();
+      await svc.updateDocument(widget.document.code, updates);
+      svc.processPendingUploads();
+      svc.syncSpecificDocument(widget.document.code);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Failed to update record: $e');
