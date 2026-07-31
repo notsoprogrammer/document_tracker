@@ -206,6 +206,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   @override
   void initState() {
     super.initState();
+    selectedReceivingDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode(widget.incoming, null);
     _setupUploadListener();
     _loadUsername();
@@ -1151,15 +1152,27 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                       : const Color(0xFF6D94C5),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  selectedReceivingDate != null
-                                      ? "Set Receiving Date: ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
-                                      : "Set Receiving Date",
-                                  style: TextStyle(
-                                    color: _showValidationErrors && selectedReceivingDate == null
-                                        ? Colors.red
-                                        : const Color(0xFF6D94C5),
-                                    fontWeight: FontWeight.w600,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        selectedReceivingDate != null
+                                            ? "Receiving Date: ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
+                                            : "Set Receiving Date",
+                                        style: TextStyle(
+                                          color: _showValidationErrors && selectedReceivingDate == null
+                                              ? Colors.red
+                                              : const Color(0xFF6D94C5),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Tap to change if needed',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],

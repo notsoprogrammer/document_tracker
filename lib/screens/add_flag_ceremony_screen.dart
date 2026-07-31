@@ -84,6 +84,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   @override
   void initState() {
     super.initState();
+    selectedDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode();
     _setupUploadListener();
     _loadUsername();
@@ -597,6 +598,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                               errorText: _showValidationErrors && selectedDate == null ? "Ceremony date is required" : null,
+                              helperText: 'Auto-set to today – tap to change if needed',
                               suffixIcon: const Icon(Icons.calendar_today),
                             ),
                             child: Text(

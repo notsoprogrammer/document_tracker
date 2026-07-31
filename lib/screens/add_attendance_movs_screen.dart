@@ -85,6 +85,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   @override
   void initState() {
     super.initState();
+    selectedDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode();
     _setupUploadListener();
     _loadUsername();
@@ -354,9 +355,13 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     final nowUtc = DateTime.now().toUtc();
     final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
 
-    final year = phTime.year;
-    final month = phTime.month.toString().padLeft(2, '0');
-    final day = phTime.day.toString().padLeft(2, '0');
+    // For FL/FR, use activity date for the date portion so the code reflects when the event happened
+    final bool isFlagCeremony = selectedType == 'Flag Raising' || selectedType == 'Flag Lowering';
+    final dateSource = (isFlagCeremony && selectedDate != null) ? selectedDate! : phTime;
+
+    final year = dateSource.year;
+    final month = dateSource.month.toString().padLeft(2, '0');
+    final day = dateSource.day.toString().padLeft(2, '0');
     final hour = phTime.hour.toString().padLeft(2, '0');
     final minute = phTime.minute.toString().padLeft(2, '0');
     final second = phTime.second.toString().padLeft(2, '0');
@@ -646,6 +651,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                               errorText: _showValidationErrors && selectedDate == null ? "Date is required" : null,
+                              helperText: 'Auto-set to today – tap to change if needed',
                               suffixIcon: const Icon(Icons.calendar_today),
                             ),
                             child: Text(
