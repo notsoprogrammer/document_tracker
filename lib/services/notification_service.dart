@@ -38,6 +38,7 @@ class NotificationService {
   static const String _prefActivity = 'activity_notifications';
   static const String _prefActivityLastShown = 'activity_notification_last_shown';
   static const String _prefAssignment = 'assignment_notifications';
+  static const String _prefEventReminder = 'event_reminder_notifications';
 
   /* -----------------------------------------------------------
    * INITIALIZATION
@@ -287,35 +288,66 @@ class NotificationService {
   }
 
   /* -----------------------------------------------------------
-   * MEETING REMINDER (30 min before, floor 7:50 AM)
+   * MEETING REMINDER (8:10 AM, or 1 hour before for early events)
    * ---------------------------------------------------------*/
   /// Schedules a device-local notification for an activity.
-  /// Fires at startTime - 30 minutes, but never earlier than 7:50 AM that day.
+  /// Reminder rule: events that start before 8:00 AM alert 1 hour before
+  /// (an 8:10 AM reminder would land too late); everything else alerts at
+  /// 8:10 AM on the day of the event.
   /// No-op on web (handled server-side) or if the reminder time has passed.
   Future<void> scheduleActivityReminder(Activity activity) async {
     if (kIsWeb) return;
 
     final prefs = await getNotificationPreferences();
-    if (!(prefs['activityNotifications'] ?? true)) return;
+    if (!(prefs['eventReminders'] ?? true)) return;
 
-    final startTime = activity.startTime;
+    await _scheduleRuleReminder(activity.startTime, activity.title, 0);
+  }
+
+  /// Reminder-time rule shared by activities and calendar documents:
+  ///   • start before 8:00 AM  → 1 hour before start
+  ///   • start at/after 8:00 AM → 8:10 AM on the day of the event
+  /// The 8:00–8:10 AM window falls back to 1 hour before so the reminder
+  /// never lands after the event has already started.
+  DateTime _reminderTimeFor(DateTime startTime) {
+    final eightTen = DateTime(
+      startTime.year, startTime.month, startTime.day, 8, 10,
+    );
+    if (startTime.hour < 8) {
+      return startTime.subtract(const Duration(hours: 1));
+    }
+    if (eightTen.isBefore(startTime)) {
+      return eightTen;
+    }
+    return startTime.subtract(const Duration(hours: 1));
+  }
+
+  /// Human-friendly reminder body. Short countdowns read "Starting in N
+  /// minutes"; anything further out shows the actual start time of day.
+  String _reminderBody(DateTime startTime, DateTime reminderTime) {
+    final diff = startTime.difference(reminderTime);
+    if (diff.inMinutes <= 0) return 'Starting now';
+    if (diff.inMinutes < 60) return 'Starting in ${diff.inMinutes} minutes';
+    final hour12 = startTime.hour % 12 == 0 ? 12 : startTime.hour % 12;
+    final minute = startTime.minute.toString().padLeft(2, '0');
+    final ampm = startTime.hour < 12 ? 'AM' : 'PM';
+    return 'Scheduled at $hour12:$minute $ampm today';
+  }
+
+  /// Schedules a single rule-based reminder for [startTime]. [idSalt] keeps
+  /// activity and document reminders from colliding when they share a time.
+  Future<void> _scheduleRuleReminder(
+    DateTime startTime,
+    String? title,
+    int idSalt,
+  ) async {
     if (startTime.isBefore(DateTime.now())) return;
 
-    final thirtyMinBefore = startTime.subtract(const Duration(minutes: 30));
-    final floor = DateTime(
-      thirtyMinBefore.year, thirtyMinBefore.month, thirtyMinBefore.day, 8, 10,
-    );
-    final reminderTime = thirtyMinBefore.isBefore(floor) ? floor : thirtyMinBefore;
-
+    final reminderTime = _reminderTimeFor(startTime);
     if (reminderTime.isBefore(DateTime.now())) return;
 
     final location = tz.getLocation('Asia/Manila');
     final tzReminder = tz.TZDateTime.from(reminderTime, location);
-
-    final minutesBefore = startTime.difference(reminderTime).inMinutes;
-    final body = minutesBefore > 0
-        ? 'Starting in $minutesBefore minutes'
-        : 'Starting now';
 
     const androidDetails = AndroidNotificationDetails(
       _channelId, _channelName,
@@ -328,14 +360,15 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    // Use a stable ID derived from the activity's start time
-    final notifId = startTime.millisecondsSinceEpoch ~/ 1000 & 0x7FFFFFFF;
+    // Stable ID derived from the event's start time (plus a salt per source).
+    final notifId =
+        (startTime.millisecondsSinceEpoch ~/ 1000 + idSalt) & 0x7FFFFFFF;
 
     try {
       await _plugin.zonedSchedule(
         notifId,
-        activity.title ?? 'Upcoming Event',
-        body,
+        title ?? 'Upcoming Event',
+        _reminderBody(startTime, reminderTime),
         tzReminder,
         notifDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -413,6 +446,32 @@ class NotificationService {
   }
 
   /* -----------------------------------------------------------
+   * DOCUMENT CALENDAR REMINDER (8:10 AM, or 1 hour before for early events)
+   * ---------------------------------------------------------*/
+  /// Schedules a rule-based reminder for a document that has a calendar
+  /// deadline (the scheduled date/time shown on the calendar). Uses the same
+  /// 8:10 AM / 1-hour-before rule as activities.
+  /// No-op on web, if activity notifications are disabled, or if the deadline
+  /// has no time-of-day beyond midnight (all-day entries are covered by the
+  /// daily summary instead).
+  Future<void> scheduleDocumentReminder(Document document) async {
+    if (kIsWeb) return;
+
+    final prefs = await getNotificationPreferences();
+    if (!(prefs['eventReminders'] ?? true)) return;
+
+    final deadline = document.calendarDeadline;
+    if (deadline == null) return;
+    if (deadline.isBefore(DateTime.now())) return;
+
+    // Skip all-day entries (midnight with no specific time) — those are handled
+    // by the once-a-day summary notification, not a timed reminder.
+    if (deadline.hour == 0 && deadline.minute == 0) return;
+
+    await _scheduleRuleReminder(deadline, document.title, 60000000);
+  }
+
+  /* -----------------------------------------------------------
    * NOTIFICATION PREFERENCES
    * ---------------------------------------------------------*/
   Future<void> setNotificationPreferences({
@@ -421,6 +480,7 @@ class NotificationService {
     bool? overdueNotifications,
     bool? activityNotifications,
     bool? assignmentNotifications,
+    bool? eventReminders,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (immediateNotifications != null) {
@@ -438,6 +498,9 @@ class NotificationService {
     if (assignmentNotifications != null) {
       await prefs.setBool(_prefAssignment, assignmentNotifications);
     }
+    if (eventReminders != null) {
+      await prefs.setBool(_prefEventReminder, eventReminders);
+    }
 
     await _syncPreferencesToDevice();
 
@@ -454,6 +517,7 @@ class NotificationService {
       'overdueNotifications': prefs.getBool(_prefOverdue) ?? true,
       'activityNotifications': prefs.getBool(_prefActivity) ?? true,
       'assignmentNotifications': prefs.getBool(_prefAssignment) ?? true,
+      'eventReminders': prefs.getBool(_prefEventReminder) ?? true,
     };
   }
 

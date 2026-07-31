@@ -17,6 +17,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../constants/document_types.dart';
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -1835,6 +1836,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        // Schedule a 1-hour-before reminder if this document has a calendar deadline.
+                        NotificationService().scheduleDocumentReminder(doc);
                         final notifyAssignees = _selectedAssignees.where((a) => a != 'N/A').toList();
                         if (widget.incoming && notifyAssignees.isNotEmpty) {
                           try {

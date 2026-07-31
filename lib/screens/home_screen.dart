@@ -1853,6 +1853,7 @@ Positioned(
     bool overdue = currentPrefs['overdueNotifications'] ?? true;
     bool activity = currentPrefs['activityNotifications'] ?? true;
     bool assignment = currentPrefs['assignmentNotifications'] ?? true;
+    bool eventReminders = currentPrefs['eventReminders'] ?? true;
 
     showModalBottomSheet(
       context: context,
@@ -1974,6 +1975,16 @@ Positioned(
               _notifTile(
                 ctx: ctx,
                 setS: setS,
+                icon: Icons.notifications_active_outlined,
+                iconColor: Colors.indigo,
+                title: 'Event Reminders',
+                subtitle: 'Remind at 8:10 AM, or 1 hour before early-morning events',
+                value: eventReminders,
+                onChanged: (v) => setS(() => eventReminders = v),
+              ),
+              _notifTile(
+                ctx: ctx,
+                setS: setS,
                 icon: Icons.person_add_alt_outlined,
                 iconColor: Colors.purple,
                 title: 'Assignment',
@@ -2005,6 +2016,7 @@ Positioned(
                               overdueNotifications: overdue,
                               activityNotifications: activity,
                               assignmentNotifications: assignment,
+                              eventReminders: eventReminders,
                             );
                             if (!ctx.mounted) return;
                             Navigator.of(ctx).pop();

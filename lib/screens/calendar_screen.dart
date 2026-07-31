@@ -103,6 +103,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _calendarDocuments = documents;
       });
       _selectedEvents.value = _getEventsForDay(_selectedDay!);
+      // Schedule a 1-hour-before reminder for each document with a calendar deadline.
+      for (final doc in documents) {
+        NotificationService().scheduleDocumentReminder(doc);
+      }
     } catch (e) {
     }
   }
