@@ -17,6 +17,7 @@ import '../services/upload_queue_manager.dart';
 import '../widgets/upload_status_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/cabinet_service.dart';
 import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/date_time_utils.dart';
@@ -374,6 +375,52 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     )..layout(maxWidth: maxWidth);
     return textPainter.didExceedMaxLines;
   }
+  Future<void> _showLocationUpdateDialog(int idx) async {
+    final doc = _filteredDocuments[idx];
+    final cabinetNames = await CabinetService().fetchCabinetNames();
+    if (!mounted) return;
+    String? selected = doc.cabinetLocation;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Update Location"),
+          ]),
+          content: cabinetNames.isEmpty
+              ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+              : DropdownButtonFormField<String>(
+                  key: ValueKey(selected),
+                  initialValue: selected,
+                  decoration: InputDecoration(
+                    labelText: "Cabinet Location",
+                    prefixIcon: const Icon(Icons.inventory_2_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                    ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                  ],
+                  onChanged: (v) => setDialogState(() => selected = v),
+                ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected});
+                if (mounted) setState(() { _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected); });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showImageDialog(BuildContext context, Document document) {
     if (_username != null && _username!.isNotEmpty) {
       AttachmentViewService.recordView(
@@ -1225,7 +1272,16 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "To", doc.fromOrTo),
                                   const SizedBox(height: 8),
-                                  _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                  Row(
+                                    children: [
+                                      Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", doc.cabinetLocation ?? 'Not assigned')),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        onPressed: () => _showLocationUpdateDialog(index),
+                                        tooltip: "Update Location",
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(
                                     Icons.assignment_ind,

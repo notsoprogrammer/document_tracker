@@ -26,7 +26,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 27,
+      version: 28,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -68,7 +68,8 @@ class SQLiteDatabaseService {
         reference_link TEXT,
         receiving_date TEXT,
         flow_stage TEXT,
-        remarks_list TEXT
+        remarks_list TEXT,
+        cabinet_location TEXT
       )
     ''');
 
@@ -452,6 +453,11 @@ class SQLiteDatabaseService {
       } catch (_) {}
       try {
         await db.execute('ALTER TABLE activities ADD COLUMN linked_document_code TEXT');
+      } catch (_) {}
+    }
+    if (oldVersion < 28) {
+      try {
+        await db.execute('ALTER TABLE documents ADD COLUMN cabinet_location TEXT');
       } catch (_) {}
     }
   }

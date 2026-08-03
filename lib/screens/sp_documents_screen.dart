@@ -15,6 +15,7 @@ import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/cabinet_service.dart';
 import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
@@ -87,6 +88,52 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
       default:
         return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
     }
+  }
+
+  Future<void> _showLocationUpdateDialog(int idx) async {
+    final doc = _filteredDocuments[idx];
+    final cabinetNames = await CabinetService().fetchCabinetNames();
+    if (!mounted) return;
+    String? selected = doc.cabinetLocation;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Update Location"),
+          ]),
+          content: cabinetNames.isEmpty
+              ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+              : DropdownButtonFormField<String>(
+                  key: ValueKey(selected),
+                  initialValue: selected,
+                  decoration: InputDecoration(
+                    labelText: "Cabinet Location",
+                    prefixIcon: const Icon(Icons.inventory_2_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                    ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                  ],
+                  onChanged: (v) => setDialogState(() => selected = v),
+                ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected});
+                if (mounted) setState(() { _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected); });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -336,6 +383,7 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                                       if (document.description != null && document.description!.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.notes, "Description", document.description!)],
                                       const SizedBox(height: 8), _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.person, "Recorded by", document.person),
+                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", document.cabinetLocation ?? 'Not assigned')), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showLocationUpdateDialog(index), tooltip: "Update Location")]),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.access_time, "Timestamp", document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown'),
                                       if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[const SizedBox(height: 8), GestureDetector(onTap: () async { final uri = Uri.parse(document.referenceLink!); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Row(children: [const Icon(Icons.link, color: Colors.blue), const SizedBox(width: 8), Expanded(child: Text(document.referenceLink!, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline), overflow: TextOverflow.ellipsis))]))],
                                       if (document.remarks.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.comment, "Remarks", document.remarks)],

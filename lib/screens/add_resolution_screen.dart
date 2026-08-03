@@ -14,6 +14,7 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddResolutionScreen extends StatefulWidget {
   const AddResolutionScreen({super.key});
@@ -45,6 +46,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   bool _isPickingFile = false;
   bool _isMergingPdf = false;
 
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -720,6 +722,12 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -768,6 +776,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             remarks: remarksController.text,
                             person: personController.text,
                             incoming: false,
+                            cabinetLocation: _selectedCabinet,
                             status: 'Completed',
                             imageUrls: [],
                             fileUrls: [],

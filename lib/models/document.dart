@@ -71,6 +71,7 @@ class Document {
   final DateTime? receivingDate; // Date and time when document was received
   String flowStage; // 'incoming', 'outgoing', 'circulated'
   final List<String> remarksList; // List of sequential remarks
+  final String? cabinetLocation; // Cabinet where the physical document is stored
 
   Document({
     required this.code,
@@ -107,6 +108,7 @@ class Document {
    String? flowStage,
    bool addInitialHistory = true,
    List<String>? remarksList,
+   this.cabinetLocation,
   }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
@@ -430,6 +432,7 @@ class Document {
       flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
       addInitialHistory: false,
       remarksList: remarksList,
+      cabinetLocation: json['cabinet_location'],
     );
   }
 
@@ -478,6 +481,7 @@ class Document {
       'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,
       'remarks_list': remarksList,
+      'cabinet_location': cabinetLocation,
     };
   }
 
@@ -515,6 +519,7 @@ class Document {
     DateTime? receivingDate,
     String? flowStage,
     List<String>? remarksList,
+    String? cabinetLocation,
   }) {
     return Document(
       code: code ?? this.code,
@@ -550,6 +555,7 @@ class Document {
       receivingDate: receivingDate ?? this.receivingDate,
       flowStage: flowStage ?? this.flowStage,
       remarksList: remarksList ?? this.remarksList,
+      cabinetLocation: cabinetLocation ?? this.cabinetLocation,
     );
   }
 }

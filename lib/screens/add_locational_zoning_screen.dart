@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddLocationalZoningScreen extends StatefulWidget {
   const AddLocationalZoningScreen({super.key});
@@ -50,6 +51,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
   int _totalUploads = 0;
   int _completedUploads = 0;
   String _uploadStatus = '';
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -451,6 +453,12 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
+                    CabinetLocationPicker(
+                      initialValue: _selectedCabinet,
+                      enabled: !_isSaving,
+                      onChanged: (v) => setState(() => _selectedCabinet = v),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                   ])),
                 ),
@@ -472,6 +480,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                         remarks: remarksController.text,
                         person: personController.text,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

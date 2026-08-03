@@ -24,6 +24,23 @@ class CabinetService {
   final SupabaseClient _client = Supabase.instance.client;
   static const _table = 'cabinet_items';
 
+  Future<List<String>> fetchCabinetNames() async {
+    try {
+      final response = await _client
+          .from(_table)
+          .select('cabinet_name')
+          .order('cabinet_name');
+      final names = (response as List)
+          .map((e) => e['cabinet_name'] as String)
+          .toSet()
+          .toList()
+        ..sort();
+      return names;
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<CabinetItem>> fetchAll() async {
     try {
       final response = await _client

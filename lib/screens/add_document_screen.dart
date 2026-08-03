@@ -18,6 +18,7 @@ import '../utils/snackbar_utils.dart';
 import '../constants/document_types.dart';
 import '../services/supabase_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/cabinet_location_picker.dart';
 import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -80,6 +81,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // Outgoing multi-select assignees
   List<String> _selectedAssignees = [];
   List<String> _availableUsers = [];
+
+  String? _selectedCabinet;
 
   // Validation flags
   bool _showValidationErrors = false;
@@ -1761,6 +1764,12 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -1820,6 +1829,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         calendarDeadlineEnd: selectedCalendarEndDate,
                         calendarAdded: selectedCalendarDate != null,
                         receivingDate: selectedReceivingDate,
+                        cabinetLocation: _selectedCabinet,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         history: widget.incoming ? [
                           HistoryEntry(

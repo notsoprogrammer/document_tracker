@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddCdcScreen extends StatefulWidget {
   const AddCdcScreen({super.key});
@@ -51,6 +52,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
   int _completedUploads = 0;
   String _uploadStatus = '';
 
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -668,6 +670,12 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                       ],
                     ),
@@ -697,6 +705,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                         remarks: remarks,
                         person: person,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

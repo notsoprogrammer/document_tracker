@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 class AddAttendanceMovScreen extends StatefulWidget {
   const AddAttendanceMovScreen({super.key});
 
@@ -60,6 +61,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   }
 
   // Validation flags
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -1048,6 +1050,12 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -1092,6 +1100,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         remarks: remarks,
                         person: person,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,
