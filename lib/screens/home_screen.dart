@@ -34,6 +34,7 @@ import 'reclassification_screen.dart';
 import 'add_reclassification_screen.dart';
 import '../services/update_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cabinet_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -594,6 +595,11 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (value) {
               if (value == 'sync') {
                 _syncAllDocuments();
+              } else if (value == 'cabinet') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CabinetScreen()),
+                );
               } else if (value == 'calendar') {
                 UserActivityService().logAction(action: 'Opened screen', screen: 'Calendar');
                 Navigator.push(
@@ -657,17 +663,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const PopupMenuItem(
+                value: 'cabinet',
+                child: ListTile(
+                  leading: Icon(Icons.inventory_2_outlined),
+                  title: Text('Cabinet Library'),
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'calendar',
                 child: ListTile(
                   leading: Icon(Icons.calendar_today),
                   title: Text('Calendar'),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'about',
-                child: ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('About'),
                 ),
               ),
               const PopupMenuItem(
@@ -703,6 +709,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.folder_shared_outlined),
                   title: Text('Public Repository'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'about',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('About'),
                 ),
               ),
             ],
