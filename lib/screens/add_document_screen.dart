@@ -51,6 +51,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final referenceLinkController = TextEditingController();
   final personController = TextEditingController();
   final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
   final folderTitleController = TextEditingController();
   
 
@@ -180,13 +181,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     "Annual Budget",
     "Barangay – AIP",
     "Barangay – GAD",
+    "Barangay Development Plan",
     "Cash Advance",
-    "CDC – Attendance",
-    "CDC – Minutes",
-    "CDC – Resolution",
     "Certificate/Attendance",
     "Clean-up Drives",
-    "CLUP Zoning Reclassification",
     "CSOs",
     "Dept. Heads Meeting",
     "DTR",
@@ -195,6 +193,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     "L&D/IDP/DNA",
     "Liquidation/Reimbursement",
     "Locational Clearance",
+    "Minutes",
     "Man. Com",
     "Monthly Accomplishment Report",
     "Monthly Staff Meeting",
@@ -1800,6 +1799,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         ),
                         const SizedBox(height: 12),
                         TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
@@ -1861,6 +1873,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         cabinetLocation: _selectedCabinet,
                         folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
                         heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         history: widget.incoming ? [
                           HistoryEntry(

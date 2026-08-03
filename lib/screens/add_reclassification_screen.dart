@@ -38,6 +38,7 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
   final remarksController = TextEditingController();
   final personController = TextEditingController();
   final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
   final folderTitleController = TextEditingController();
 
   List<String> _selectedImagePaths = [];
@@ -535,6 +536,19 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                       textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 12),
+                    TextField(
+                      controller: heldByFolderController,
+                      enabled: !_isSaving,
+                      decoration: InputDecoration(
+                        labelText: "Holder's Folder / Details (optional)",
+                        hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                   ])),
                 ),
@@ -559,6 +573,7 @@ class _AddReclassificationScreenState extends State<AddReclassificationScreen> {
                         cabinetLocation: _selectedCabinet,
                         folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
                         heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

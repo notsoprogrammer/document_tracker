@@ -103,6 +103,7 @@ class _AttendanceMovsScreenState
     final cabinetNames = await CabinetService().fetchCabinetNames();
     if (!mounted) return;
     String? selected = doc.cabinetLocation;
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -112,28 +113,47 @@ class _AttendanceMovsScreenState
             const SizedBox(width: 8),
             const Text("Update Location"),
           ]),
-          content: cabinetNames.isEmpty
-              ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
-              : DropdownButtonFormField<String>(
-                  key: ValueKey(selected),
-                  initialValue: selected,
-                  decoration: InputDecoration(
-                    labelText: "Cabinet Location",
-                    prefixIcon: const Icon(Icons.inventory_2_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text("Not assigned")),
-                    ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
-                  ],
-                  onChanged: (v) => setDialogState(() => selected = v),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              cabinetNames.isEmpty
+                  ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+                  : DropdownButtonFormField<String>(
+                      key: ValueKey(selected),
+                      initialValue: selected,
+                      decoration: InputDecoration(
+                        labelText: "Cabinet Location",
+                        prefixIcon: const Icon(Icons.inventory_2_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                        ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                      ],
+                      onChanged: (v) => setDialogState(() => selected = v),
+                    ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: folderController,
+                decoration: InputDecoration(
+                  labelText: "Folder / Details",
+                  prefixIcon: const Icon(Icons.folder_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText: "e.g. Blue folder, Top drawer, Binder 2024",
                 ),
+              ),
+            ],
+          ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
             ElevatedButton(
               onPressed: () async {
-                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected});
-                if (mounted) setState(() { _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected); });
+                final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected, 'folder_title': folderValue});
+                if (mounted) setState(() {
+                  _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected);
+                  _filteredDocuments[idx].folderTitle = folderValue;
+                });
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text("Save"),
@@ -148,7 +168,7 @@ class _AttendanceMovsScreenState
     if (!mounted) return;
     final doc = _filteredDocuments[idx];
     final heldByController = TextEditingController(text: doc.heldBy ?? '');
-    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    final folderController = TextEditingController(text: doc.heldByFolder ?? '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -188,10 +208,10 @@ class _AttendanceMovsScreenState
             onPressed: () async {
               final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
               final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
-              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'folder_title': folderValue});
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'held_by_folder': folderValue});
               if (mounted) setState(() {
                 _filteredDocuments[idx].heldBy = heldByValue;
-                _filteredDocuments[idx].folderTitle = folderValue;
+                _filteredDocuments[idx].heldByFolder = folderValue;
               });
               if (ctx.mounted) Navigator.pop(ctx);
             },
@@ -625,7 +645,7 @@ class _AttendanceMovsScreenState
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))),
+                                        Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.heldByFolder ?? '').isNotEmpty) document.heldByFolder!].join(' | '))),
                                         IconButton(
                                           icon: const Icon(Icons.edit, size: 18),
                                           onPressed: () => _showHeldByDialog(index),

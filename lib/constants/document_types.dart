@@ -22,6 +22,7 @@ const Map<String, String> typeMapping = {
   'Annual Budget': 'AB',
   'Barangay – AIP': 'BAIP',
   'Barangay – GAD': 'BGAD',
+  'Barangay Development Plan': 'BDP',
   'Cash Advance': 'CA',
   'CDC – Attendance': 'CDCA',
   'CDC – Minutes': 'CDCM',
@@ -80,13 +81,11 @@ const List<String> otherDocumentTypes = [
   "Annual Budget",
   "Barangay – AIP",
   "Barangay – GAD",
+  "Barangay Development Plan",
   "Cash Advance",
-  "CDC – Attendance",
-  "CDC – Minutes",
-  "CDC – Resolution",
+  "Minutes",
   "Certificate/Attendance",
   "Clean-up Drives",
-  "CLUP Zoning Reclassification",
   "CSOs",
   "Dept. Heads Meeting",
   "DTR",
@@ -94,7 +93,6 @@ const List<String> otherDocumentTypes = [
   "Ecological Profile",
   "L&D/IDP/DNA",
   "Liquidation/Reimbursement",
-  "Locational Clearance",
   "Man. Com",
   "Monthly Accomplishment Report",
   "Monthly Staff Meeting",
@@ -105,8 +103,6 @@ const List<String> otherDocumentTypes = [
   "Research/Studies/Trainings",
   "Sectoral Plans",
   "Tree Planting",
-  "Zoning Certification",
-  "Zoning Clearance"
 ];
 
 const List<String> locationalZoningTypes = [

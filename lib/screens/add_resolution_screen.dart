@@ -32,6 +32,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   final remarksController = TextEditingController();
   final personController = TextEditingController();
   final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
   final folderTitleController = TextEditingController();
 
   DateTime? selectedDate;
@@ -95,6 +96,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
     remarksController.dispose();
     personController.dispose();
     heldByController.dispose();
+    heldByFolderController.dispose();
     folderTitleController.dispose();
     super.dispose();
   }
@@ -760,6 +762,19 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                         ),
                         const SizedBox(height: 12),
                         TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
@@ -810,6 +825,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             cabinetLocation: _selectedCabinet,
                             folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
                             heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                            heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                             status: 'Completed',
                             imageUrls: [],
                             fileUrls: [],
