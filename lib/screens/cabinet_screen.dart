@@ -4,7 +4,11 @@ import '../models/cabinet_item.dart';
 import '../services/cabinet_service.dart';
 
 class CabinetScreen extends StatefulWidget {
-  const CabinetScreen({super.key});
+  /// Pre-fills the search box, e.g. a document code so the library opens
+  /// already filtered down to that document's cabinet entry.
+  final String? initialSearch;
+
+  const CabinetScreen({super.key, this.initialSearch});
 
   @override
   State<CabinetScreen> createState() => _CabinetScreenState();
@@ -21,15 +25,7 @@ class _CabinetScreenState extends State<CabinetScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   // Mutable so users can add new cabinets at runtime
-  final List<String> _knownCabinets = [
-    'Cabinet 1-2',
-    'Cabinet 3-4',
-    'Cabinet 5-6',
-    'Cabinet 7-8',
-    'Cabinet 9-10',
-    'Cabinet 11-12',
-    'Cabinet 13-14',
-  ];
+  final List<String> _knownCabinets = CabinetService.defaultCabinets.toList();
 
   static const Map<String, Color> _cabinetColors = {
     'Cabinet 1-2':  Color(0xFF1565C0),
@@ -50,6 +46,12 @@ class _CabinetScreenState extends State<CabinetScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialSearch?.trim() ?? '';
+    if (initial.isNotEmpty) {
+      _searchQuery = initial;
+      _searchCtrl.text = initial;
+      _showSearch = true;
+    }
     _loadData();
   }
 
@@ -73,7 +75,9 @@ class _CabinetScreenState extends State<CabinetScreen> {
         final matchCabinet = item.cabinetName.toLowerCase().contains(q);
         final matchBorrower = item.borrowerName?.toLowerCase().contains(q) ?? false;
         final matchMovedTo = item.movedTo?.toLowerCase().contains(q) ?? false;
-        if (!matchName && !matchCabinet && !matchBorrower && !matchMovedTo) return false;
+        // Notes carry the [doc:CODE] tag, so searching a document code finds its entry
+        final matchNotes = item.notes?.toLowerCase().contains(q) ?? false;
+        if (!matchName && !matchCabinet && !matchBorrower && !matchMovedTo && !matchNotes) return false;
       }
       return true;
     }).toList();
@@ -92,7 +96,8 @@ class _CabinetScreenState extends State<CabinetScreen> {
     final grouped = _groupedByCabinet;
     // Show all known cabinets (even empty ones) + any item-derived cabinets not in the list
     final known = _knownCabinets.toList();
-    final extra = grouped.keys.where((c) => !_knownCabinets.contains(c)).toList()..sort();
+    final extra = grouped.keys.where((c) => !_knownCabinets.contains(c)).toList()
+      ..sort(CabinetService.compareCabinetNames);
     // If search/filter active, hide cabinets with no matching items
     if (_searchQuery.isNotEmpty || _statusFilter != 'All' || _categoryFilter != 'All') {
       return [...known.where((c) => grouped.containsKey(c)), ...extra];
@@ -500,7 +505,23 @@ class _CabinetScreenState extends State<CabinetScreen> {
                       ],
                     ),
                   ],
-                  if (item.status == 'removed' && item.notes != null && item.notes!.isNotEmpty) ...[
+                  if (CabinetService.isDocumentLink(item)) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.link, size: 11, color: Colors.blue[600]),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            _linkedDocLabel(item),
+                            style: TextStyle(fontSize: 11, color: Colors.blue[600]),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (item.status == 'removed' && !CabinetService.isDocumentLink(item) && item.notes != null && item.notes!.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       item.notes!,
@@ -517,6 +538,15 @@ class _CabinetScreenState extends State<CabinetScreen> {
         ),
       ),
     );
+  }
+
+  /// Turns "[doc:ABC-123] Folder: Blue binder" into "Document ABC-123 · Blue binder".
+  String _linkedDocLabel(CabinetItem item) {
+    final notes = item.notes ?? '';
+    final code = RegExp(r'\[doc:([^\]]+)\]').firstMatch(notes)?.group(1) ?? '';
+    final folder = notes.split('Folder:').length > 1 ? notes.split('Folder:').last.trim() : '';
+    final label = code.isEmpty ? 'Linked document' : 'Document $code';
+    return folder.isEmpty ? label : '$label · $folder';
   }
 
   Widget _statusChip(String status) {

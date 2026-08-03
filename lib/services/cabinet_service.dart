@@ -24,20 +24,42 @@ class CabinetService {
   final SupabaseClient _client = Supabase.instance.client;
   static const _table = 'cabinet_items';
 
+  /// Cabinets that always exist, even when they hold no items yet.
+  /// Shared by the Cabinet Library and the cabinet picker so both show
+  /// the same set of choices.
+  static const List<String> defaultCabinets = [
+    'Cabinet 1-2',
+    'Cabinet 3-4',
+    'Cabinet 5-6',
+    'Cabinet 7-8',
+    'Cabinet 9-10',
+    'Cabinet 11-12',
+    'Cabinet 13-14',
+  ];
+
+  /// Sorts "Cabinet 9-10" before "Cabinet 11-12" instead of alphabetically.
+  static int compareCabinetNames(String a, String b) {
+    final numA = int.tryParse(RegExp(r'\d+').firstMatch(a)?.group(0) ?? '');
+    final numB = int.tryParse(RegExp(r'\d+').firstMatch(b)?.group(0) ?? '');
+    if (numA != null && numB != null && numA != numB) return numA.compareTo(numB);
+    return a.compareTo(b);
+  }
+
   Future<List<String>> fetchCabinetNames() async {
     try {
       final response = await _client
           .from(_table)
           .select('cabinet_name')
           .order('cabinet_name');
-      final names = (response as List)
-          .map((e) => e['cabinet_name'] as String)
-          .toSet()
-          .toList()
-        ..sort();
+      final names = {
+        ...defaultCabinets,
+        ...(response as List).map((e) => e['cabinet_name'] as String),
+      }.toList()
+        ..sort(compareCabinetNames);
       return names;
     } catch (e) {
-      return [];
+      // Offline / table missing: still offer the standard cabinets
+      return defaultCabinets.toList();
     }
   }
 
@@ -165,6 +187,79 @@ class CabinetService {
       'borrower_name': null,
       'borrow_date': null,
     });
+  }
+
+  // ─── Document ↔ cabinet linking ─────────────────────────────────────────────
+  // A document that gets a Cabinet Location assigned in any add/edit screen is
+  // mirrored into the Cabinet Library as an item tagged with its document code,
+  // so the physical filing location can be browsed, borrowed and moved there.
+
+  static String documentTag(String documentCode) => '[doc:$documentCode]';
+
+  /// True when this item was created from a document rather than added by hand.
+  static bool isDocumentLink(CabinetItem item) => (item.notes ?? '').contains('[doc:');
+
+  Future<int?> _findLinkedItemId(String documentCode) async {
+    final response = await _client
+        .from(_table)
+        .select('id')
+        .like('notes', '%${documentTag(documentCode)}%')
+        .limit(1);
+    final rows = response as List;
+    return rows.isEmpty ? null : rows.first['id'] as int;
+  }
+
+  /// Creates or moves the Cabinet Library entry for a document.
+  Future<bool> linkDocument({
+    required String cabinetName,
+    required String documentCode,
+    String? documentTitle,
+    String? folderTitle,
+  }) async {
+    try {
+      final tag = documentTag(documentCode);
+      final title = documentTitle?.trim();
+      final itemName = (title == null || title.isEmpty) ? documentCode : title;
+      final folder = folderTitle?.trim();
+      final notes = (folder == null || folder.isEmpty) ? tag : '$tag Folder: $folder';
+
+      final existingId = await _findLinkedItemId(documentCode);
+      if (existingId != null) {
+        return updateItem(existingId, {
+          'cabinet_name': cabinetName,
+          'item_name': itemName,
+          'notes': notes,
+        });
+      }
+
+      final now = DateTime.now().toIso8601String();
+      await _client.from(_table).insert({
+        'cabinet_name': cabinetName,
+        'item_name': itemName,
+        'category': 'document',
+        'status': 'available',
+        'notes': notes,
+        'borrow_history': [],
+        'created_at': now,
+        'updated_at': now,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Removes the Cabinet Library entry for a document (cabinet cleared / doc deleted).
+  Future<bool> unlinkDocument(String documentCode) async {
+    try {
+      await _client
+          .from(_table)
+          .delete()
+          .like('notes', '%${documentTag(documentCode)}%');
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // Seeds initial cabinet data if the table is empty

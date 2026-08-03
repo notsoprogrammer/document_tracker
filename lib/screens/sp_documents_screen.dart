@@ -24,6 +24,7 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
+import '../widgets/view_in_cabinet_button.dart';
 
 class SpDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -461,7 +462,7 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                                       if (document.description != null && document.description!.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.notes, "Description", document.description!)],
                                       const SizedBox(height: 8), _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.person, "Recorded by", document.person),
-                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [document.cabinetLocation ?? 'Not assigned', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showLocationUpdateDialog(index), tooltip: "Update Location")]),
+                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [document.cabinetLocation ?? 'Not assigned', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))), ViewInCabinetButton(document: document), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showLocationUpdateDialog(index), tooltip: "Update Location")]),
                                       const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.heldByFolder ?? '').isNotEmpty) document.heldByFolder!].join(' | '))), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showHeldByDialog(index), tooltip: "Update Holder")]),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.access_time, "Timestamp", document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown'),
                                       if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[const SizedBox(height: 8), GestureDetector(onTap: () async { final uri = Uri.parse(document.referenceLink!); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Row(children: [const Icon(Icons.link, color: Colors.blue), const SizedBox(width: 8), Expanded(child: Text(document.referenceLink!, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline), overflow: TextOverflow.ellipsis))]))],

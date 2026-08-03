@@ -6,6 +6,7 @@ import '../utils/search_filter_utils.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/cached_document_service.dart';
 import '../services/cabinet_service.dart';
+import '../widgets/view_in_cabinet_button.dart';
 import '../services/auth_service.dart';
 
 class CirculatedDocumentsScreen extends StatefulWidget {
@@ -425,6 +426,7 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
                                         Row(
                                           children: [
                                             Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [doc.cabinetLocation ?? 'Not assigned', if ((doc.folderTitle ?? '').isNotEmpty) doc.folderTitle!].join(' | '))),
+                                            ViewInCabinetButton(document: doc),
                                             IconButton(
                                               icon: const Icon(Icons.edit, size: 18),
                                               onPressed: () => _showLocationUpdateDialog(index),

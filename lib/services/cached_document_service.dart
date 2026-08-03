@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
+import 'cabinet_service.dart';
 import 'google_drive_service.dart';
 import 'upload_queue_manager.dart';
 import 'connectivity_service.dart';
@@ -94,6 +95,9 @@ class CachedDocumentService {
       // Always save locally first
       await _localDb.createDocument(document);
 
+      // Mirror the cabinet assignment into the Cabinet Library
+      await _syncCabinetLink(document);
+
       // Queue files for upload if they exist
       await _queueFilesForUpload(document);
 
@@ -133,10 +137,48 @@ class CachedDocumentService {
     }
   }
 
+  /// Keeps the Cabinet Library in sync with a document's cabinet assignment.
+  /// Never throws — a cabinet sync failure must not block saving the document.
+  Future<void> _syncCabinetLink(Document document) async {
+    try {
+      if (!await isOnline) return;
+      final cabinet = document.cabinetLocation?.trim();
+      if (cabinet == null || cabinet.isEmpty) {
+        await CabinetService().unlinkDocument(document.code);
+      } else {
+        await CabinetService().linkDocument(
+          cabinetName: cabinet,
+          documentCode: document.code,
+          documentTitle: document.title,
+          folderTitle: document.folderTitle,
+        );
+      }
+    } catch (e) {
+      // Cabinet link is best-effort
+    }
+  }
+
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
     try {
       // Update locally first
       await _localDb.updateDocument(documentCode, updates);
+
+      // Re-sync the Cabinet Library when the filing location or title changed
+      if (updates.containsKey('cabinet_location') ||
+          updates.containsKey('folder_title') ||
+          updates.containsKey('title')) {
+        try {
+          final localDocs = await _localDb.fetchDocuments();
+          for (final doc in localDocs) {
+            if (doc.code == documentCode) {
+              await _syncCabinetLink(doc);
+              break;
+            }
+          }
+        } catch (e) {
+          // Cabinet link is best-effort
+        }
+      }
 
       // If online, sync to remote
       if (await isOnline) {
@@ -178,6 +220,9 @@ class CachedDocumentService {
 
           // Delete from remote first
           await _remoteDb.deleteDocument(documentCode);
+
+          // Drop its Cabinet Library entry, if any
+          await CabinetService().unlinkDocument(documentCode);
 
           // Clean up attachment view records for this document
           await AttachmentViewService.deleteAllViews(documentCode);
@@ -407,6 +452,9 @@ class CachedDocumentService {
           // Create new document
           await _remoteDb.createDocument(doc);
         }
+
+        // Mirror the cabinet assignment now that we're back online
+        await _syncCabinetLink(doc);
 
         // After successful sync, trigger notifications if needed
         if (doc.status == 'For Compliance' && doc.complianceDeadline != null) {

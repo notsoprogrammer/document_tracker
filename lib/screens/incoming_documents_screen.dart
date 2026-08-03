@@ -29,6 +29,7 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
+import '../widgets/view_in_cabinet_button.dart';
 import '../services/supabase_service.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
@@ -1769,6 +1770,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                   Row(
                                     children: [
                                       Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [doc.cabinetLocation ?? 'Not assigned', if ((doc.folderTitle ?? '').isNotEmpty) doc.folderTitle!].join(' | '))),
+                                      ViewInCabinetButton(document: doc),
                                       IconButton(
                                         icon: const Icon(Icons.edit, size: 18),
                                         onPressed: () => _showLocationUpdateDialog(index),
