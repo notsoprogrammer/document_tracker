@@ -259,6 +259,64 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
     );
   }
 
+  Future<void> _showHeldByDialog(int idx) async {
+    if (!mounted) return;
+    final doc = _filteredDocuments[idx];
+    final heldByController = TextEditingController(text: doc.heldBy ?? '');
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.person_pin_outlined, color: Theme.of(ctx).colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text("Update Holder & Folder"),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: heldByController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Held by",
+                prefixIcon: const Icon(Icons.person_pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "Enter person's name",
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: folderController,
+              decoration: InputDecoration(
+                labelText: "Folder / Details",
+                prefixIcon: const Icon(Icons.folder_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
+              final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'folder_title': folderValue});
+              if (mounted) setState(() {
+                _filteredDocuments[idx].heldBy = heldByValue;
+                _filteredDocuments[idx].folderTitle = folderValue;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,11 +404,22 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
                                         const SizedBox(height: 8),
                                         Row(
                                           children: [
-                                            Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", doc.cabinetLocation ?? 'Not assigned')),
+                                            Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [doc.cabinetLocation ?? 'Not assigned', if ((doc.folderTitle ?? '').isNotEmpty) doc.folderTitle!].join(' | '))),
                                             IconButton(
                                               icon: const Icon(Icons.edit, size: 18),
                                               onPressed: () => _showLocationUpdateDialog(index),
                                               tooltip: "Update Location",
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [doc.heldBy ?? 'Not specified', if ((doc.folderTitle ?? '').isNotEmpty) doc.folderTitle!].join(' | '))),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit, size: 18),
+                                              onPressed: () => _showHeldByDialog(index),
+                                              tooltip: "Update Holder",
                                             ),
                                           ],
                                         ),

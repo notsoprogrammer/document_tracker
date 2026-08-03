@@ -136,6 +136,64 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     );
   }
 
+  Future<void> _showHeldByDialog(int idx) async {
+    if (!mounted) return;
+    final doc = _filteredDocuments[idx];
+    final heldByController = TextEditingController(text: doc.heldBy ?? '');
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.person_pin_outlined, color: Theme.of(ctx).colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text("Update Holder & Folder"),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: heldByController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Held by",
+                prefixIcon: const Icon(Icons.person_pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "Enter person's name",
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: folderController,
+              decoration: InputDecoration(
+                labelText: "Folder / Details",
+                prefixIcon: const Icon(Icons.folder_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
+              final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'folder_title': folderValue});
+              if (mounted) setState(() {
+                _filteredDocuments[idx].heldBy = heldByValue;
+                _filteredDocuments[idx].folderTitle = folderValue;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 8), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.primary, fontSize: 12)), Text(value, style: const TextStyle(fontSize: 14))]))]);
   }
@@ -369,7 +427,8 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
                                       if (document.description != null && document.description!.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.notes, "Description", document.description!)],
                                       const SizedBox(height: 8), _buildDetailRow(Icons.calendar_today, "Date", document.fromOrTo),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.person, "Recorded by", document.person),
-                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", document.cabinetLocation ?? 'Not assigned')), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showLocationUpdateDialog(index), tooltip: "Update Location")]),
+                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [document.cabinetLocation ?? 'Not assigned', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showLocationUpdateDialog(index), tooltip: "Update Location")]),
+                                      const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showHeldByDialog(index), tooltip: "Update Holder")]),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.access_time, "Timestamp", document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown'),
                                       if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[const SizedBox(height: 8), GestureDetector(onTap: () async { final uri = Uri.parse(document.referenceLink!); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Row(children: [const Icon(Icons.link, color: Colors.blue), const SizedBox(width: 8), Expanded(child: Text(document.referenceLink!, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline), overflow: TextOverflow.ellipsis))]))],
                                       if (document.remarks.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.comment, "Remarks", document.remarks)],

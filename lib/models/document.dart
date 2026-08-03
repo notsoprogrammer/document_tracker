@@ -72,6 +72,8 @@ class Document {
   String flowStage; // 'incoming', 'outgoing', 'circulated'
   final List<String> remarksList; // List of sequential remarks
   final String? cabinetLocation; // Cabinet where the physical document is stored
+  String? heldBy; // Person who currently holds the physical document
+  String? folderTitle; // Folder name / details for physical filing location
 
   Document({
     required this.code,
@@ -109,6 +111,8 @@ class Document {
    bool addInitialHistory = true,
    List<String>? remarksList,
    this.cabinetLocation,
+   this.heldBy,
+   this.folderTitle,
   }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
@@ -433,6 +437,8 @@ class Document {
       addInitialHistory: false,
       remarksList: remarksList,
       cabinetLocation: json['cabinet_location'],
+      heldBy: json['held_by'],
+      folderTitle: json['folder_title'],
     );
   }
 
@@ -482,6 +488,8 @@ class Document {
       'flow_stage': flowStage,
       'remarks_list': remarksList,
       'cabinet_location': cabinetLocation,
+      'held_by': heldBy,
+      'folder_title': folderTitle,
     };
   }
 
@@ -520,6 +528,8 @@ class Document {
     String? flowStage,
     List<String>? remarksList,
     String? cabinetLocation,
+    String? heldBy,
+    String? folderTitle,
   }) {
     return Document(
       code: code ?? this.code,
@@ -556,6 +566,8 @@ class Document {
       flowStage: flowStage ?? this.flowStage,
       remarksList: remarksList ?? this.remarksList,
       cabinetLocation: cabinetLocation ?? this.cabinetLocation,
+      heldBy: heldBy ?? this.heldBy,
+      folderTitle: folderTitle ?? this.folderTitle,
     );
   }
 }

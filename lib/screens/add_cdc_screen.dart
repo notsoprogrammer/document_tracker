@@ -37,6 +37,8 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final folderTitleController = TextEditingController();
 
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
@@ -119,6 +121,8 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
     referenceLinkController.dispose();
     remarksController.dispose();
     personController.dispose();
+    heldByController.dispose();
+    folderTitleController.dispose();
     super.dispose();
   }
 
@@ -676,6 +680,33 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                           onChanged: (v) => setState(() => _selectedCabinet = v),
                         ),
                         const SizedBox(height: 12),
+                        TextField(
+                          controller: folderTitleController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Folder / Details (optional)',
+                            hintText: 'e.g. Blue folder, Top drawer, Binder 2024',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Held by (optional)',
+                            hintText: 'Person currently holding this document',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
                         TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                       ],
                     ),
@@ -706,6 +737,8 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                         person: person,
                         incoming: false,
                         cabinetLocation: _selectedCabinet,
+                        folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                        heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,
