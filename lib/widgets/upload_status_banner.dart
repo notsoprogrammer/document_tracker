@@ -25,7 +25,11 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
   bool _isOnline = true;
   bool _hadUploads = false;
   bool _showSuccess = false;
+  bool _isSlowUpload = false;
   Timer? _successTimer;
+  Timer? _slowCheckTimer;
+
+  static const _slowThreshold = Duration(seconds: 60);
 
   @override
   void initState() {
@@ -33,6 +37,7 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     _queueManager = UploadQueueManager();
     _queueManager.addListener(_onQueueChanged);
     _initConnectivity();
+    _slowCheckTimer = Timer.periodic(const Duration(seconds: 15), (_) => _checkSlowUpload());
   }
 
   Future<void> _initConnectivity() async {
@@ -41,6 +46,19 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     _connectivitySub = _connectivityService.onOnlineStatusChanged.listen((online) {
       if (mounted) setState(() => _isOnline = online);
     });
+  }
+
+  void _checkSlowUpload() {
+    if (!mounted) return;
+    final allItems = _queueManager.getAllItems();
+    final now = DateTime.now();
+    final slow = allItems.any((i) {
+      if (i['status'] != 'uploading') return false;
+      final startRaw = i['uploadStartTime'] as String?;
+      if (startRaw == null) return false;
+      return now.difference(DateTime.parse(startRaw)) > _slowThreshold;
+    });
+    if (slow != _isSlowUpload) setState(() => _isSlowUpload = slow);
   }
 
   void _onQueueChanged() {
@@ -52,6 +70,7 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     if (activeCount > 0) {
       _hadUploads = true;
     } else if (_hadUploads && !_showSuccess) {
+      _isSlowUpload = false;
       _showSuccess = true;
       widget.onAllUploadsComplete?.call();
       _successTimer?.cancel();
@@ -59,6 +78,7 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
         if (mounted) setState(() { _showSuccess = false; _hadUploads = false; });
       });
     }
+    _checkSlowUpload();
     setState(() {});
   }
 
@@ -67,6 +87,7 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     _queueManager.removeListener(_onQueueChanged);
     _connectivitySub?.cancel();
     _successTimer?.cancel();
+    _slowCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -137,6 +158,11 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
       return const SizedBox.shrink();
     }
 
+    // Slow-upload warning takes priority over the normal progress banner
+    if (_isSlowUpload) {
+      return _buildSlowUploadBanner(allUploads, uploadingUploads, pendingUploads, failedUploads);
+    }
+
     final totalUploading = uploadingUploads.length;
     final totalPending   = pendingUploads.length;
 
@@ -182,6 +208,85 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     if (kDebugMode) {
       return GestureDetector(
         onTap: () => _showDebugDialog(allUploads, uploadingUploads, pendingUploads, failedUploads),
+        child: banner,
+      );
+    }
+    return banner;
+  }
+
+  Widget _buildSlowUploadBanner(
+    List<Map<String, dynamic>> allUploads,
+    List<Map<String, dynamic>> uploading,
+    List<Map<String, dynamic>> pending,
+    List<Map<String, dynamic>> failed,
+  ) {
+    final banner = Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 20, color: Colors.amber[800]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Upload is taking longer than expected',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.amber[900],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'This may be due to a slow connection. The upload will continue in the background.',
+                  style: TextStyle(fontSize: 12, color: Colors.amber[800]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              UploadQueueManager.log('DEBUG: slow-upload manual retry triggered');
+              CachedDocumentService().processPendingUploads();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+              ),
+              child: Text(
+                'Retry',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.amber[900],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          if (kDebugMode) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.info_outline, size: 16, color: Colors.amber[600]),
+          ],
+        ],
+      ),
+    );
+
+    if (kDebugMode) {
+      return GestureDetector(
+        onTap: () => _showDebugDialog(allUploads, uploading, pending, failed),
         child: banner,
       );
     }

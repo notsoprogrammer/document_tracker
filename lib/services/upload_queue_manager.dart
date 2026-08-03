@@ -255,6 +255,11 @@ class UploadQueueManager extends ChangeNotifier {
         }
       }
       
+      // Record when the upload actually started so the banner can detect stalls
+      if (status == 'uploading' && oldStatus != 'uploading') {
+        _uploadQueue[index]['uploadStartTime'] = DateTime.now().toIso8601String();
+      }
+
       if (status == 'completed') {
         if (onCompleted != null) {
           await onCompleted();
