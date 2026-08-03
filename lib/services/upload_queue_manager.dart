@@ -199,11 +199,15 @@ class UploadQueueManager extends ChangeNotifier {
 
   /// Remove a file from the upload queue
   void removeFromQueue(String documentCode, String filePath) async {
+    final hadItem = _uploadQueue.any(
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
+    );
     _uploadQueue.removeWhere(
       (item) => item['documentCode'] == documentCode && item['filePath'] == filePath
     );
     _webBytesCache.remove('$documentCode:$filePath');
-    
+    if (hadItem) notifyListeners();
+
     // Remove from SQLite persistence
     if (!kIsWeb) {
       try {
@@ -280,24 +284,28 @@ class UploadQueueManager extends ChangeNotifier {
     );
 
     if (index != -1) {
-      // Run the cleanup callback
+      // Run the cleanup callback — swallow errors so the item is always removed
       if (onCompleted != null) {
-        await onCompleted();
+        try {
+          await onCompleted();
+        } catch (e) {
+          log('markCompletedAndRemove: cleanup error (ignored): $e');
+        }
       }
-      // Update status to completed
+      // Always remove regardless of cleanup success
       _uploadQueue[index]['status'] = 'completed';
-      // Remove the item from the queue and clear bytes cache
       _uploadQueue.removeAt(index);
       _webBytesCache.remove('$documentCode:$filePath');
-      
+
       // Remove from SQLite persistence
       if (!kIsWeb) {
         try {
           await SQLiteDatabaseService().removePendingUploadByDocumentAndPath(documentCode, filePath);
         } catch (e) {
+          log('markCompletedAndRemove: SQLite removal error: $e');
         }
       }
-      
+
       // Notify listeners
       notifyListeners();
     }

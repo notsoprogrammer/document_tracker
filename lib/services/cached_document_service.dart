@@ -580,8 +580,16 @@ class CachedDocumentService {
           final docs = await _localDb.fetchDocuments();
           final doc = docs.where((d) => d.code == upload['documentCode']).firstOrNull;
           if (doc == null) {
-            UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — deferring');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
+            final deferCount = (upload['deferCount'] as int? ?? 0) + 1;
+            upload['deferCount'] = deferCount;
+            UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — defer $deferCount/5');
+            if (deferCount >= 5) {
+              // Document gone permanently; remove the stale queue item
+              queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+              UploadQueueManager.log('  [$shortPath] giving up — removing from queue');
+            } else {
+              queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
+            }
             continue;
           }
           DriveFolder folder;
