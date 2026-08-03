@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../widgets/scrollable_image_viewer.dart';
 import '../models/document.dart';
+import '../utils/document_search.dart';
 import '../services/upload_queue_manager.dart';
 import '../widgets/upload_status_banner.dart';
 import '../utils/snackbar_utils.dart';
@@ -298,7 +299,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     setState(() {
       _filteredDocuments = widget.documents.where((doc) {
         if (doc.mode != 'Reclassification') return false;
-        bool matchesSearch = _searchQuery.isEmpty || doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) || (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) || (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
           final docDate = _parseDate(doc.fromOrTo);
@@ -320,7 +321,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
     setState(() {
       _filteredDocuments = allDocs.where((doc) {
         if (doc.mode != 'Reclassification') return false;
-        bool matchesSearch = _searchQuery.isEmpty || doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) || doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) || (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) || (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
           final docDate = _parseDate(doc.fromOrTo);

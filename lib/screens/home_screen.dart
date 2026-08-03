@@ -9,6 +9,7 @@ import '../services/connectivity_service.dart';
 import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
+import '../utils/document_search.dart';
 import '../services/auth_service.dart';
 import '../services/user_activity_service.dart';
 import 'add_document_screen.dart';
@@ -2175,14 +2176,7 @@ class _DocumentSearchDelegate extends SearchDelegate<Document?> {
         ? documents.where((d) => d.status == 'Urgent').toList()
         : List<Document>.from(documents);
     if (query.trim().isEmpty) return base;
-    final q = query.toLowerCase();
-    return base.where((d) =>
-      d.code.toLowerCase().contains(q) ||
-      (d.title?.toLowerCase().contains(q) ?? false) ||
-      d.type.toLowerCase().contains(q) ||
-      d.status.toLowerCase().contains(q) ||
-      (d.assignedTo.toLowerCase().contains(q))
-    ).toList();
+    return base.where((d) => documentMatchesQuery(d, query)).toList();
   }
 
   Widget _buildList(BuildContext context) {
