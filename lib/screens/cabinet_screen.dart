@@ -18,7 +18,6 @@ class _CabinetScreenState extends State<CabinetScreen> {
   final CabinetService _service = CabinetService();
   List<CabinetItem> _items = [];
   bool _isLoading = true;
-  bool _showSearch = false;
   String _searchQuery = '';
   String _statusFilter = 'All';
   String _categoryFilter = 'All';
@@ -50,7 +49,6 @@ class _CabinetScreenState extends State<CabinetScreen> {
     if (initial.isNotEmpty) {
       _searchQuery = initial;
       _searchCtrl.text = initial;
-      _showSearch = true;
     }
     _loadData();
   }
@@ -122,19 +120,12 @@ class _CabinetScreenState extends State<CabinetScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: _showSearch
-            ? TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search items, borrowers, cabinets...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.white70),
-                ),
-                style: const TextStyle(color: Colors.white),
-                onChanged: (v) => setState(() => _searchQuery = v),
-              )
-            : const Text('Cabinet Library', style: TextStyle(fontWeight: FontWeight.w700)),
+        // Explicit blue/white pair: the gradient lives in flexibleSpace, so
+        // without these the bar falls back to the light M3 surface colour and
+        // the white search text becomes unreadable.
+        backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        title: const Text('Cabinet Library', style: TextStyle(fontWeight: FontWeight.w700)),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -149,19 +140,6 @@ class _CabinetScreenState extends State<CabinetScreen> {
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'Add Cabinet',
             onPressed: _showAddCabinetDialog,
-          ),
-          IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search),
-            tooltip: _showSearch ? 'Close search' : 'Search',
-            onPressed: () {
-              setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchQuery = '';
-                  _searchCtrl.clear();
-                }
-              });
-            },
           ),
           IconButton(
             icon: const Icon(Icons.refresh_outlined),
@@ -224,6 +202,7 @@ class _CabinetScreenState extends State<CabinetScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                _buildSearchField(),
                 _buildSummaryBar(),
                 if (_statusFilter != 'All' || _categoryFilter != 'All' || _searchQuery.isNotEmpty)
                   _buildActiveFilters(),
@@ -236,6 +215,43 @@ class _CabinetScreenState extends State<CabinetScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Add Item'),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _searchCtrl,
+        style: const TextStyle(color: Colors.black87, fontSize: 14),
+        cursorColor: const Color(0xFF1565C0),
+        decoration: InputDecoration(
+          hintText: 'Search items, borrowers, cabinets...',
+          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey[600]),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  color: Colors.grey[600],
+                  tooltip: 'Clear search',
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          filled: true,
+          fillColor: const Color(0xFFF1F4F9),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onChanged: (v) => setState(() => _searchQuery = v),
       ),
     );
   }
