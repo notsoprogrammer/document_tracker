@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UpdateInfo {
@@ -23,6 +24,37 @@ class UpdateService {
       '3. Go back — the installer will continue automatically.\n\n'
       'Alternatively: Settings → Apps → Special app access\n'
       '→ Install unknown apps → select your browser or file manager → Allow.';
+
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Whether Android will let us launch the APK installer. Sideloaded builds
+  /// need "Install unknown apps" enabled for this app first.
+  static Future<bool> canInstallPackages() async {
+    if (!_isAndroid) return true;
+    try {
+      return await Permission.requestInstallPackages.isGranted;
+    } catch (e) {
+      return true; // Unknown — let the install attempt decide
+    }
+  }
+
+  /// Opens the system "Install unknown apps" screen for $appName.
+  /// Returns true if the permission is granted once the user comes back.
+  static Future<bool> openInstallPermissionSettings() async {
+    if (!_isAndroid) return false;
+    try {
+      final status = await Permission.requestInstallPackages.request();
+      return status.isGranted;
+    } catch (e) {
+      // Fall back to the app's settings page
+      await openAppInfo();
+      return false;
+    }
+  }
+
+  /// Opens this app's "App info" page in Android settings.
+  static Future<bool> openAppInfo() => openAppSettings();
 
   static Future<UpdateInfo?> checkForUpdate() async {
     if (kIsWeb) return null;
