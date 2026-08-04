@@ -30,6 +30,7 @@ import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
+import '../widgets/add_attachment_button.dart';
 import '../services/supabase_service.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
@@ -2257,6 +2258,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                         ],
                                       ),
                                       const Spacer(),
+                                        AddAttachmentButton(document: doc),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

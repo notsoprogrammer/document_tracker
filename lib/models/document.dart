@@ -75,6 +75,9 @@ class Document {
   String? heldBy; // Person who currently holds the physical document
   String? heldByFolder; // Folder/details specific to the person holding the document
   String? folderTitle; // Folder name / details for physical filing location (cabinet sub-location)
+  /// Who uploaded each attachment, keyed by Drive file id.
+  /// Attachments with no entry predate this tracking and belong to [person].
+  Map<String, String> attachmentUploaders;
 
   Document({
     required this.code,
@@ -115,7 +118,9 @@ class Document {
    this.heldBy,
    this.heldByFolder,
    this.folderTitle,
-  }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
+   Map<String, String>? attachmentUploaders,
+  }) : attachmentUploaders = attachmentUploaders ?? {},
+       flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
        fileUrls = fileUrls ?? [],
@@ -403,6 +408,20 @@ class Document {
       }
     }
 
+    // Uploader map arrives as JSONB from Supabase, or a JSON string from SQLite
+    Map<String, String> attachmentUploaders = {};
+    final rawUploaders = json['attachment_uploaders'];
+    if (rawUploaders != null) {
+      try {
+        final decoded = rawUploaders is String ? jsonDecode(rawUploaders) : rawUploaders;
+        if (decoded is Map) {
+          attachmentUploaders = decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+        }
+      } catch (e) {
+        // Ignore malformed data — attachments fall back to the document owner
+      }
+    }
+
     return Document(
       code: json['code'],
       title: json['title'],
@@ -442,8 +461,29 @@ class Document {
       heldBy: json['held_by'],
       heldByFolder: json['held_by_folder'],
       folderTitle: json['folder_title'],
+      attachmentUploaders: attachmentUploaders,
     );
   }
+
+  /// Normalises a Drive URL or raw id to the key used in [attachmentUploaders].
+  static String attachmentKey(String urlOrId) {
+    final match = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(urlOrId);
+    if (match != null) return match.group(1)!;
+    if (urlOrId.contains('id=')) {
+      final id = Uri.tryParse(urlOrId)?.queryParameters['id'];
+      if (id != null && id.isNotEmpty) return id;
+    }
+    return urlOrId;
+  }
+
+  /// Who uploaded this attachment. Attachments added before uploader tracking
+  /// have no entry and belong to the document's original inputter.
+  String attachmentOwner(String urlOrId) =>
+      attachmentUploaders[attachmentKey(urlOrId)] ?? person;
+
+  /// Only the uploader may edit or remove their own attachment.
+  bool canModifyAttachment(String urlOrId, String? username) =>
+      username != null && username.isNotEmpty && attachmentOwner(urlOrId) == username;
 
   Map<String, dynamic> toJson() {
     // Generate default title for flag ceremony documents if title is null
@@ -494,6 +534,7 @@ class Document {
       'held_by': heldBy,
       'held_by_folder': heldByFolder,
       'folder_title': folderTitle,
+      'attachment_uploaders': attachmentUploaders,
     };
   }
 
@@ -535,6 +576,7 @@ class Document {
     String? heldBy,
     String? heldByFolder,
     String? folderTitle,
+    Map<String, String>? attachmentUploaders,
   }) {
     return Document(
       code: code ?? this.code,
@@ -574,6 +616,7 @@ class Document {
       heldBy: heldBy ?? this.heldBy,
       heldByFolder: heldByFolder ?? this.heldByFolder,
       folderTitle: folderTitle ?? this.folderTitle,
+      attachmentUploaders: attachmentUploaders ?? this.attachmentUploaders,
     );
   }
 }

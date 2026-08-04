@@ -803,6 +803,14 @@ class CachedDocumentService {
               continue;
             }
 
+            // Credit this attachment to whoever is signed in on this device, so
+            // only they can remove it later
+            final uploader = await AuthService.getUsername();
+            final updatedUploaders = Map<String, String>.from(doc.attachmentUploaders);
+            if (uploader != null && uploader.isNotEmpty) {
+              updatedUploaders[Document.attachmentKey(driveUrl)] = uploader;
+            }
+
             if (isImage) {
               final updatedUrls = [...doc.imageUrls];
               if (!updatedUrls.contains(driveUrl)) {
@@ -814,12 +822,14 @@ class CachedDocumentService {
                 'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
               // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
                 'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
             } else {
               final updatedUrls = [...doc.fileUrls];
@@ -832,13 +842,32 @@ class CachedDocumentService {
                 'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
               // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
                 'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
+            }
+
+            // Record who contributed this attachment in the document history
+            if (uploader != null && uploader.isNotEmpty) {
+              try {
+                await addHistoryEntry(
+                  documentCode,
+                  HistoryEntry(
+                    action: isImage ? 'Image Added' : 'File Added',
+                    person: uploader,
+                    timestamp: DateTime.now(),
+                    notes: uploadedFileName,
+                  ),
+                );
+              } catch (e) {
+                // History is best-effort — never block the upload
+              }
             }
 
             // Define cleanup callback

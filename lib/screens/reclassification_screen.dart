@@ -26,6 +26,7 @@ import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
+import '../widgets/add_attachment_button.dart';
 
 class ReclassificationScreen extends StatefulWidget {
   final List<Document> documents;
@@ -461,7 +462,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
                                         if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty) ElevatedButton(onPressed: () => _showImageDialog(context, document.imageUrls.isNotEmpty ? document.imageUrls : document.localImagePaths, documentCode: document.code), style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.image, size: 18)),
                                         if (document.filePath != null || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () { final allFiles = <String>[]; if (document.filePath != null) allFiles.add(document.filePath!); allFiles.addAll(document.fileUrls); if (allFiles.length == 1) _viewFile(allFiles[0], title: document.title ?? document.type, documentCode: document.code); else _showFileDialog(context, document); }, style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.attach_file, size: 18)),
                                         if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () => _shareDocument(document), style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.share, size: 18)),
-                                      ]), const Spacer(), if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty) IconButton(icon: const Icon(Icons.remove_red_eye_outlined, size: 20), tooltip: 'View who opened attachments', onPressed: () => _showViewersDialog(context, document.code), style: IconButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),),), ]),
+                                      ]), const Spacer(), AddAttachmentButton(document: document), if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty) IconButton(icon: const Icon(Icons.remove_red_eye_outlined, size: 20), tooltip: 'View who opened attachments', onPressed: () => _showViewersDialog(context, document.code), style: IconButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),),), ]),
                                     ]),
                                   ),
                                 ],

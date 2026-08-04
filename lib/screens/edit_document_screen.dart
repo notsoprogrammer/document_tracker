@@ -697,11 +697,25 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                         String fileName = index < _currentFileNames.length ? _currentFileNames[index] : 'Image ${index + 1}';
                                         String imageUrl = _currentImageUrls[index];
                                         String proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl.contains('drive.google.com/uc?id=') ? Uri.parse(imageUrl).queryParameters['id'] ?? imageUrl : imageUrl);
+                                        final owner = widget.document.attachmentOwner(imageUrl);
+                                        final isMine = widget.document.canModifyAttachment(imageUrl, _currentUsername);
                                         return Column(
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(8.0),
                                               child: Text(fileName, style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(isMine ? Icons.person_outline : Icons.lock_outline,
+                                                    size: 12, color: Colors.grey[600]),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  isMine ? 'Added by you' : 'Added by $owner',
+                                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                                ),
+                                              ],
                                             ),
                                             Expanded(
                                               child: InteractiveViewer(
@@ -726,6 +740,15 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                         onPressed: () async {
                                           final currentIndex = pageController.page?.round() ?? 0;
                                           final fileName = currentIndex < _currentFileNames.length ? _currentFileNames[currentIndex] : 'Image ${currentIndex + 1}';
+                                          // Only the uploader may remove their own attachment
+                                          final url = _currentImageUrls[currentIndex];
+                                          if (!widget.document.canModifyAttachment(url, _currentUsername)) {
+                                            SnackbarUtils.showErrorSnackBar(
+                                              context,
+                                              'Only ${widget.document.attachmentOwner(url)} can remove this attachment',
+                                            );
+                                            return;
+                                          }
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (context) => AlertDialog(
@@ -738,7 +761,6 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                             ),
                                           );
                                           if (confirm == true) {
-                                            final url = _currentImageUrls[currentIndex];
                                             setState(() {
                                               _currentImageUrls.removeAt(currentIndex);
                                               if (currentIndex < _currentFileNames.length) _currentFileNames.removeAt(currentIndex);
@@ -800,11 +822,23 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                               itemBuilder: (context, index) {
                                 final url = _currentFileUrls[index];
                                 final fileName = (_currentFileNames.length > _currentImageUrls.length + index) ? _currentFileNames[_currentImageUrls.length + index] : 'Document ${index + 1}';
+                                final owner = widget.document.attachmentOwner(url);
+                                final isMine = widget.document.canModifyAttachment(url, _currentUsername);
                                 return ListTile(
                                   leading: Icon(Icons.attach_file),
                                   title: Text(fileName),
+                                  subtitle: Text(
+                                    isMine ? 'Added by you' : 'Added by $owner',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  ),
                                   onTap: () => _viewExistingFile(context, url),
-                                  trailing: IconButton(
+                                  // Only the uploader gets a remove button
+                                  trailing: !isMine
+                                      ? Tooltip(
+                                          message: 'Only $owner can remove this attachment',
+                                          child: Icon(Icons.lock_outline, size: 18, color: Colors.grey[400]),
+                                        )
+                                      : IconButton(
                                     icon: Icon(Icons.remove),
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(

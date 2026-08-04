@@ -97,6 +97,7 @@ class SQLiteDatabaseService {
     docData['local_file_paths'] = jsonEncode(docData['local_file_paths'] ?? []);
     docData['attachments'] = jsonEncode(docData['attachments'] ?? []);
     docData['remarks_list'] = jsonEncode(docData['remarks_list'] ?? []);
+    docData['attachment_uploaders'] = jsonEncode(docData['attachment_uploaders'] ?? {});
 
     docData['created_at'] = getPhilippineTime().toIso8601String();
     docData['updated_at'] = getPhilippineTime().toIso8601String();
@@ -153,6 +154,9 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('remarks_list')) {
       updated['remarks_list'] = jsonEncode(updates['remarks_list']);
+    }
+    if (updates.containsKey('attachment_uploaders')) {
+      updated['attachment_uploaders'] = jsonEncode(updates['attachment_uploaders']);
     }
 
     updated['updated_at'] = getPhilippineTime().toIso8601String();

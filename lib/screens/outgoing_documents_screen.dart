@@ -30,6 +30,7 @@ import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
+import '../widgets/add_attachment_button.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1793,6 +1794,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         ],
                                       ),
                                       const Spacer(),
+                                        AddAttachmentButton(document: doc),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

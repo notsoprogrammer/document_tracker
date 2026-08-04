@@ -25,6 +25,7 @@ import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
+import '../widgets/add_attachment_button.dart';
 
 class ResolutionsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -714,6 +715,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                                             ],
                                           ),
                                           const Spacer(),
+                                            AddAttachmentButton(document: document),
                                           if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
                                             IconButton(
                                               icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
