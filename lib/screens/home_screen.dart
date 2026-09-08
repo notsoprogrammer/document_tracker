@@ -33,7 +33,6 @@ import 'sp_documents_screen.dart';
 import 'add_sp_documents_screen.dart';
 import 'reclassification_screen.dart';
 import 'add_reclassification_screen.dart';
-import '../services/update_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cabinet_screen.dart';
 
@@ -60,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTodayActivities();
     _checkAndRequestNotificationPermission();
     _logSessionResume();
-    _checkForUpdates();
     _subscribeToDocumentChanges();
   }
 
@@ -74,153 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!isJustLoggedIn) {
       await UserActivityService().logAppOpen(username: username, method: 'App reopened');
     }
-  }
-
-  Future<void> _checkForUpdates() async {
-    final update = await UpdateService.checkForUpdate();
-    if (update == null || !mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Available'),
-        content: Text(
-          'Version ${update.latestVersion} is available. Update now to get the latest features and fixes.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Later'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Update Now'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    // Sideloaded builds need "Install unknown apps" before the installer opens
-    if (!await UpdateService.canInstallPackages()) {
-      if (!mounted) return;
-      final proceed = await _showInstallPermissionDialog();
-      if (proceed != true || !mounted) return;
-    }
-
-    final progressNotifier = ValueNotifier<double>(0.0);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          title: const Text('Downloading Update'),
-          content: ValueListenableBuilder<double>(
-            valueListenable: progressNotifier,
-            builder: (context, progress, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(value: progress > 0 ? progress : null),
-                const SizedBox(height: 8),
-                Text(progress > 0 ? '${(progress * 100).toInt()}%' : 'Starting...'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    Object? failure;
-    try {
-      await UpdateService.downloadAndInstall(
-        update.downloadUrl,
-        onProgress: (p) => progressNotifier.value = p,
-      );
-    } catch (e) {
-      failure = e;
-    } finally {
-      progressNotifier.dispose();
-      // Close the progress dialog exactly once
-      if (mounted) Navigator.of(context).pop();
-    }
-
-    if (failure != null && mounted) {
-      await _showInstallFailedDialog();
-    }
-  }
-
-  /// Asks the user to enable "Install unknown apps" before the installer runs.
-  /// Returns true if the update should continue.
-  Future<bool?> _showInstallPermissionDialog() {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Allow App Installs'),
-        content: const Text(
-          'Android blocks installing updates until you allow FileTrack to '
-          'install apps.\n\n'
-          'Tap "Open Settings", turn on "Allow from this source", then come '
-          'back here.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await UpdateService.openAppInfo();
-            },
-            child: const Text('App Info'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await UpdateService.openInstallPermissionSettings();
-              if (ctx.mounted) Navigator.pop(ctx, true);
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Shown when the download or the installer handoff failed, with shortcuts
-  /// to the two settings screens that usually fix it.
-  Future<void> _showInstallFailedDialog() {
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update Could Not Install'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'The update could not be installed. This usually means Android is '
-            'blocking installs from this app, or the download was '
-            'interrupted.\n\n'
-            'Open "Install unknown apps" and turn on "Allow from this source", '
-            'then try updating again.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () => UpdateService.openAppInfo(),
-            child: const Text('App Info'),
-          ),
-          ElevatedButton(
-            onPressed: () => UpdateService.openInstallPermissionSettings(),
-            child: const Text('Install Unknown Apps'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _subscribeToDocumentChanges() {
