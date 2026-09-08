@@ -8,7 +8,7 @@
     ],
     "rewrites": [
       {
-        "source": "!**/*.@(js|css|json|png|jpg|jpeg|gif|svg|ico)",
+        "source": "!**/*.@(js|css|json|png|jpg|jpeg|gif|svg|ico|html|txt)",
         "destination": "/index.html"
       }
     ]
