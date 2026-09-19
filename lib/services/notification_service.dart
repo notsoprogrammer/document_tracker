@@ -1,4 +1,5 @@
-﻿import 'dart:io';
+﻿import 'dart:async';
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -65,6 +66,11 @@ class NotificationService {
 
     // Initialize FCM
     await _initializeFCM();
+
+    // Bring existing calendar entries onto the current reminder rules.
+    // Deliberately not awaited — it needs the network and must not hold up
+    // app startup.
+    unawaited(backfillRemindersIfNeeded());
   }
 
   /* -----------------------------------------------------------
@@ -88,6 +94,12 @@ class NotificationService {
     if (!kIsWeb && Platform.isAndroid) {
       if (await Permission.notification.isDenied) {
         await Permission.notification.request();
+      }
+      // Android 14+ withholds SCHEDULE_EXACT_ALARM by default. Without it,
+      // every timed reminder silently fails to schedule, so ask for it up
+      // front. Reminders still work without it, just less precisely.
+      if (!await Permission.scheduleExactAlarm.isGranted) {
+        await Permission.scheduleExactAlarm.request();
       }
     }
 
@@ -304,22 +316,150 @@ class NotificationService {
     await _scheduleRuleReminder(activity.startTime, activity.title, 0);
   }
 
-  /// Reminder-time rule shared by activities and calendar documents:
-  ///   • start before 8:00 AM  → 1 hour before start
-  ///   • start at/after 8:00 AM → 8:10 AM on the day of the event
-  /// The 8:00–8:10 AM window falls back to 1 hour before so the reminder
-  /// never lands after the event has already started.
-  DateTime _reminderTimeFor(DateTime startTime) {
-    final eightTen = DateTime(
-      startTime.year, startTime.month, startTime.day, 8, 10,
-    );
-    if (startTime.hour < 8) {
-      return startTime.subtract(const Duration(hours: 1));
+  /// Reminder times shared by activities and calendar documents.
+  ///
+  /// Both reminders are scheduled, independently of each other:
+  ///   • 1 hour before the start time — ALWAYS, whatever the start time is
+  ///   • 8:10 AM on the day of the event — the day-ahead heads-up, only when
+  ///     that lands before the event actually starts
+  ///
+  /// These used to be mutually exclusive: an event at/after 8:10 AM returned
+  /// only the 8:10 AM time, so the 1-hour-before reminder never fired for
+  /// virtually any event.
+  ///
+  /// Returns the times paired with an id offset so each reminder gets its own
+  /// notification id and they don't overwrite one another.
+  List<({DateTime time, int idOffset})> _reminderTimesFor(DateTime startTime) {
+    final now = DateTime.now();
+    final reminders = <({DateTime time, int idOffset})>[];
+
+    // 1 hour before — the reminder the user actually relies on.
+    final oneHourBefore = startTime.subtract(const Duration(hours: 1));
+    if (oneHourBefore.isAfter(now)) {
+      reminders.add((time: oneHourBefore, idOffset: 0));
     }
-    if (eightTen.isBefore(startTime)) {
-      return eightTen;
+
+    // 8:10 AM day-of heads-up, only if it precedes the event and is still
+    // ahead of us. Skipped when it would duplicate the 1-hour reminder.
+    final eightTen =
+        DateTime(startTime.year, startTime.month, startTime.day, 8, 10);
+    if (eightTen.isBefore(startTime) &&
+        eightTen.isAfter(now) &&
+        !eightTen.isAtSameMomentAs(oneHourBefore)) {
+      reminders.add((time: eightTen, idOffset: 1));
     }
-    return startTime.subtract(const Duration(hours: 1));
+
+    return reminders;
+  }
+
+  /// Android 14+ does not grant SCHEDULE_EXACT_ALARM by default. Without it,
+  /// zonedSchedule with an exact mode throws and — previously — the error was
+  /// swallowed, so no reminder was ever delivered. Check first so we can fall
+  /// back to an inexact alarm instead of silently dropping the notification.
+  Future<bool> _canScheduleExactAlarms() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      return await Permission.scheduleExactAlarm.isGranted;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Ask the user for exact-alarm permission. Safe to call more than once;
+  /// on Android 14+ this opens the system "Alarms & reminders" screen.
+  Future<bool> requestExactAlarmPermission() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      final status = await Permission.scheduleExactAlarm.request();
+      return status.isGranted;
+    } catch (e) {
+      debugPrint('NotificationService: exact alarm request failed: $e');
+      return false;
+    }
+  }
+
+  /// Bump this when the reminder rules change, to re-run the backfill below.
+  static const int _reminderRulesVersion = 2;
+  static const String _prefReminderRulesVersion = 'reminder_rules_version';
+
+  /// Re-schedule reminders for everything still in the future.
+  ///
+  /// Reminders are normally scheduled once, when an activity or document is
+  /// created, so a change to the reminder rules would otherwise only affect
+  /// newly created entries — everything already on the calendar would keep the
+  /// old (or missing) reminders until it was edited. This backfills them.
+  ///
+  /// Notification IDs are deterministic, so re-scheduling overwrites the
+  /// existing reminder rather than duplicating it. Runs at most once per
+  /// rules version; best-effort and never throws.
+  Future<void> backfillRemindersIfNeeded() async {
+    if (kIsWeb) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final applied = prefs.getInt(_prefReminderRulesVersion) ?? 0;
+      if (applied >= _reminderRulesVersion) return;
+
+      debugPrint(
+          'NotificationService: backfilling reminders (v$applied -> v$_reminderRulesVersion)');
+
+      final now = DateTime.now();
+      int activityCount = 0;
+      int documentCount = 0;
+      bool allSucceeded = true;
+
+      // Activities — rule reminders are otherwise only set at creation time.
+      try {
+        final activities = await SupabaseService().fetchActivities();
+        for (final activity in activities) {
+          if (activity.startTime.isAfter(now)) {
+            await scheduleActivityReminder(activity);
+            activityCount++;
+          }
+          // Repeat occurrences reuse the start time's time-of-day.
+          for (final extraDate in activity.extraDates) {
+            final extraDt = DateTime(
+              extraDate.year, extraDate.month, extraDate.day,
+              activity.startTime.hour, activity.startTime.minute,
+            );
+            if (extraDt.isAfter(now)) {
+              await scheduleActivityReminder(
+                  activity.copyWith(startTime: extraDt));
+              activityCount++;
+            }
+          }
+        }
+      } catch (e) {
+        allSucceeded = false;
+        debugPrint('NotificationService: activity backfill failed: $e');
+      }
+
+      // Documents that carry a calendar deadline.
+      try {
+        final documents = await SupabaseService().fetchCalendarDocuments();
+        for (final doc in documents) {
+          final deadline = doc.calendarDeadline;
+          if (deadline != null && deadline.isAfter(now)) {
+            await scheduleDocumentReminder(doc);
+            documentCount++;
+          }
+        }
+      } catch (e) {
+        allSucceeded = false;
+        debugPrint('NotificationService: document backfill failed: $e');
+      }
+
+      // Only mark done if everything actually fetched, so a run that failed
+      // because the device was offline at startup is retried next launch.
+      if (allSucceeded) {
+        await prefs.setInt(_prefReminderRulesVersion, _reminderRulesVersion);
+      }
+      debugPrint(
+          'NotificationService: backfill ${allSucceeded ? 'done' : 'incomplete, will retry'} '
+          '— $activityCount activity, $documentCount document reminder(s)');
+    } catch (e) {
+      debugPrint('NotificationService: backfill aborted: $e');
+    }
   }
 
   /// Human-friendly reminder body. Short countdowns read "Starting in N
@@ -343,11 +483,10 @@ class NotificationService {
   ) async {
     if (startTime.isBefore(DateTime.now())) return;
 
-    final reminderTime = _reminderTimeFor(startTime);
-    if (reminderTime.isBefore(DateTime.now())) return;
+    final reminders = _reminderTimesFor(startTime);
+    if (reminders.isEmpty) return;
 
     final location = tz.getLocation('Asia/Manila');
-    final tzReminder = tz.TZDateTime.from(reminderTime, location);
 
     const androidDetails = AndroidNotificationDetails(
       _channelId, _channelName,
@@ -360,22 +499,42 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
-    // Stable ID derived from the event's start time (plus a salt per source).
-    final notifId =
-        (startTime.millisecondsSinceEpoch ~/ 1000 + idSalt) & 0x7FFFFFFF;
+    // Exact alarms need a permission the user may not have granted. Rather
+    // than throwing and losing the reminder entirely, downgrade to an inexact
+    // alarm — a few minutes of drift beats no notification at all.
+    final exact = await _canScheduleExactAlarms();
+    final scheduleMode = exact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
 
-    try {
-      await _plugin.zonedSchedule(
-        notifId,
-        title ?? 'Upcoming Event',
-        _reminderBody(startTime, reminderTime),
-        tzReminder,
-        notifDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (e) {
+    for (final reminder in reminders) {
+      final tzReminder = tz.TZDateTime.from(reminder.time, location);
+
+      // Stable ID from the start time, a salt per source (activity vs
+      // document), and an offset per reminder kind so the 1-hour and 8:10 AM
+      // reminders don't overwrite each other.
+      final notifId = (startTime.millisecondsSinceEpoch ~/ 1000 +
+              idSalt +
+              reminder.idOffset * 7919) &
+          0x7FFFFFFF;
+
+      try {
+        await _plugin.zonedSchedule(
+          notifId,
+          title ?? 'Upcoming Event',
+          _reminderBody(startTime, reminder.time),
+          tzReminder,
+          notifDetails,
+          androidScheduleMode: scheduleMode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (e) {
+        // Surface the failure instead of silently dropping the reminder.
+        debugPrint(
+            'NotificationService: failed to schedule reminder for $startTime '
+            'at ${reminder.time} (exact: $exact): $e');
+      }
     }
   }
 
@@ -431,6 +590,8 @@ class NotificationService {
     // Offset by minutesBefore * 1M so 10-min and 30-min IDs don't collide
     final notifId = (startTime.millisecondsSinceEpoch ~/ 1000 + minutesBefore * 1000000) & 0x7FFFFFFF;
 
+    final exact = await _canScheduleExactAlarms();
+
     try {
       await _plugin.zonedSchedule(
         notifId,
@@ -438,11 +599,17 @@ class NotificationService {
         'Starting in $minutesBefore minutes',
         tzReminder,
         notifDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: exact
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint(
+          'NotificationService: failed to schedule $minutesBefore-min reminder '
+          'for $startTime (exact: $exact): $e');
+    }
   }
 
   /* -----------------------------------------------------------
