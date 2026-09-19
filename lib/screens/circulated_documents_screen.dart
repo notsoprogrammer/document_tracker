@@ -8,6 +8,7 @@ import '../services/cached_document_service.dart';
 import '../services/cabinet_service.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../services/auth_service.dart';
+import '../widgets/skeleton_loader.dart';
 
 class CirculatedDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -376,7 +377,7 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
         title: const Text("Circulated Documents"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const DocumentListSkeleton()
           : Column(
               children: [
                 Padding(

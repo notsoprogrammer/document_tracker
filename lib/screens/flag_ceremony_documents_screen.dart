@@ -22,6 +22,7 @@ import './edit_flag_ceremony_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/auth_service.dart';
 import '../services/attachment_view_service.dart';
+import '../widgets/skeleton_loader.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -359,19 +360,7 @@ class _FlagCeremonyDocumentsScreenState
             ),
           ),
           child: _isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Loading documents...',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                )
+              ? const DocumentListSkeleton()
               : _filteredDocuments.isEmpty
               ? const Center(
                   child: Text(

@@ -27,6 +27,7 @@ import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
+import '../widgets/skeleton_loader.dart';
 
 class CdcScreen extends StatefulWidget {
   final List<Document> documents;
@@ -433,7 +434,7 @@ class _CdcScreenState extends State<CdcScreen> {
               ),
             ),
             child: _isLoading
-                ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Loading documents...', style: TextStyle(fontSize: 16))]))
+                ? const DocumentListSkeleton()
                 : _filteredDocuments.isEmpty
                 ? const Center(child: Text('No CDC records found', style: TextStyle(fontSize: 16, color: Colors.grey)))
                 : Column(
