@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../utils/date_time_utils.dart';
+import 'note.dart';
 
 class HistoryEntry {
   final String action;
@@ -70,7 +71,10 @@ class Document {
   final String? fileName; // Original file name for display
   final DateTime? receivingDate; // Date and time when document was received
   String flowStage; // 'incoming', 'outgoing', 'circulated'
-  final List<String> remarksList; // List of sequential remarks
+  /// Append-only notes thread. Anyone may add a note; only its author may
+  /// edit or delete it. Supersedes the single free-text [remarks] field, which
+  /// is migrated in as the first note when this list is empty.
+  final List<Note> remarksList;
   final String? cabinetLocation; // Cabinet where the physical document is stored
   String? heldBy; // Person who currently holds the physical document
   String? heldByFolder; // Folder/details specific to the person holding the document
@@ -113,7 +117,7 @@ class Document {
     this.receivingDate,
    String? flowStage,
    bool addInitialHistory = true,
-   List<String>? remarksList,
+   List<Note>? remarksList,
    this.cabinetLocation,
    this.heldBy,
    this.heldByFolder,
@@ -390,23 +394,16 @@ class Document {
       }
     }
 
-    // Parse remarks_list if present
-    List<String> remarksList = [];
-    if (json['remarks_list'] != null) {
-      if (json['remarks_list'] is List) {
-        remarksList = List<String>.from(json['remarks_list']);
-      } else if (json['remarks_list'] is String) {
-        // Handle case where remarks_list is stored as JSON string
-        try {
-          final decoded = jsonDecode(json['remarks_list']);
-          if (decoded is List) {
-            remarksList = List<String>.from(decoded);
-          }
-        } catch (e) {
-          // If parsing fails, ignore
-        }
-      }
-    }
+    // Parse remarks_list. Note.parseList accepts every format this column has
+    // held (JSON string, list of plain strings, list of note objects) and folds
+    // the legacy single `remarks` field in as the first note when empty.
+    final List<Note> remarksList = Note.parseList(
+      json['remarks_list'],
+      legacyRemarks: json['remarks']?.toString(),
+      legacyDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
+    );
 
     // Uploader map arrives as JSONB from Supabase, or a JSON string from SQLite
     Map<String, String> attachmentUploaders = {};
@@ -529,7 +526,7 @@ class Document {
       'file_name': fileName,
       'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,
-      'remarks_list': remarksList,
+      'remarks_list': Note.listToJson(remarksList),
       'cabinet_location': cabinetLocation,
       'held_by': heldBy,
       'held_by_folder': heldByFolder,
@@ -571,7 +568,7 @@ class Document {
     String? fileName,
     DateTime? receivingDate,
     String? flowStage,
-    List<String>? remarksList,
+    List<Note>? remarksList,
     String? cabinetLocation,
     String? heldBy,
     String? heldByFolder,

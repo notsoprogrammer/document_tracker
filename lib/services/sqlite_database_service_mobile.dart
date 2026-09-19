@@ -26,7 +26,7 @@ class SQLiteDatabaseService {
     String path = join(documentsDirectory.path, 'documents_v8.db');
     return await openDatabase(
       path,
-      version: 32,
+      version: 33,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -131,7 +131,8 @@ class SQLiteDatabaseService {
         needs_sync INTEGER DEFAULT 0,
         created_at TEXT,
         extra_dates TEXT DEFAULT '[]',
-        linked_document_code TEXT
+        linked_document_code TEXT,
+        remarks_list TEXT
       )
     ''');
 
@@ -484,6 +485,12 @@ class SQLiteDatabaseService {
         await db.execute('ALTER TABLE documents ADD COLUMN attachment_uploaders TEXT');
       } catch (_) {}
     }
+    if (oldVersion < 33) {
+      // Append-only notes thread for activities, mirroring documents.
+      try {
+        await db.execute('ALTER TABLE activities ADD COLUMN remarks_list TEXT');
+      } catch (_) {}
+    }
   }
 
   Future<List<Document>> fetchDocuments() async {
@@ -753,6 +760,7 @@ class SQLiteDatabaseService {
     actData['needs_sync'] = (actData['needs_sync'] == true || actData['needs_sync'] == 1) ? 1 : 0;
     actData['created_at'] = getPhilippineTime().toIso8601String();
     actData['extra_dates'] = jsonEncode(actData['extra_dates'] ?? []);
+    actData['remarks_list'] = jsonEncode(actData['remarks_list'] ?? []);
 
     final id = await db.insert('activities', actData, conflictAlgorithm: ConflictAlgorithm.replace);
 
@@ -766,6 +774,9 @@ class SQLiteDatabaseService {
     }
     if (updates.containsKey('extra_dates')) {
       updates['extra_dates'] = jsonEncode(updates['extra_dates'] ?? []);
+    }
+    if (updates.containsKey('remarks_list')) {
+      updates['remarks_list'] = jsonEncode(updates['remarks_list'] ?? []);
     }
     await db.update('activities', updates, where: 'id = ?', whereArgs: [activityId]);
   }

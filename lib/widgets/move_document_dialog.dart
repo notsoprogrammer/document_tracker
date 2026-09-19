@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/document.dart';
+import '../models/note.dart';
 import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../utils/date_time_utils.dart';
@@ -269,13 +270,15 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
     try {
       // Create updated document with new remarks and images
-      String remarkText = 'Remark ${widget.document.remarksList.length + 1}: ${_remarksController.text.trim()}';
+      // Notes now carry their own author and timestamp, so the text no longer
+      // needs a "Remark N:" prefix.
+      String remarkText = _remarksController.text.trim();
       if (googleDriveFileNames.isNotEmpty) {
         final attachmentNames = googleDriveFileNames.join(', ');
         remarkText += '\nAttachment: $attachmentNames';
       }
-      final updatedRemarksList = List<String>.from(widget.document.remarksList)
-        ..add(remarkText);
+      final updatedRemarksList = List<Note>.from(widget.document.remarksList)
+        ..add(Note.create(text: remarkText, author: _username!));
 
       final updatedImageUrls = List<String>.from(widget.document.imageUrls);
       final updatedFileUrls = List<String>.from(widget.document.fileUrls);

@@ -28,6 +28,8 @@ import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
 
 class LocalationalZoningScreen extends StatefulWidget {
   final List<Document> documents;
@@ -412,6 +414,22 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
     _triggerPendingUploads();
   }
 
+  /// Persist an updated notes thread for [doc] and refresh so the change
+  /// shows immediately.
+  Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    try {
+      await CachedDocumentService().updateDocument(
+        doc.code,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      await _refreshDocuments();
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark');
+      }
+    }
+  }
+
   Future<void> _refreshDocuments() async {
     final allDocs = await CachedDocumentService().fetchDocuments();
     if (!mounted) return;
@@ -645,10 +663,12 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
                                             ),
                                           ),
                                         ],
-                                        if (document.remarks.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          _buildDetailRow(Icons.comment, "Remarks", document.remarks),
-                                        ],
+                                                                              const SizedBox(height: 8),
+                                      NotesThread(
+                                        notes: document.remarksList,
+                                        currentUsername: _username,
+                                        onChanged: (updated) => _saveNotes(document, updated),
+                                      ),
                                         const SizedBox(height: 16),
                                         Row(
                                           children: [

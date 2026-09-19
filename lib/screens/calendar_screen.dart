@@ -20,6 +20,9 @@ import 'add_activity_screen.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import 'pdf_viewer_screen.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
+import '../services/cached_activity_service.dart';
 
 
 class _RangeInfo {
@@ -110,6 +113,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
         NotificationService().scheduleDocumentReminder(doc);
       }
     } catch (e) {
+    }
+  }
+
+  /// Persist an updated notes thread for [activity] and reload so the change
+  /// shows immediately.
+  Future<void> _saveActivityNotes(Activity activity, List<Note> updated) async {
+    if (activity.id == null) return;
+    try {
+      await CachedActivityService().updateActivity(
+        activity.id!,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      await _loadCalendarActivities();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save remark')),
+        );
+      }
     }
   }
 
@@ -1313,8 +1335,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 _buildDetailRow('People Involved', activity.peopleInvolved),
                 if (activity.location != null && activity.location!.isNotEmpty)
                   _buildDetailRow('Location', activity.location!),
-                if (activity.remarks.isNotEmpty)
-                  _buildDetailRow('Remarks', activity.remarks),
+                // Append-only notes thread: anyone can add a remark without
+                // having to edit whatever someone else already wrote.
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: NotesThread(
+                    notes: activity.remarksList,
+                    currentUsername: currentUsername,
+                    onChanged: (updated) => _saveActivityNotes(activity, updated),
+                  ),
+                ),
                 if (activity.linkedDocumentCode != null && activity.linkedDocumentCode!.isNotEmpty) ...[
                   _buildCopyableRow('Document Ref', activity.linkedDocumentCode!),
                   _buildLinkedDocumentAttachments(activity.linkedDocumentCode!),

@@ -28,6 +28,8 @@ import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
 
 class SpDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -344,6 +346,22 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
     _triggerPendingUploads();
   }
 
+  /// Persist an updated notes thread for [doc] and refresh so the change
+  /// shows immediately.
+  Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    try {
+      await CachedDocumentService().updateDocument(
+        doc.code,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      await _refreshDocuments();
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark');
+      }
+    }
+  }
+
   Future<void> _refreshDocuments() async {
     final allDocs = await CachedDocumentService().fetchDocuments();
     if (!mounted) return;
@@ -482,7 +500,12 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                                       const SizedBox(height: 8), Row(children: [Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.heldByFolder ?? '').isNotEmpty) document.heldByFolder!].join(' | '))), IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showHeldByDialog(index), tooltip: "Update Holder")]),
                                       const SizedBox(height: 8), _buildDetailRow(Icons.access_time, "Timestamp", document.createdAt != null ? _formatDateTime(document.createdAt!) : 'Unknown'),
                                       if (document.referenceLink != null && document.referenceLink!.isNotEmpty) ...[const SizedBox(height: 8), GestureDetector(onTap: () async { final uri = Uri.parse(document.referenceLink!); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Row(children: [const Icon(Icons.link, color: Colors.blue), const SizedBox(width: 8), Expanded(child: Text(document.referenceLink!, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline), overflow: TextOverflow.ellipsis))]))],
-                                      if (document.remarks.isNotEmpty) ...[const SizedBox(height: 8), _buildDetailRow(Icons.comment, "Remarks", document.remarks)],
+                                                                            const SizedBox(height: 8),
+                                      NotesThread(
+                                        notes: document.remarksList,
+                                        currentUsername: _username,
+                                        onChanged: (updated) => _saveNotes(document, updated),
+                                      ),
                                       const SizedBox(height: 16),
                                       Row(children: [Wrap(spacing: 2, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
                                         if (_username == document.person) ElevatedButton(onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EditDocumentScreen(document: document))).then((_) { if (widget.onRefresh != null) widget.onRefresh!(); }); }, style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 78, 127, 218), foregroundColor: Colors.white, minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.edit, size: 18)),

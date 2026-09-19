@@ -29,6 +29,8 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
@@ -265,6 +267,22 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
     _triggerPendingUploads();
+  }
+
+  /// Persist an updated notes thread for [doc] and refresh so the change
+  /// shows immediately.
+  Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    try {
+      await CachedDocumentService().updateDocument(
+        doc.code,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      await _refreshDocuments();
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark');
+      }
+    }
   }
 
   Future<void> _refreshDocuments() async {
@@ -1415,44 +1433,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   ],
 
                                   const SizedBox(height: 8),
-                                  if (doc.remarksList.isNotEmpty) ...[
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.comment, size: 20, color: Theme.of(context).colorScheme.primary),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                "Remarks",
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              ...doc.remarksList.map((remark) => Padding(
-                                                padding: const EdgeInsets.only(bottom: 4),
-                                                child: Text(
-                                                  remark,
-                                                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                                                ),
-                                              )),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ] else ...[
-                                    _buildDetailRow(
-                                      Icons.comment,
-                                      "Remarks",
-                                      doc.remarks,
-                                    ),
-                                  ],
+                                  // Append-only notes thread: anyone can add a
+                                  // remark without editing someone else's.
+                                  NotesThread(
+                                    notes: doc.remarksList,
+                                    currentUsername: _username,
+                                    onChanged: (updated) => _saveNotes(doc, updated),
+                                  ),
                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       GestureDetector(
