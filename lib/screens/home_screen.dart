@@ -36,6 +36,8 @@ import 'add_reclassification_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cabinet_screen.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/folder_card.dart';
+import '../theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -657,37 +659,33 @@ backgroundColor: Colors.transparent,
 body: Container(
   height: double.infinity,
   width: double.infinity,
-  decoration: BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Color(0xFFFDF6EC),
-        Color(0xFFE3F2FD),
-        Color(0xFFE8F5E9),
-      ],
-    ),
-  ),
+  color: AppTheme.canvas,
   child: Stack(
     children: [
       RefreshIndicator(
         onRefresh: _loadDocuments,
-        child: Container(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 10),
-                  _buildHeaderCard(),
-                  const SizedBox(height: 14),
-                  _buildTodayActivitiesSection(),
-                  const SizedBox(height: 16),
-                  _buildFoldersSection(),
-                  const SizedBox(height: 88),
-                ],
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Center(
+            // Cap the column on wide screens so a desktop browser doesn't
+            // stretch rows to an unreadable width.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                  maxWidth: AppTheme.maxContentWidth),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.gapLg, vertical: AppTheme.gapLg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeaderCard(),
+                    const SizedBox(height: AppTheme.gapLg),
+                    _buildTodayActivitiesSection(),
+                    const SizedBox(height: AppTheme.gapXl),
+                    _buildFoldersSection(),
+                    const SizedBox(height: 88),
+                  ],
+                ),
               ),
             ),
           ),
@@ -775,444 +773,263 @@ Positioned(
   Widget _buildHeaderCard() {
     final urgentCount = documents.where((d) => d.status == 'Urgent').length;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBBDEFB), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(AppTheme.gapLg),
+      decoration: AppTheme.card(),
       child: Row(
         children: [
-          Image.asset('assets/image/officeLogo.png', height: 48, width: 48),
-          const SizedBox(width: 12),
+          Image.asset('assets/image/officeLogo.png', height: 40, width: 40),
+          const SizedBox(width: AppTheme.gap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  "CPDCO File Tracking",
+                const Text(
+                  'CPDCO File Tracking',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: Colors.blueGrey[800],
+                    fontSize: 15,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
-                Text(
+                const SizedBox(height: 2),
+                const Text(
                   "City Planning and Development Coordinator's Office",
-                  style: TextStyle(fontSize: 10, color: Colors.blueGrey[400]),
+                  style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${documents.length}',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: Color(0xFF4988C4)),
-              ),
-              Text('docs', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-            ],
-          ),
+          const SizedBox(width: AppTheme.gap),
+          _buildStat('${documents.length}', 'docs', AppTheme.textPrimary),
           if (urgentCount > 0) ...[
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$urgentCount',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: Colors.red),
-                ),
-                Text('urgent', style: TextStyle(fontSize: 10, color: Colors.red[300])),
-              ],
-            ),
+            const SizedBox(width: AppTheme.gapLg),
+            _buildStat('$urgentCount', 'urgent', AppTheme.danger),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildFoldersSection() {
-    final incomingCount = documents.where((d) =>
-        d.incoming &&
-        d.mode != 'Resolutions' &&
-        d.mode != 'Office Function MOVs' &&
-        d.mode != 'Locational & Zoning' &&
-        d.mode != 'CDC Documents' &&
-        d.mode != 'SP Documents' &&
-        d.mode != 'Reclassification').length;
-    final outgoingCount = documents.where((d) =>
-        !d.incoming &&
-        d.mode != 'Resolutions' &&
-        d.mode != 'Office Function MOVs' &&
-        d.mode != 'Locational & Zoning' &&
-        d.mode != 'CDC Documents' &&
-        d.mode != 'SP Documents' &&
-        d.mode != 'Reclassification').length;
-    final resolutionCount = documents.where((d) => d.mode == 'Resolutions').length;
-    final movsCount = documents.where((d) => d.mode == 'Office Function MOVs' || d.mode == 'Flag Ceremony').length;
-    final lzCount = documents.where((d) => d.mode == 'Locational & Zoning').length;
-    final cdcCount = documents.where((d) => d.mode == 'CDC Documents').length;
-    final spCount = documents.where((d) => d.mode == 'SP Documents').length;
-    final reclassCount = documents.where((d) => d.mode == 'Reclassification').length;
-
+  /// A single figure + caption in the header.
+  Widget _buildStat(String value, String label, Color color) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            "Document Folders",
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: Colors.blueGrey[700],
-              letterSpacing: 0.3,
-            ),
-          ),
+        Text(
+          value,
+          style: TextStyle(
+              fontWeight: FontWeight.w700, fontSize: 20, color: color),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.move_to_inbox_outlined,
-                title: "Incoming",
-                subtitle: "Received documents",
-                count: incomingCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFCC80), Color(0xFFF57C00)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Incoming Documents');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => IncomingDocumentsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                        syncAllDocuments: _syncAllDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.outbox_outlined,
-                title: "Outgoing",
-                subtitle: "Sent documents",
-                count: outgoingCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF64B5F6), Color(0xFF1565C0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Outgoing Documents');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => OutgoingDocumentsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                        syncAllDocuments: _syncAllDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.gavel_outlined,
-                title: "SP Documents",
-                subtitle: "Resolutions & ordinances",
-                count: spCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF7986CB), Color(0xFF283593)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'SP Documents');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SpDocumentsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.gavel_outlined,
-                title: "Other Resolutions",
-                subtitle: "City resolutions and others",
-                count: resolutionCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Resolutions');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ResolutionsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-                        
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.map_outlined,
-                title: "Locational & Zoning",
-                subtitle: "Clearances & certificates",
-                count: lzCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4DD0E1), Color(0xFF00838F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Locational & Zoning');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => LocalationalZoningScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.swap_horizontal_circle_outlined,
-                title: "Reclassification",
-                subtitle: "CLUP zoning docs",
-                count: reclassCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF81C784), Color(0xFF1B5E20)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Reclassification');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReclassificationScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-
-          ],
-        ),
-        
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.event_note_outlined,
-                title: "Function MOVs",
-                subtitle: "Office activities",
-                count: movsCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFCE93D8), Color(0xFF6A1B9A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'Attendance & MOVs');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AttendanceMovsScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildFolderCard(
-                icon: Icons.groups_outlined,
-                title: "CDC Documents",
-                subtitle: "Council records",
-                count: cdcCount,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF8A65), Color(0xFFBF360C)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                onTap: () {
-                  UserActivityService().logAction(action: 'Opened screen', screen: 'CDC Documents');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CdcScreen(
-                        documents: documents,
-                        transferDocument: _transferDocument,
-                        updateDocumentStatus: _updateDocumentStatus,
-                        deleteDocument: _deleteDocument,
-                        syncDocument: _syncDocument,
-                        onRefresh: _loadDocuments,
-                      ),
-                    ),
-                  ).then((_) { if (mounted) _loadTodayActivities(); });
-                },
-              ),
-            ),
-          ],
-        ),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
       ],
     );
   }
 
-  Widget _buildFolderCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required int count,
-    required Gradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      borderRadius: BorderRadius.circular(16),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          height: 108,
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(icon, size: 20, color: Colors.white),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.28),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Text(
-                  title,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+  Widget _buildFoldersSection() {
+    const ownModes = {
+      'Resolutions',
+      'Office Function MOVs',
+      'Locational & Zoning',
+      'CDC Documents',
+      'SP Documents',
+      'Reclassification',
+    };
+    int countWhere(bool Function(Document) test) =>
+        documents.where(test).length;
+
+    final incomingCount =
+        countWhere((d) => d.incoming && !ownModes.contains(d.mode));
+    final outgoingCount =
+        countWhere((d) => !d.incoming && !ownModes.contains(d.mode));
+    final resolutionCount = countWhere((d) => d.mode == 'Resolutions');
+    final movsCount = countWhere(
+        (d) => d.mode == 'Office Function MOVs' || d.mode == 'Flag Ceremony');
+    final lzCount = countWhere((d) => d.mode == 'Locational & Zoning');
+    final cdcCount = countWhere((d) => d.mode == 'CDC Documents');
+    final spCount = countWhere((d) => d.mode == 'SP Documents');
+    final reclassCount = countWhere((d) => d.mode == 'Reclassification');
+
+    // Pushes [screen] and refreshes today's activities on return.
+    void open(String logName, Widget screen) {
+      UserActivityService()
+          .logAction(action: 'Opened screen', screen: logName);
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
+          .then((_) {
+        if (mounted) _loadTodayActivities();
+      });
+    }
+
+    final folders = <FolderSpec>[
+      FolderSpec(
+        icon: Icons.move_to_inbox_outlined,
+        title: 'Incoming',
+        subtitle: 'Received documents',
+        count: incomingCount,
+        accent: AppTheme.folderAmber,
+        onTap: () => open(
+          'Incoming Documents',
+          IncomingDocumentsScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+            syncAllDocuments: _syncAllDocuments,
           ),
         ),
       ),
+      FolderSpec(
+        icon: Icons.outbox_outlined,
+        title: 'Outgoing',
+        subtitle: 'Sent documents',
+        count: outgoingCount,
+        accent: AppTheme.folderBlue,
+        onTap: () => open(
+          'Outgoing Documents',
+          OutgoingDocumentsScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+            syncAllDocuments: _syncAllDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.gavel_outlined,
+        title: 'SP Documents',
+        subtitle: 'Resolutions & ordinances',
+        count: spCount,
+        accent: AppTheme.folderIndigo,
+        onTap: () => open(
+          'SP Documents',
+          SpDocumentsScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.assignment_outlined,
+        title: 'Other Resolutions',
+        subtitle: 'City resolutions and others',
+        count: resolutionCount,
+        accent: AppTheme.folderViolet,
+        onTap: () => open(
+          'Resolutions',
+          ResolutionsScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.map_outlined,
+        title: 'Locational & Zoning',
+        subtitle: 'Clearances & certificates',
+        count: lzCount,
+        accent: AppTheme.folderTeal,
+        onTap: () => open(
+          'Locational & Zoning',
+          LocalationalZoningScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.swap_horiz_outlined,
+        title: 'Reclassification',
+        subtitle: 'CLUP zoning docs',
+        count: reclassCount,
+        accent: AppTheme.folderGreen,
+        onTap: () => open(
+          'Reclassification',
+          ReclassificationScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.event_note_outlined,
+        title: 'Function MOVs',
+        subtitle: 'Office activities',
+        count: movsCount,
+        accent: AppTheme.folderPink,
+        onTap: () => open(
+          'Attendance & MOVs',
+          AttendanceMovsScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+      FolderSpec(
+        icon: Icons.groups_outlined,
+        title: 'CDC Documents',
+        subtitle: 'Council records',
+        count: cdcCount,
+        accent: AppTheme.folderSlate,
+        onTap: () => open(
+          'CDC Documents',
+          CdcScreen(
+            documents: documents,
+            transferDocument: _transferDocument,
+            updateDocumentStatus: _updateDocumentStatus,
+            deleteDocument: _deleteDocument,
+            syncDocument: _syncDocument,
+            onRefresh: _loadDocuments,
+          ),
+        ),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 2, bottom: AppTheme.gap),
+          child: Text(
+            'Document Folders',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        FolderGrid(folders: folders),
+      ],
     );
   }
 
@@ -1318,34 +1135,24 @@ Positioned(
 
   Widget _buildTodayActivitiesSection() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBBDEFB), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppTheme.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header row
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
             child: Row(
               children: [
-                const Icon(Icons.event_note, size: 16, color: Color(0xFF4988C4)),
-                const SizedBox(width: 7),
-                Text(
+                const Icon(Icons.event_note_outlined,
+                    size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: AppTheme.gapSm),
+                const Text(
                   "Today's Activities",
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: Colors.blueGrey[800],
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const Spacer(),
@@ -1370,7 +1177,7 @@ Positioned(
               ],
             ),
           ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFE3F2FD)),
+          const Divider(height: 1, thickness: 1, color: AppTheme.border),
           // Body
           if (_isTodayActivitiesLoading)
             Padding(
@@ -1416,7 +1223,7 @@ Positioned(
           else
             ...List.generate(_todayEvents.length, (i) => Column(
               children: [
-                if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: Color(0xFFE3F2FD)),
+                if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppTheme.border),
                 _todayEvents[i] is Activity
                     ? _buildActivityCard(_todayEvents[i] as Activity)
                     : _buildDocumentEventCard(_todayEvents[i] as Document),
@@ -1448,7 +1255,7 @@ Positioned(
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
+                color: AppTheme.border,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -2163,7 +1970,7 @@ class _DocumentSearchDelegate extends SearchDelegate<Document?> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE3F2FD),
+                      color: AppTheme.border,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

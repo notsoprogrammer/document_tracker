@@ -159,8 +159,12 @@ class CachedDocumentService {
 
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
     try {
-      // Update locally first
-      await _localDb.updateDocument(documentCode, updates);
+      // Update locally first. Pass a copy: the SQLite layer jsonEncodes list
+      // and map columns (remarks_list, attachments, …) in place, and the
+      // remote call below needs the original decoded values — otherwise
+      // Supabase stores a JSON string where its jsonb columns expect an array.
+      await _localDb.updateDocument(
+          documentCode, Map<String, dynamic>.from(updates));
 
       // Re-sync the Cabinet Library when the filing location or title changed
       if (updates.containsKey('cabinet_location') ||

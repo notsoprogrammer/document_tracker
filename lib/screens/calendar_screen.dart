@@ -118,18 +118,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   /// Persist an updated notes thread for [activity] and reload so the change
   /// shows immediately.
+  /// Swap [next] in wherever the old revision of that activity is held.
+  void _replaceActivity(Activity next) {
+    for (var i = 0; i < _calendarActivities.length; i++) {
+      if (_calendarActivities[i].id == next.id) _calendarActivities[i] = next;
+    }
+    _selectedEvents.value = _getEventsForDay(_selectedDay!);
+  }
+
+  /// Persist an activity's notes thread.
+  ///
+  /// Applied in memory first so the remark appears immediately; reloading every
+  /// calendar activity just to render one new note was slow enough that it
+  /// looked like nothing had saved.
   Future<void> _saveActivityNotes(Activity activity, List<Note> updated) async {
     if (activity.id == null) return;
+    final previous = activity;
+    setState(() => _replaceActivity(activity.copyWith(remarksList: updated)));
+
     try {
       await CachedActivityService().updateActivity(
         activity.id!,
         {'remarks_list': Note.listToJson(updated)},
       );
-      await _loadCalendarActivities();
     } catch (e) {
+      debugPrint('Activity note save failed for ${activity.id}: $e');
       if (mounted) {
+        // Put the old thread back so the UI never claims a save that failed.
+        setState(() => _replaceActivity(previous));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save remark')),
+          SnackBar(content: Text('Could not save remark: $e')),
         );
       }
     }

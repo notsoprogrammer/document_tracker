@@ -378,16 +378,35 @@ class _CdcScreenState extends State<CdcScreen> {
 
   /// Persist an updated notes thread for [doc] and refresh so the change
   /// shows immediately.
+  /// Swap [next] in wherever the old revision of that document is held.
+  void _replaceDocument(Document next) {
+    for (var i = 0; i < _filteredDocuments.length; i++) {
+      if (_filteredDocuments[i].code == next.code) _filteredDocuments[i] = next;
+    }
+  }
+
+  /// Persist a notes thread.
+  ///
+  /// Applied to the in-memory document first so the new remark appears
+  /// instantly, then written through. Re-fetching every document just to show
+  /// one new remark meant wiping and rebuilding the whole local cache — slow
+  /// enough that the remark looked like it hadn't saved.
   Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    final previous = doc;
+    setState(() => _replaceDocument(doc.copyWith(remarksList: updated)));
+
     try {
       await CachedDocumentService().updateDocument(
         doc.code,
         {'remarks_list': Note.listToJson(updated)},
       );
-      await _refreshDocuments();
+      widget.onRefresh?.call();
     } catch (e) {
+      debugPrint('NotesThread save failed for ${doc.code}: $e');
       if (mounted) {
-        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark');
+        // Put the old thread back so the UI never claims a save that failed.
+        setState(() => _replaceDocument(previous));
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark: $e');
       }
     }
   }
