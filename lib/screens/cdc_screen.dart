@@ -290,10 +290,10 @@ class _CdcScreenState extends State<CdcScreen> {
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
     _subscribeToDocumentChanges();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _isLoading = false);
-      _triggerPendingUploads();
-    });
+    // Load from the authoritative store rather than trusting the snapshot
+    // the parent passed in — that list may still be empty if the user opened
+    // this screen before the home screen finished loading.
+    _performInitialLoad();
   }
 
   void _onUploadChanged() { setState(() {}); }
@@ -359,6 +359,19 @@ class _CdcScreenState extends State<CdcScreen> {
           return bDate.compareTo(aDate);
         });
     });
+  }
+
+  /// Initial load. Clears the loading flag only once real data has arrived
+  /// (or the fetch failed), never on a fixed timer.
+  Future<void> _performInitialLoad() async {
+    try {
+      await _refreshDocuments();
+    } catch (e) {
+      // Keep whatever the parent handed us rather than showing an empty list.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    _triggerPendingUploads();
   }
 
   Future<void> _refreshDocuments() async {

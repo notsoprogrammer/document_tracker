@@ -65,6 +65,10 @@ class IncomingDocumentsScreen extends StatefulWidget {
 
 class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   late List<Document> _filteredDocuments;
+  /// Authoritative document list for this screen. Seeded from the parent,
+  /// then owned and refreshed locally so the screen never depends on whether
+  /// the parent had finished loading when it was pushed.
+  late List<Document> _allDocuments;
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -81,7 +85,10 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   void initState() {
     super.initState();
     _searchController.text = _searchQuery;
-    _filteredDocuments = widget.documents.where((doc) => doc.flowStage == 'incoming').toList();
+    // Seed from the parent's snapshot so cached data renders instantly, then
+    // _performInitialLoad() replaces it with the authoritative list.
+    _allDocuments = List<Document>.from(widget.documents);
+    _filteredDocuments = _allDocuments.where((doc) => doc.flowStage == 'incoming').toList();
     _subscribeToDocumentChanges();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -100,19 +107,27 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     _loadUsername();
     _loadAvailableUsers();
     // Start loading immediately
-    _isLoading = true;
-    // Simulate loading for better UX - keep it longer to show the indicator
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      // Kick off any uploads that are pending but not being processed.
-      // This handles the case where auto-sync hasn't fired yet, or the queue
-      // was re-seeded from SQLite after an app restart.
-      _triggerPendingUploads();
-    });
+    // Only show the skeleton if the parent gave us nothing to render.
+    _isLoading = _filteredDocuments.isEmpty;
+    _performInitialLoad();
+  }
+
+  /// Fetch the real list. The parent passes a snapshot of its own state, which
+  /// is still empty if the user opened this screen before the home screen
+  /// finished loading — that's what produced "0 documents" on a folder that
+  /// actually had some. Clearing the flag is tied to the fetch, not a timer.
+  Future<void> _performInitialLoad() async {
+    try {
+      await _refreshDocuments();
+    } catch (e) {
+      // Fall back to whatever the parent handed us.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    // Kick off any uploads that are pending but not being processed.
+    // This handles the case where auto-sync hasn't fired yet, or the queue
+    // was re-seeded from SQLite after an app restart.
+    _triggerPendingUploads();
   }
 
   void _triggerPendingUploads() {
@@ -169,15 +184,16 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       setState(() {
         // Clear expanded tiles when list updates to avoid index issues
         _expandedTiles.clear();
-        _updateFilteredDocuments();
+        _allDocuments = List<Document>.from(widget.documents);
       });
+      _updateFilteredDocuments();
     }
   }
 
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => doc.flowStage == 'incoming').toList(),
+        _allDocuments.where((doc) => doc.flowStage == 'incoming').toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -196,6 +212,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     if (!mounted) return;
     setState(() {
       _expandedTiles.clear();
+      _allDocuments = allDocs;
       _filteredDocuments = searchAndFilterDocuments(
         allDocs.where((doc) => doc.flowStage == 'incoming').toList(),
         searchQuery: _searchQuery,
@@ -1504,7 +1521,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             onFilterTap: () => _showFilterDialog(context, setState),
             hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
             resultCount: _filteredDocuments.length,
-            totalCount: widget.documents.where((d) => d.flowStage == 'incoming').length,
+            totalCount: _allDocuments.where((d) => d.flowStage == 'incoming').length,
           ),
         ),
       ),
@@ -1560,7 +1577,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                     separatorBuilder: (_, _) => const Divider(height: 8, thickness: 1),
                     itemBuilder: (context, index) {
                       final doc = _filteredDocuments[index];
-                      final originalIndex = widget.documents.indexOf(doc);
+                      final originalIndex = _allDocuments.indexOf(doc);
                 return Container(
                   color: doc.needsSync ? Colors.yellow[100] : null,
                   child: ExpansionTile(
@@ -1699,22 +1716,22 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                                   onDocumentMoved: () async {
                                                     if (_username != null && _username!.isNotEmpty) {
                                                       // Move the document to outgoing
-                                                      widget.documents[originalIndex].flowStage = 'outgoing';
+                                                      _allDocuments[originalIndex].flowStage = 'outgoing';
                                                     // Update filtered documents to remove the moved document immediately
                                                       _updateFilteredDocuments();
                                                       // Update the document in the service
                                                       final documentService = CachedDocumentService();
-                                                      await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                      await documentService.updateDocument(_allDocuments[originalIndex].code, {'flow_stage': _allDocuments[originalIndex].flowStage});
                                                       // Add history entry
                                                       final historyEntry = HistoryEntry(
                                                         action: 'Moved to Outgoing',
                                                         person: _username!,
                                                         timestamp: getPhilippineTime(),
                                                       );
-                                                      await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                      await documentService.addHistoryEntry(_allDocuments[originalIndex].code, historyEntry);
                                                       // Update local document history
-                                                      widget.documents[originalIndex].history.add(historyEntry);
-                                                      await CachedDocumentService().updateDocument(widget.documents[originalIndex].code, {'needs_sync': true});
+                                                      _allDocuments[originalIndex].history.add(historyEntry);
+                                                      await CachedDocumentService().updateDocument(_allDocuments[originalIndex].code, {'needs_sync': true});
 
                                                       // Automatically sync all documents
                                                       await widget.syncAllDocuments();
