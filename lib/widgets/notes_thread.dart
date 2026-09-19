@@ -38,15 +38,7 @@ class NotesThread extends StatefulWidget {
 }
 
 class _NotesThreadState extends State<NotesThread> {
-  final TextEditingController _composer = TextEditingController();
   bool _saving = false;
-  bool _composing = false;
-
-  @override
-  void dispose() {
-    _composer.dispose();
-    super.dispose();
-  }
 
   String _formatStamp(DateTime dt) {
     // Legacy notes carry no real date — don't show a misleading 1970.
@@ -72,43 +64,67 @@ class _NotesThreadState extends State<NotesThread> {
     }
   }
 
-  Future<void> _addNote() async {
-    final text = _composer.text.trim();
-    if (text.isEmpty) return;
-    final author = widget.currentUsername;
-    if (author == null || author.isEmpty) return;
-
-    final updated = [...widget.notes, Note.create(text: text, author: author)];
-    _composer.clear();
-    setState(() => _composing = false);
-    await _apply(updated);
-  }
-
-  Future<void> _editNote(Note note) async {
-    final controller = TextEditingController(text: note.text);
+  /// Shared composer dialog for both adding and editing, so the two paths
+  /// always look and behave the same.
+  Future<String?> _promptForText({
+    required String title,
+    required String confirmLabel,
+    String initialText = '',
+  }) async {
+    final controller = TextEditingController(text: initialText);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit note'),
+        title: Text(title),
         content: TextField(
           controller: controller,
           autofocus: true,
-          maxLines: null,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+          maxLines: 5,
+          minLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Write a remark…',
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Save'),
+            child: Text(confirmLabel),
           ),
         ],
       ),
     );
     controller.dispose();
+    return result;
+  }
 
+  Future<void> _addNote() async {
+    final author = widget.currentUsername;
+    if (author == null || author.isEmpty) return;
+
+    final text = await _promptForText(
+      title: 'Add remark',
+      confirmLabel: 'Add',
+    );
+    if (text == null || text.isEmpty) return;
+
+    await _apply([...widget.notes, Note.create(text: text, author: author)]);
+  }
+
+  Future<void> _editNote(Note note) async {
+    final result = await _promptForText(
+      title: 'Edit remark',
+      confirmLabel: 'Save',
+      initialText: note.text,
+    );
     if (result == null || result.isEmpty || result == note.text) return;
+
     final updated = widget.notes
         .map((n) => n.id == note.id
             ? n.copyWith(text: result, editedAt: DateTime.now())
@@ -249,68 +265,28 @@ class _NotesThreadState extends State<NotesThread> {
               else
                 ...widget.notes.map(_buildNote),
 
-              // Composer — anyone signed in may append, without touching
-              // anyone else's note.
-              if (canCompose) ...[
-                const SizedBox(height: 2),
-                if (!_composing)
-                  InkWell(
-                    onTap: () => setState(() => _composing = true),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_comment_outlined,
-                              size: 15, color: theme.colorScheme.primary),
-                          const SizedBox(width: 4),
-                          Text('Add remark',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.primary)),
-                        ],
-                      ),
+              // Anyone signed in may append a remark, without touching anyone
+              // else's. Opens a dialog so the detail panel stays compact.
+              if (canCompose)
+                InkWell(
+                  onTap: _saving ? null : _addNote,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_comment_outlined,
+                            size: 15, color: theme.colorScheme.primary),
+                        const SizedBox(width: 4),
+                        Text('Add remark',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.primary)),
+                      ],
                     ),
-                  )
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      TextField(
-                        controller: _composer,
-                        autofocus: true,
-                        maxLines: null,
-                        style: const TextStyle(fontSize: 12),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          hintText: 'Write a remark…',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: _saving
-                                ? null
-                                : () {
-                                    _composer.clear();
-                                    setState(() => _composing = false);
-                                  },
-                            child: const Text('Cancel',
-                                style: TextStyle(fontSize: 12)),
-                          ),
-                          ElevatedButton(
-                            onPressed: _saving ? null : _addNote,
-                            child:
-                                const Text('Add', style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
-              ],
+                ),
             ],
           ),
         ),
