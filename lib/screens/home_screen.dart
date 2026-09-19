@@ -35,6 +35,7 @@ import 'reclassification_screen.dart';
 import 'add_reclassification_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cabinet_screen.dart';
+import '../widgets/skeleton_loader.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1372,13 +1373,29 @@ Positioned(
           const Divider(height: 1, thickness: 1, color: Color(0xFFE3F2FD)),
           // Body
           if (_isTodayActivitiesLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
-              child: Center(
-                child: SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4988C4)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: ShimmerWrap(
+                child: Column(
+                  children: List.generate(3, (i) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        const SkeletonBox.circle(size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SkeletonBox(width: 140, height: 12, borderRadius: BorderRadius.circular(4)),
+                              const SizedBox(height: 6),
+                              SkeletonBox(width: 90, height: 10, borderRadius: BorderRadius.circular(4)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
                 ),
               ),
             )
