@@ -69,11 +69,12 @@ class CachedDocumentService {
             }
           }
 
-          // Update local cache with merged data
-          await _localDb.clearAllData();
-          for (var doc in mergedDocuments) {
-            await _localDb.createDocument(doc);
-          }
+          // Update local cache with the remote set. Only rows that actually
+          // changed are written, and the cache is never emptied in between —
+          // wiping it first meant any read landing mid-sync saw no documents.
+          // Local-only rows (offline creations, pending deletions) are kept by
+          // syncRemoteDocuments itself, so only the remote set goes in here.
+          await _localDb.syncRemoteDocuments(remoteDocuments);
 
           return mergedDocuments;
         } catch (e) {
@@ -351,14 +352,10 @@ class CachedDocumentService {
     try {
       // This is a simplified sync - in a full implementation,
       // you'd track pending changes and sync them properly
-      final localDocs = await _localDb.fetchDocuments();
       final remoteDocs = await _remoteDb.fetchDocuments();
 
-      // For now, just ensure local matches remote
-      await _localDb.clearAllData();
-      for (var doc in remoteDocs) {
-        await _localDb.createDocument(doc);
-      }
+      // Ensure local matches remote, keeping anything that exists only here.
+      await _localDb.syncRemoteDocuments(remoteDocs);
     } catch (e) {
     }
   }

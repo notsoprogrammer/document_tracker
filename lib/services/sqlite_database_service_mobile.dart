@@ -511,11 +511,14 @@ class SQLiteDatabaseService {
     return documents;
   }
 
-  Future<Document> createDocument(Document document) async {
-    final db = await database;
+  /// Encodes a [Document] into the column shape the `documents` table expects.
+  /// SQLite has no bool, list or map types, so those are folded down to ints
+  /// and JSON strings here. Timestamps are left to the caller.
+  Map<String, dynamic> _documentRow(Document document) {
     final docData = document.toJson();
     // Convert boolean to integer for SQLite (handle both bool and int)
     docData['incoming'] = (docData['incoming'] == true || docData['incoming'] == 1) ? 1 : 0;
+    docData['needs_sync'] = (docData['needs_sync'] == true || docData['needs_sync'] == 1) ? 1 : 0;
     // Convert lists to JSON strings for SQLite
     docData['image_urls'] = jsonEncode(docData['image_urls']);
     docData['file_urls'] = jsonEncode(docData['file_urls']);
@@ -526,6 +529,16 @@ class SQLiteDatabaseService {
     docData['remarks_list'] = jsonEncode(docData['remarks_list'] ?? []);
     docData['attachment_uploaders'] = jsonEncode(docData['attachment_uploaders'] ?? {});
     docData['calendar_added'] = (docData['calendar_added'] == true || docData['calendar_added'] == 1) ? 1 : 0;
+    if (docData['scheduled_notification_ids'] != null) {
+      docData['scheduled_notification_ids'] =
+          jsonEncode(docData['scheduled_notification_ids']);
+    }
+    return docData;
+  }
+
+  Future<Document> createDocument(Document document) async {
+    final db = await database;
+    final docData = _documentRow(document);
     docData['created_at'] = getPhilippineTime().toIso8601String();
     docData['updated_at'] = getPhilippineTime().toIso8601String();
 
@@ -611,6 +624,133 @@ class SQLiteDatabaseService {
     );
 
     return maps.map((map) => HistoryEntry.fromJson(map)).toList();
+  }
+
+  /// Identity of a history row, used to tell whether a document's history
+  /// actually changed before paying to rewrite it.
+  String _historyFingerprint(String code, String action, String person,
+          String timestamp, String? notes) =>
+      '$code $action $person $timestamp ${notes ?? ''}';
+
+  /// Brings the local cache in line with [remoteDocs] without ever emptying the
+  /// table.
+  ///
+  /// The previous approach — `clearAllData()` then re-insert every row — left a
+  /// window, hundreds of writes wide, in which the cache held zero documents;
+  /// anything reading it during that window (or after a crash inside it) saw an
+  /// empty app. This walks the difference instead:
+  ///
+  ///  * rows that are byte-identical to what is already cached are not written;
+  ///  * rows missing from [remoteDocs] are deleted, *except* local-only work —
+  ///    offline creations (`needs_sync`) and deletions still waiting to reach
+  ///    Supabase (`deleted_pending_sync`), which the remote set can't know about;
+  ///  * everything happens in one transaction, so readers see the old set or
+  ///    the new one, never a half-built one.
+  Future<void> syncRemoteDocuments(List<Document> remoteDocs) async {
+    final db = await database;
+
+    // One read of the current cache, then all comparisons happen in memory.
+    final existingRows = await db.query('documents');
+    final existing = <String, Map<String, Object?>>{
+      for (final row in existingRows) row['code'] as String: row,
+    };
+
+    // Deleted here, not yet deleted on the server: the remote copy is stale by
+    // definition, so leave these rows exactly as they are.
+    final pendingDeletion = <String>{
+      for (final row in existingRows)
+        if ((row['deleted_pending_sync'] as int? ?? 0) == 1)
+          row['code'] as String,
+    };
+
+    // Existing history, grouped by document, so unchanged threads are skipped.
+    final historyRows = await db.query('history_entries',
+        columns: ['document_code', 'action', 'person', 'timestamp', 'notes']);
+    final existingHistory = <String, Set<String>>{};
+    for (final row in historyRows) {
+      final code = row['document_code'] as String;
+      existingHistory.putIfAbsent(code, () => <String>{}).add(
+            _historyFingerprint(
+              code,
+              row['action'] as String? ?? '',
+              row['person'] as String? ?? '',
+              row['timestamp'] as String? ?? '',
+              row['notes'] as String?,
+            ),
+          );
+    }
+
+    final now = getPhilippineTime().toIso8601String();
+    final remoteCodes = remoteDocs.map((d) => d.code).toSet();
+
+    await db.transaction((txn) async {
+      for (final doc in remoteDocs) {
+        if (pendingDeletion.contains(doc.code)) continue;
+
+        final row = _documentRow(doc);
+        final prior = existing[doc.code];
+
+        if (prior != null) {
+          // Preserve the local bookkeeping columns the remote row can't carry.
+          row['created_at'] = prior['created_at'];
+          row['deleted_pending_sync'] = prior['deleted_pending_sync'] ?? 0;
+        } else {
+          row['created_at'] = now;
+        }
+
+        if (prior == null || _documentRowChanged(prior, row)) {
+          row['updated_at'] = now;
+          await txn.insert('documents', row,
+              conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+
+        final incoming = <String>{
+          for (final e in doc.history)
+            _historyFingerprint(doc.code, e.action, e.person,
+                e.timestamp.toIso8601String(), e.notes),
+        };
+        final cached = existingHistory[doc.code] ?? const <String>{};
+        if (incoming.length != cached.length ||
+            !incoming.containsAll(cached)) {
+          await txn.delete('history_entries',
+              where: 'document_code = ?', whereArgs: [doc.code]);
+          for (final entry in doc.history) {
+            await txn.insert('history_entries', {
+              'document_code': doc.code,
+              'action': entry.action,
+              'person': entry.person,
+              'timestamp': entry.timestamp.toIso8601String(),
+              'notes': entry.notes,
+              'personnel': entry.person,
+            });
+          }
+        }
+      }
+
+      for (final entry in existing.entries) {
+        final code = entry.key;
+        if (remoteCodes.contains(code)) continue;
+        // Never drop work that exists only on this device.
+        if ((entry.value['needs_sync'] as int? ?? 0) == 1) continue;
+        if (pendingDeletion.contains(code)) continue;
+
+        await txn.delete('history_entries',
+            where: 'document_code = ?', whereArgs: [code]);
+        await txn.delete('documents', where: 'code = ?', whereArgs: [code]);
+      }
+    });
+  }
+
+  /// True when [next] differs from the cached [prior] row in any column that
+  /// carries real data. `updated_at` is excluded: it is a write stamp, so
+  /// comparing it would make every row look changed.
+  bool _documentRowChanged(
+      Map<String, Object?> prior, Map<String, dynamic> next) {
+    for (final entry in next.entries) {
+      if (entry.key == 'updated_at') continue;
+      if (prior[entry.key] != entry.value) return true;
+    }
+    return false;
   }
 
   Future<void> clearAllData() async {
