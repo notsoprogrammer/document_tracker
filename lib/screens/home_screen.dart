@@ -28,6 +28,7 @@ import 'public_repository_screen.dart';
 import 'locational_zoning_screen.dart';
 import 'add_locational_zoning_screen.dart';
 import 'cdc_screen.dart';
+import '../utils/document_filters.dart';
 import 'add_cdc_screen.dart';
 import 'sp_documents_screen.dart';
 import 'add_sp_documents_screen.dart';
@@ -831,21 +832,13 @@ Positioned(
   }
 
   Widget _buildFoldersSection() {
-    const ownModes = {
-      'Resolutions',
-      'Office Function MOVs',
-      'Locational & Zoning',
-      'CDC Documents',
-      'SP Documents',
-      'Reclassification',
-    };
     int countWhere(bool Function(Document) test) =>
         documents.where(test).length;
 
-    final incomingCount =
-        countWhere((d) => d.incoming && !ownModes.contains(d.mode));
-    final outgoingCount =
-        countWhere((d) => !d.incoming && !ownModes.contains(d.mode));
+    // Counted with the same predicates the folder screens list by, so the
+    // number on the tile always matches what opening it shows.
+    final incomingCount = countWhere(isIncomingDocument);
+    final outgoingCount = countWhere(isOutgoingDocument);
     final resolutionCount = countWhere((d) => d.mode == 'Resolutions');
     final movsCount = countWhere(
         (d) => d.mode == 'Office Function MOVs' || d.mode == 'Flag Ceremony');

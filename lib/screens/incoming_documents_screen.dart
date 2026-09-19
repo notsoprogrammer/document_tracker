@@ -35,6 +35,7 @@ import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../services/supabase_service.dart';
+import '../utils/document_filters.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -90,7 +91,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
     // Seed from the parent's snapshot so cached data renders instantly, then
     // _performInitialLoad() replaces it with the authoritative list.
     _allDocuments = List<Document>.from(widget.documents);
-    _filteredDocuments = _allDocuments.where((doc) => doc.flowStage == 'incoming').toList();
+    _filteredDocuments = _allDocuments.where(isIncomingDocument).toList();
     _subscribeToDocumentChanges();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -195,7 +196,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        _allDocuments.where((doc) => doc.flowStage == 'incoming').toList(),
+        _allDocuments.where(isIncomingDocument).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -254,7 +255,7 @@ class _IncomingDocumentsScreenState extends State<IncomingDocumentsScreen> {
       _expandedTiles.clear();
       _allDocuments = allDocs;
       _filteredDocuments = searchAndFilterDocuments(
-        allDocs.where((doc) => doc.flowStage == 'incoming').toList(),
+        allDocs.where(isIncomingDocument).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -1561,7 +1562,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
             onFilterTap: () => _showFilterDialog(context, setState),
             hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
             resultCount: _filteredDocuments.length,
-            totalCount: _allDocuments.where((d) => d.flowStage == 'incoming').length,
+            totalCount: _allDocuments.where(isIncomingDocument).length,
           ),
         ),
       ),

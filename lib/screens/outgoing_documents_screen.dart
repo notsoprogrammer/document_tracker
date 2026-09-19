@@ -34,6 +34,7 @@ import '../models/note.dart';
 import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
+import '../utils/document_filters.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -65,12 +66,6 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
-  static const _ownScreenModes = {
-    'Flag Ceremony', 'Office Function MOVs',
-    'Locational & Zoning', 'SP Documents', 'Reclassification', 'CDC Documents',
-    'Resolutions',
-  };
-
   late List<Document> _filteredDocuments;
   /// Authoritative document list for this screen. Seeded from the parent,
   /// then owned and refreshed locally so the screen never depends on whether
@@ -150,7 +145,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     // _performInitialLoad() replaces it with the authoritative list.
     _allDocuments = List<Document>.from(widget.documents);
     _filteredDocuments = _allDocuments
-        .where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode))
+        .where((doc) => isOutgoingDocument(doc))
         .toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -245,7 +240,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        _allDocuments.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
+        _allDocuments.where((doc) => isOutgoingDocument(doc)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -314,7 +309,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       _expandedTiles.clear();
       _allDocuments = allDocs;
       _filteredDocuments = searchAndFilterDocuments(
-        allDocs.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
+        allDocs.where((doc) => isOutgoingDocument(doc)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -1164,7 +1159,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             onFilterTap: () => _showFilterDialog(context),
             hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
             resultCount: _filteredDocuments.length,
-            totalCount: _allDocuments.where((d) => (d.flowStage == 'outgoing' || d.flowStage == 'circulated') && !_ownScreenModes.contains(d.mode)).length,
+            totalCount: _allDocuments.where(isOutgoingDocument).length,
           ),
         ),
       ),
