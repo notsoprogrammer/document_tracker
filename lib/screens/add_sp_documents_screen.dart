@@ -139,7 +139,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
     if (source == null || !mounted) return;
     if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
-    final image = await _picker.pickImage(source: source);
+    final image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
     final rawBytes = await image.readAsBytes();
     final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -169,7 +169,7 @@ class _AddSpDocumentsScreenState extends State<AddSpDocumentsScreen> {
       setState(() => _isPickingImage = false);
       if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final image = await _picker.pickImage(source: ImageSource.camera);
+      final image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytesFallback = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytesFallback : (await DocumentScannerService.processImage(rawBytesFallback) ?? rawBytesFallback);

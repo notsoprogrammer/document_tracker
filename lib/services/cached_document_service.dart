@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
 import 'cabinet_service.dart';
@@ -600,20 +599,46 @@ class CachedDocumentService {
     }
 
     try {
+      // Reclaim anything the app abandoned mid-request — otherwise it sits in
+      // 'uploading' forever and is never picked up again.
+      queueManager.reclaimStuckUploads();
+
       final allItems = queueManager.getAllItems();
       final uploadsToProcess = allItems.where((item) {
+        if (item['permanentlyFailed'] == true) return false;
+        if (!queueManager.isDue(item)) return false; // respect retry backoff
         if (item['status'] == 'pending') return true;
-        if (item['status'] == 'failed') return (item['retryCount'] as int? ?? 0) < 3;
+        if (item['status'] == 'failed') {
+          return (item['retryCount'] as int? ?? 0) < UploadQueueManager.maxRetries;
+        }
         return false;
-      }).toList();
+      }).toList()
+        // Upload in capture order so the resulting URLs land in the same order
+        // the user took the photos.
+        ..sort((a, b) =>
+            (a['sequence'] as int? ?? 0).compareTo(b['sequence'] as int? ?? 0));
 
       UploadQueueManager.log('processPendingUploads: starting — ${uploadsToProcess.length} item(s) to process (queue total: ${allItems.length})');
 
       bool hasCompletedUploads = false;
       final Set<String> documentsWithUploads = {};
+      // Filenames successfully attached this pass, grouped by document, so we
+      // can write ONE history entry per document instead of one per file.
+      final Map<String, List<String>> attachedNamesByDoc = {};
+      // Documents whose ordering must be preserved: once an upload fails we
+      // stop processing that document's remaining files this pass, so a later
+      // file can never overtake an earlier one in the URL list.
+      final Set<String> blockedDocuments = {};
 
       for (final upload in uploadsToProcess) {
         final shortPath = (upload['filePath']?.toString() ?? '').split('/').last.split('\\').last;
+        final docCode = upload['documentCode'] as String;
+
+        if (blockedDocuments.contains(docCode)) {
+          UploadQueueManager.log('  [$shortPath] deferred — earlier file for $docCode still pending (preserving order)');
+          continue;
+        }
+
         try {
           queueManager.updateStatus(
             upload['documentCode'],
@@ -633,7 +658,7 @@ class CachedDocumentService {
             UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — defer $deferCount/5');
             if (deferCount >= 5) {
               // Document gone permanently; remove the stale queue item
-              queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+              queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
               UploadQueueManager.log('  [$shortPath] giving up — removing from queue');
             } else {
               queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
@@ -720,7 +745,7 @@ class CachedDocumentService {
           // Check if this is a web camera image (blob URL that we can't handle)
           if (kIsWeb && upload['localPath'].startsWith('blob:')) {
             UploadQueueManager.log('  [$shortPath] SKIP — blob URL has no bytes after page reload');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+            queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
             continue;
           }
 
@@ -728,32 +753,13 @@ class CachedDocumentService {
           final bytes = (upload['bytes'] as List<int>?) ??
               queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
           if (kIsWeb && bytes != null) {
-            // Web file with bytes - compress images before upload to stay within edge function limits
+            // Web file with bytes. Compression now happens inside
+            // GoogleDriveService for every platform, so just hand over the bytes.
             final extension = upload['localPath'].split('.').last.toLowerCase();
             final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
 
-            List<int> uploadBytes = bytes;
-            if (['jpg', 'jpeg', 'png'].contains(extension) && bytes.length > 300 * 1024) {
-              try {
-                final decoded = img.decodeImage(Uint8List.fromList(bytes));
-                if (decoded != null) {
-                  const maxDim = 1920;
-                  final img.Image resized;
-                  if (decoded.width >= decoded.height && decoded.width > maxDim) {
-                    resized = img.copyResize(decoded, width: maxDim);
-                  } else if (decoded.height > decoded.width && decoded.height > maxDim) {
-                    resized = img.copyResize(decoded, height: maxDim);
-                  } else {
-                    resized = decoded;
-                  }
-                  uploadBytes = img.encodeJpg(resized, quality: 80);
-                }
-              } catch (compressErr) {
-              }
-            }
-
             driveUrl = await GoogleDriveService.uploadFileFromBytes(
-              uploadBytes,
+              bytes,
               docFileName,
               folder: folder,
             );
@@ -785,7 +791,7 @@ class CachedDocumentService {
             }
           } else {
             UploadQueueManager.log('  [$shortPath] FAIL — web file with no bytes');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+            queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
             continue;
           }
 
@@ -853,21 +859,11 @@ class CachedDocumentService {
               });
             }
 
-            // Record who contributed this attachment in the document history
+            // Collect for a single batched history entry per document —
+            // one "Attachments Added" line for the whole set, not one line
+            // per file.
             if (uploader != null && uploader.isNotEmpty) {
-              try {
-                await addHistoryEntry(
-                  documentCode,
-                  HistoryEntry(
-                    action: isImage ? 'Image Added' : 'File Added',
-                    person: uploader,
-                    timestamp: DateTime.now(),
-                    notes: uploadedFileName,
-                  ),
-                );
-              } catch (e) {
-                // History is best-effort — never block the upload
-              }
+              (attachedNamesByDoc[documentCode] ??= []).add(uploadedFileName);
             }
 
             // Define cleanup callback
@@ -904,14 +900,45 @@ class CachedDocumentService {
             throw Exception('Upload returned null URL');
           }
         } catch (e) {
-          final newRetryCount = (upload['retryCount'] as int? ?? 0) + 1;
-          UploadQueueManager.log('  [$shortPath] ERROR (retry $newRetryCount/3): $e');
-          queueManager.updateStatus(
-            upload['documentCode'],
+          // A payload the server will never accept must not be retried —
+          // park it so the user can act on it instead of looping forever.
+          final isPermanent = e is PermanentUploadException;
+          UploadQueueManager.log(
+              '  [$shortPath] ${isPermanent ? 'PERMANENT FAILURE' : 'ERROR'}: $e');
+          queueManager.recordFailure(
+            docCode,
             upload['filePath'],
-            'failed',
-            retryCount: newRetryCount,
+            permanent: isPermanent,
           );
+          // Hold back this document's remaining files so a later capture
+          // can't be attached ahead of an earlier one that still needs a retry.
+          if (!isPermanent) blockedDocuments.add(docCode);
+        }
+      }
+
+      // One history entry per document for the whole batch of attachments,
+      // rather than a separate line for every single file.
+      final uploader = await AuthService.getUsername();
+      if (uploader != null && uploader.isNotEmpty) {
+        for (final entry in attachedNamesByDoc.entries) {
+          final names = entry.value;
+          if (names.isEmpty) continue;
+          try {
+            await addHistoryEntry(
+              entry.key,
+              HistoryEntry(
+                action: names.length == 1 ? 'Attachment Added' : 'Attachments Added',
+                person: uploader,
+                timestamp: DateTime.now(),
+                notes: names.length == 1
+                    ? names.first
+                    : '${names.length} files: ${names.join(', ')}',
+              ),
+            );
+          } catch (e) {
+            // History is best-effort — never block the upload
+            UploadQueueManager.log('history entry failed for ${entry.key}: $e');
+          }
         }
       }
 

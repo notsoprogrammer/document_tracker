@@ -1,6 +1,8 @@
 ﻿import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../config/supabase_config.dart';
 
 class ConnectivityService {
   static final ConnectivityService _instance = ConnectivityService._internal();
@@ -55,11 +57,61 @@ class ConnectivityService {
     return !results.contains(ConnectivityResult.none) && results.isNotEmpty;
   }
 
-  /// Get current online status
+  // Cached reachability probe result — avoids a network round-trip on every
+  // isOnline call while still catching captive portals / dead gateways.
+  bool? _lastReachable;
+  DateTime? _lastReachableCheck;
+  static const Duration _reachabilityCacheTtl = Duration(seconds: 15);
+
+  /// Get current online status.
+  ///
+  /// A network interface being up is NOT the same as having internet — office
+  /// WiFi behind a captive portal or with a dead gateway reports "connected".
+  /// Uploads that trust that hang until they time out and burn their retries,
+  /// so we verify the backend is actually reachable.
   Future<bool> get isOnline async {
     if (!_isInitialized) await initialize();
     final results = await _connectivity.checkConnectivity();
-    return _isOnline(results);
+    if (!_isOnline(results)) {
+      _lastReachable = false;
+      _lastReachableCheck = DateTime.now();
+      return false;
+    }
+    return _isBackendReachable();
+  }
+
+  /// Interface-level check only — cheap, no network round-trip.
+  /// Use when you only need to know whether a radio is up.
+  Future<bool> get hasNetworkInterface async {
+    if (!_isInitialized) await initialize();
+    return _isOnline(await _connectivity.checkConnectivity());
+  }
+
+  Future<bool> _isBackendReachable() async {
+    final cached = _lastReachable;
+    final checkedAt = _lastReachableCheck;
+    if (cached != null &&
+        checkedAt != null &&
+        DateTime.now().difference(checkedAt) < _reachabilityCacheTtl) {
+      return cached;
+    }
+
+    bool reachable;
+    try {
+      final response = await http
+          .get(Uri.parse('${SupabaseConfig.supabaseUrl}/auth/v1/health'),
+              headers: {'apikey': SupabaseConfig.supabaseAnonKey})
+          .timeout(const Duration(seconds: 5));
+      // Any real HTTP response means we got through to Supabase. A captive
+      // portal would time out or return its own redirect/error page.
+      reachable = response.statusCode < 500;
+    } catch (e) {
+      reachable = false;
+    }
+
+    _lastReachable = reachable;
+    _lastReachableCheck = DateTime.now();
+    return reachable;
   }
 
   /// Stream of online status changes

@@ -71,7 +71,7 @@ class _MoveDocumentDialogState extends State<MoveDocumentDialog> {
 
   Future<void> _pickImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image != null && mounted) {
         if (kIsWeb) {
           // For web, read bytes and store them

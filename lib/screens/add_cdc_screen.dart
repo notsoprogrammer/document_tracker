@@ -190,7 +190,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
     final int count = _selectedImagePaths.where(_isImage).length;
     if (count >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
     final rawBytes = await image.readAsBytes();
     final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -220,7 +220,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
       setState(() => _isPickingImage = false);
       if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytes = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);

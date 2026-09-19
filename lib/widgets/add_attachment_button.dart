@@ -247,7 +247,7 @@ class _AddAttachmentButtonState extends State<AddAttachmentButton> {
     }
     if (!alreadyBusy) setState(() => _picking = true);
     try {
-      final image = await _picker.pickImage(source: source);
+      final image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) return;
 
       final rawBytes = await image.readAsBytes();

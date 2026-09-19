@@ -187,7 +187,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -253,7 +253,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
         return;
       }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) {
         if (!mounted) return;
         setState(() => _isPickingImage = false);

@@ -14,6 +14,25 @@ class UploadQueueManager extends ChangeNotifier {
   bool _isProcessing = false;
   bool _isInitialized = false;
 
+  /// Monotonic counter stamped on every queued item so uploads can be
+  /// processed — and their URLs appended — in the order the user captured
+  /// them, regardless of which ones fail and get retried later.
+  int _sequenceCounter = 0;
+
+  /// Max attempts before an item is parked as permanently failed.
+  static const int maxRetries = 3;
+
+  /// Backoff before each retry, indexed by the attempt that just failed.
+  static const List<Duration> retryBackoff = [
+    Duration(seconds: 2),
+    Duration(seconds: 8),
+    Duration(seconds: 30),
+  ];
+
+  /// An item is considered stuck if it has been 'uploading' for longer than
+  /// this without resolving (app killed / backgrounded mid-request).
+  static const Duration stuckUploadThreshold = Duration(minutes: 3);
+
   // Debug log — ring buffer of the last 200 events, visible in the upload debug dialog
   static final List<String> _debugLog = [];
   static List<String> get debugLog => List.unmodifiable(_debugLog);
@@ -100,6 +119,7 @@ class UploadQueueManager extends ChangeNotifier {
         'bytes': bytes, // Store bytes for web files
         'status': 'pending',
         'retryCount': 0,
+        'sequence': _sequenceCounter++, // preserves capture order
         'timestamp': DateTime.now().toIso8601String(),
       });
       
@@ -143,6 +163,7 @@ class UploadQueueManager extends ChangeNotifier {
         'bytes': bytes, // Store bytes for web camera images
         'status': 'pending',
         'retryCount': 0,
+        'sequence': _sequenceCounter++, // preserves capture order
         'timestamp': DateTime.now().toIso8601String(),
       });
       // Note: Web images with bytes are NOT persisted to SQLite
@@ -227,8 +248,82 @@ class UploadQueueManager extends ChangeNotifier {
   /// Get all failed uploads for retry
   List<Map<String, dynamic>> getFailedUploads() {
     return _uploadQueue.where((item) =>
-      item['status'] == 'failed' && item['retryCount'] < 3
+      item['status'] == 'failed' && item['retryCount'] < maxRetries
     ).toList();
+  }
+
+  /// Reclaim items left in 'uploading' by a killed or backgrounded app.
+  /// Without this they are never re-processed, because the processor only
+  /// picks up 'pending' and 'failed'. Returns how many were reset.
+  int reclaimStuckUploads() {
+    final now = DateTime.now();
+    int reclaimed = 0;
+    for (final item in _uploadQueue) {
+      if (item['status'] != 'uploading') continue;
+      final startRaw = item['uploadStartTime'] as String?;
+      if (startRaw == null) continue;
+      if (now.difference(DateTime.parse(startRaw)) <= stuckUploadThreshold) continue;
+      item['status'] = 'pending';
+      item.remove('uploadStartTime');
+      reclaimed++;
+      log('reclaimed stuck upload: ${item['filePath']}');
+    }
+    if (reclaimed > 0) notifyListeners();
+    return reclaimed;
+  }
+
+  /// Whether an item is due to be attempted now (respects retry backoff).
+  bool isDue(Map<String, dynamic> item) {
+    final nextRaw = item['nextRetryAt'] as String?;
+    if (nextRaw == null) return true;
+    return !DateTime.now().isBefore(DateTime.parse(nextRaw));
+  }
+
+  /// Record a failed attempt and schedule the next one with backoff.
+  /// [permanent] parks the item immediately — used when the server tells us
+  /// the payload will never be accepted (too large, malformed).
+  void recordFailure(String documentCode, String filePath, {bool permanent = false}) {
+    final index = _uploadQueue.indexWhere(
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath,
+    );
+    if (index == -1) return;
+
+    final item = _uploadQueue[index];
+    final attempts = (item['retryCount'] as int? ?? 0) + 1;
+    item['retryCount'] = permanent ? maxRetries : attempts;
+    item['status'] = 'failed';
+    item.remove('uploadStartTime');
+
+    if (permanent || attempts >= maxRetries) {
+      item['permanentlyFailed'] = true;
+      item.remove('nextRetryAt');
+      log('parked (permanent): $filePath');
+    } else {
+      final delay = retryBackoff[(attempts - 1).clamp(0, retryBackoff.length - 1)];
+      item['nextRetryAt'] = DateTime.now().add(delay).toIso8601String();
+      log('retry $attempts/$maxRetries for $filePath in ${delay.inSeconds}s');
+    }
+    notifyListeners();
+  }
+
+  /// Items parked as permanently failed — surfaced to the user for a manual
+  /// decision (retry anyway, or discard) rather than retried forever.
+  List<Map<String, dynamic>> getPermanentlyFailed() {
+    return _uploadQueue.where((i) => i['permanentlyFailed'] == true).toList();
+  }
+
+  /// Clear the parked flag so the user can force another attempt.
+  void resetFailure(String documentCode, String filePath) {
+    final index = _uploadQueue.indexWhere(
+      (item) => item['documentCode'] == documentCode && item['filePath'] == filePath,
+    );
+    if (index == -1) return;
+    _uploadQueue[index]
+      ..['status'] = 'pending'
+      ..['retryCount'] = 0
+      ..remove('permanentlyFailed')
+      ..remove('nextRetryAt');
+    notifyListeners();
   }
 
   /// Update upload status
