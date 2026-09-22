@@ -48,11 +48,29 @@ class SupabaseService {
     }
   }
 
+  /// Columns that describe a file's location in one device's own storage.
+  /// They mean nothing anywhere else, so they must never leave the device:
+  /// synced to Supabase, every other phone and the browser received paths they
+  /// could not read and tried to upload them.
+  static const _deviceLocalColumns = ['local_image_paths', 'local_file_paths'];
+
+  Map<String, dynamic> _withoutDeviceLocal(Map<String, dynamic> data) {
+    final copy = Map<String, dynamic>.from(data);
+    for (final column in _deviceLocalColumns) {
+      copy.remove(column);
+    }
+    return copy;
+  }
+
   Future<Document> createDocument(Document document) async {
     final docData = document.toJson();
     docData.remove('history');
 
-    final response = await _client.from('documents').insert(docData).select().single();
+    final response = await _client
+        .from('documents')
+        .insert(_withoutDeviceLocal(docData))
+        .select()
+        .single();
 
     // Create initial history entry in history_entries table (skip for flag ceremony)
     if (document.history.isNotEmpty && document.mode != 'Flag Ceremony') {
@@ -79,7 +97,10 @@ class SupabaseService {
     final isComplianceUpdate = updates.containsKey('compliance_deadline') || updates.containsKey('compliance_assignee');
 
     // Update the document
-    await _client.from('documents').update(updates).eq('code', documentCode);
+    await _client
+        .from('documents')
+        .update(_withoutDeviceLocal(updates))
+        .eq('code', documentCode);
 
     // If compliance fields updated and status is For Compliance, update notifications
     if (isComplianceUpdate && currentDoc.status == 'For Compliance') {

@@ -540,6 +540,59 @@ class CachedDocumentService {
   /// Re-queue any local paths found in documents that are missing from the upload queue.
   /// This recovers from app restarts where the in-memory queue was lost (web) or items
   /// were cleared without the uploads completing.
+  /// Whether THIS device can read [localPath].
+  ///
+  /// `local_image_paths` is part of the document row, so it syncs through
+  /// Supabase: the browser and every other phone receive paths to files that
+  /// only exist in one device's cache. A path that cannot be read here is
+  /// therefore not necessarily dead — the device that captured it may still be
+  /// waiting to upload it — so these are skipped, never deleted.
+  Future<bool> _isReadableHere(String localPath, String documentCode) async {
+    if (localPath.isEmpty) return false;
+    if (kIsWeb) {
+      // A browser cannot open a filesystem path, and a blob URL does not
+      // survive a reload. Only a web capture whose bytes are still cached can
+      // be uploaded from here.
+      if (!localPath.startsWith('web_image_')) return false;
+      return UploadQueueManager().getBytesForFile(documentCode, localPath) !=
+          null;
+    }
+    try {
+      return await File(localPath).exists();
+    } catch (_) {
+      // An unreadable path is not proof the file is gone; leave it queued.
+      return true;
+    }
+  }
+
+  /// Drops queue items this device cannot upload — another device's local
+  /// paths, or files since cleared from this device's cache. Returns how many
+  /// were removed.
+  ///
+  /// Only the queue is touched. The paths stay on the document, because the
+  /// device that owns them may still upload them; removing them here would
+  /// destroy that device's pending work.
+  Future<int> purgeUnreadableQueueItems() async {
+    final queueManager = UploadQueueManager();
+    int dropped = 0;
+
+    for (final item in queueManager.getAllItems().toList()) {
+      final path = item['localPath']?.toString() ??
+          item['filePath']?.toString() ??
+          '';
+      final code = item['documentCode']?.toString() ?? '';
+      if (await _isReadableHere(path, code)) continue;
+      queueManager.removeFromQueue(code, item['filePath']);
+      UploadQueueManager.log('purge: not readable on this device — $path');
+      dropped++;
+    }
+
+    if (dropped > 0) {
+      UploadQueueManager.log('purge: removed $dropped unreadable item(s)');
+    }
+    return dropped;
+  }
+
   Future<void> _recoverStalledUploads() async {
     try {
       final queueManager = UploadQueueManager();
@@ -550,31 +603,35 @@ class CachedDocumentService {
 
       final docs = await _localDb.fetchDocuments();
       int added = 0;
+      int skipped = 0;
       for (final doc in docs) {
-        for (final localPath in doc.localImagePaths) {
-          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
-          if (kIsWeb && (localPath.startsWith('blob:') || localPath.startsWith('web_image_'))) continue;
+        for (final entry in [
+          ...doc.localImagePaths.map((p) => (path: p, isImage: true)),
+          ...doc.localFilePaths.map((p) => (path: p, isImage: false)),
+        ]) {
+          if (queuedPaths.contains(entry.path)) continue;
+          // Paths reach this device through the synced document row, so most
+          // of them belong to somebody else's camera cache. Queueing one here
+          // only produces failures the owning device will handle correctly.
+          if (!await _isReadableHere(entry.path, doc.code)) {
+            skipped++;
+            continue;
+          }
           queueManager.addToQueue(
             documentCode: doc.code,
-            filePath: localPath,
-            isImage: true,
-            localPath: localPath,
-          );
-          added++;
-        }
-        for (final localPath in doc.localFilePaths) {
-          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
-          if (kIsWeb && localPath.startsWith('blob:')) continue;
-          queueManager.addToQueue(
-            documentCode: doc.code,
-            filePath: localPath,
-            isImage: false,
-            localPath: localPath,
+            filePath: entry.path,
+            isImage: entry.isImage,
+            localPath: entry.path,
           );
           added++;
         }
       }
+      // Anything already queued that this device cannot read would fail three
+      // times over and come back on the next pass, so clear it out now.
+      final purged = await purgeUnreadableQueueItems();
       if (added > 0) UploadQueueManager.log('recover: re-queued $added stalled item(s)');
+      if (skipped > 0) UploadQueueManager.log('recover: skipped $skipped path(s) not readable on this device');
+      if (purged > 0) UploadQueueManager.log('recover: purged $purged unreadable queue item(s)');
     } catch (e) {
       UploadQueueManager.log('recover ERROR: $e');
       // Never let recovery errors block the upload processing below.
@@ -743,10 +800,15 @@ class CachedDocumentService {
 
           UploadQueueManager.log('  [$shortPath] uploading to folder:${folder.name} isImage:$isImage');
 
-          // Check if this is a web camera image (blob URL that we can't handle)
-          if (kIsWeb && upload['localPath'].startsWith('blob:')) {
-            UploadQueueManager.log('  [$shortPath] SKIP — blob URL has no bytes after page reload');
-            queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
+          // Nothing this device can read: another device's cache path, or a
+          // blob URL that did not survive a reload. Retrying cannot help —
+          // without this it failed three times over with the bare
+          // "Unsupported operation: _Namespace" thrown by dart:io on web.
+          if (!await _isReadableHere(
+              upload['localPath']?.toString() ?? '', docCode)) {
+            UploadQueueManager.log(
+                '  [$shortPath] SKIP — not readable on this device');
+            queueManager.removeFromQueue(docCode, upload['filePath']);
             continue;
           }
 

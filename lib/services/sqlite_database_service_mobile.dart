@@ -694,6 +694,11 @@ class SQLiteDatabaseService {
           // Preserve the local bookkeeping columns the remote row can't carry.
           row['created_at'] = prior['created_at'];
           row['deleted_pending_sync'] = prior['deleted_pending_sync'] ?? 0;
+          // Files still queued for upload live only on this device and are not
+          // sent to Supabase, so the remote row carries none — taking its value
+          // here would wipe this device's pending uploads on every sync.
+          row['local_image_paths'] = prior['local_image_paths'] ?? '[]';
+          row['local_file_paths'] = prior['local_file_paths'] ?? '[]';
         } else {
           row['created_at'] = now;
         }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/connectivity_service.dart';
 import '../services/upload_queue_manager.dart';
@@ -9,7 +8,8 @@ import '../services/cached_document_service.dart';
 /// Self-subscribes to UploadQueueManager so it rebuilds without parent setState.
 /// Calls [onAllUploadsComplete] when the queue empties after having uploads —
 /// list screens use this to refresh their document data.
-/// In debug builds only: tappable to open the debug dialog.
+/// Tappable in every build to open the queue details — without it there is no
+/// way to find out why a file has not uploaded yet.
 class UploadStatusBanner extends StatefulWidget {
   final VoidCallback? onAllUploadsComplete;
   const UploadStatusBanner({super.key, this.onAllUploadsComplete});
@@ -166,9 +166,19 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
     final totalUploading = uploadingUploads.length;
     final totalPending   = pendingUploads.length;
 
-    final label = totalUploading > 0
-        ? 'Uploading $totalUploading file${totalUploading > 1 ? 's' : ''}${totalPending > 0 ? ', $totalPending pending' : ''}...'
-        : 'Processing $totalPending upload${totalPending > 1 ? 's' : ''}...';
+    // "Processing" was shown for both states, so a queue that was merely
+    // waiting looked like one actively transferring. Only spin when a file is
+    // genuinely in flight; otherwise say what is really happening.
+    final isTransferring = totalUploading > 0;
+    final totalFiles = totalUploading + totalPending;
+    final label = isTransferring
+        ? 'Uploading $totalUploading of $totalFiles file${totalFiles > 1 ? 's' : ''}...'
+        : '$totalPending file${totalPending > 1 ? 's' : ''} waiting to upload';
+    final sublabel = isTransferring
+        ? (totalPending > 0
+            ? 'The rest will follow automatically.'
+            : null)
+        : 'These will upload on their own. Tap to see them.';
 
     final banner = Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -180,38 +190,49 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
-            ),
-          ),
+          if (isTransferring)
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+              ),
+            )
+          else
+            Icon(Icons.schedule_outlined, size: 20, color: Colors.orange[700]),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.orange[700],
-                fontWeight: FontWeight.w500,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (sublabel != null)
+                  Text(
+                    sublabel,
+                    style: TextStyle(fontSize: 11.5, color: Colors.orange[400]),
+                  ),
+              ],
             ),
           ),
-          if (kDebugMode)
-            Icon(Icons.info_outline, size: 16, color: Colors.orange[400]),
+          Icon(Icons.info_outline, size: 16, color: Colors.orange[400]),
         ],
       ),
     );
 
-    if (kDebugMode) {
-      return GestureDetector(
-        onTap: () => _showDebugDialog(allUploads, uploadingUploads, pendingUploads, failedUploads),
-        child: banner,
-      );
-    }
-    return banner;
+    return GestureDetector(
+      onTap: () => _showDebugDialog(
+          allUploads, uploadingUploads, pendingUploads, failedUploads),
+      child: banner,
+    );
   }
 
   Widget _buildSlowUploadBanner(
@@ -276,21 +297,16 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
               ),
             ),
           ),
-          if (kDebugMode) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.info_outline, size: 16, color: Colors.amber[600]),
-          ],
+          const SizedBox(width: 4),
+          Icon(Icons.info_outline, size: 16, color: Colors.amber[600]),
         ],
       ),
     );
 
-    if (kDebugMode) {
-      return GestureDetector(
-        onTap: () => _showDebugDialog(allUploads, uploading, pending, failed),
-        child: banner,
-      );
-    }
-    return banner;
+    return GestureDetector(
+      onTap: () => _showDebugDialog(allUploads, uploading, pending, failed),
+      child: banner,
+    );
   }
 
   Widget _buildOfflineBanner(
@@ -314,7 +330,7 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              '$count upload${count > 1 ? 's' : ''} queued — will sync when online',
+              '$count file${count > 1 ? 's' : ''} waiting — these will upload once you are back online',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.blueGrey[700],
@@ -322,19 +338,15 @@ class _UploadStatusBannerState extends State<UploadStatusBanner> {
               ),
             ),
           ),
-          if (kDebugMode)
-            Icon(Icons.info_outline, size: 16, color: Colors.blueGrey[400]),
+          Icon(Icons.info_outline, size: 16, color: Colors.blueGrey[400]),
         ],
       ),
     );
 
-    if (kDebugMode) {
-      return GestureDetector(
-        onTap: () => _showDebugDialog(allUploads, uploading, pending, failed),
-        child: banner,
-      );
-    }
-    return banner;
+    return GestureDetector(
+      onTap: () => _showDebugDialog(allUploads, uploading, pending, failed),
+      child: banner,
+    );
   }
 }
 
@@ -392,9 +404,20 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                   const Icon(Icons.upload, color: Colors.orange),
                   const SizedBox(width: 8),
                   const Expanded(
-                    child: Text(
-                      'Upload Debug',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Files waiting to upload',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Attachments upload in the background. Nothing here is lost — they stay until they succeed.',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -411,12 +434,10 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
               child: Wrap(
                 spacing: 8,
                 children: [
-                  _chip('Uploading', widget.uploading.length, Colors.blue),
-                  _chip('Pending', widget.pending.length, Colors.orange),
-                  _chip('Failed', widget.failed.length, Colors.red),
-                  _chip('Total', stats['total'] as int, Colors.grey),
-                  _chip('Lock', (stats['isProcessing'] as bool) ? 1 : 0, Colors.purple,
-                    override: (stats['isProcessing'] as bool) ? 'LOCKED' : 'FREE'),
+                  _chip('Sending now', widget.uploading.length, Colors.blue),
+                  _chip('Waiting', widget.pending.length, Colors.orange),
+                  _chip("Didn't go through", widget.failed.length, Colors.red),
+                  _chip('All files', stats['total'] as int, Colors.grey),
                 ],
               ),
             ),
@@ -429,7 +450,7 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Force Retry Now'),
+                      label: const Text('Try again now'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.orange[700],
                         side: BorderSide(color: Colors.orange.shade300),
@@ -446,7 +467,7 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.delete_sweep, size: 16),
-                      label: const Text('Clear All'),
+                      label: const Text('Remove all'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red[700],
                         side: BorderSide(color: Colors.red.shade300),
@@ -456,22 +477,27 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('Clear upload queue?'),
+                            title: const Text('Remove all waiting files?'),
                             content: const Text(
-                              'This removes all pending uploads from the queue. '
-                              'Files will be re-queued automatically on the next upload cycle if local paths still exist.',
+                              'This clears the list. The documents themselves are not deleted, and any '
+                              'file still saved on this device will be picked up again automatically.',
                             ),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Clear', style: TextStyle(color: Colors.red)),
+                                child: const Text('Remove', style: TextStyle(color: Colors.red)),
                               ),
                             ],
                           ),
                         );
                         if (confirm == true) {
                           await UploadQueueManager().clearAll();
+                          // Clearing the queue alone never stuck: the paths
+                          // live on the document, so the next recovery pass
+                          // queued back the ones this device cannot even read.
+                          await CachedDocumentService()
+                              .purgeUnreadableQueueItems();
                           if (context.mounted) Navigator.pop(context);
                         }
                       },
@@ -488,8 +514,8 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
               unselectedLabelColor: Colors.grey,
               indicatorColor: Colors.orange,
               tabs: [
-                Tab(text: 'Queue (${widget.allUploads.length})'),
-                Tab(text: 'Log (${log.length})'),
+                Tab(text: 'Files (${widget.allUploads.length})'),
+                Tab(text: 'Activity (${log.length})'),
               ],
             ),
 
@@ -500,7 +526,7 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                 children: [
                   // Queue tab
                   widget.allUploads.isEmpty
-                    ? const Center(child: Text('Queue is empty', style: TextStyle(color: Colors.grey)))
+                    ? const Center(child: Text('Nothing waiting to upload', style: TextStyle(color: Colors.grey)))
                     : ListView.separated(
                         padding: const EdgeInsets.all(8),
                         itemCount: widget.allUploads.length,
@@ -516,6 +542,10 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                               : status == 'pending' ? Colors.orange
                               : status == 'failed'  ? Colors.red
                               : Colors.green;
+                          final plainStatus = status == 'uploading' ? 'Sending now'
+                              : status == 'pending' ? 'Waiting'
+                              : status == 'failed'  ? "Didn't go through"
+                              : 'Done';
                           return ListTile(
                             dense: true,
                             leading: CircleAvatar(
@@ -527,15 +557,21 @@ class _UploadDebugDialogState extends State<_UploadDebugDialog>
                               ),
                             ),
                             title: Text(shortPath, style: const TextStyle(fontSize: 12)),
-                            subtitle: Text('code: $code  retry: $retry', style: const TextStyle(fontSize: 11)),
-                            trailing: Text(status, style: TextStyle(fontSize: 11, color: color)),
+                            subtitle: Text(
+                              retry > 0
+                                  ? '$code  ·  tried $retry time${retry > 1 ? 's' : ''}'
+                                  : code,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            trailing: Text(plainStatus,
+                                style: TextStyle(fontSize: 11, color: color)),
                           );
                         },
                       ),
 
                   // Log tab
                   log.isEmpty
-                    ? const Center(child: Text('No log entries yet', style: TextStyle(color: Colors.grey)))
+                    ? const Center(child: Text('Nothing has happened yet', style: TextStyle(color: Colors.grey)))
                     : ListView.builder(
                         reverse: true, // newest at top
                         padding: const EdgeInsets.all(8),
