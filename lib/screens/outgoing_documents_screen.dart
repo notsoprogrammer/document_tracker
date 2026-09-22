@@ -35,6 +35,7 @@ import '../widgets/document_filter_dialog.dart';
 import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../utils/document_filters.dart';
+import '../widgets/change_folder_button.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -1808,7 +1809,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         ],
                                       ),
                                       const Spacer(),
-                                        AddAttachmentButton(document: doc),
+                                        ChangeFolderButton(document: doc, onChanged: () { _refreshDocuments(); widget.onRefresh?.call(); }), AddAttachmentButton(document: doc),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

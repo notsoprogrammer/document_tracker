@@ -21,8 +21,11 @@ const Set<String> ownFolderModes = {
   'Resolutions',
 };
 
-/// True for documents the Incoming folder lists.
-bool isIncomingDocument(Document d) => d.flowStage == 'incoming';
+/// True for documents the Incoming folder lists. Modes with a folder of their
+/// own are excluded: a CDC or Resolutions document belongs in its own folder,
+/// which is also where searching for it navigates ([_getFolderName]).
+bool isIncomingDocument(Document d) =>
+    d.flowStage == 'incoming' && !ownFolderModes.contains(d.mode);
 
 /// True for documents the Outgoing folder lists. `circulated` is included:
 /// a document forwarded a second time is still an outgoing record.

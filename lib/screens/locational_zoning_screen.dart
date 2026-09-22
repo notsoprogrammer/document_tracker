@@ -30,6 +30,7 @@ import '../widgets/add_attachment_button.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/notes_thread.dart';
 import '../models/note.dart';
+import '../widgets/change_folder_button.dart';
 
 class LocalationalZoningScreen extends StatefulWidget {
   final List<Document> documents;
@@ -791,7 +792,7 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
                                           ],
                                         ),
                                             const Spacer(),
-                                              AddAttachmentButton(document: document),
+                                              ChangeFolderButton(document: document, onChanged: () { _refreshDocuments(); widget.onRefresh?.call(); }), AddAttachmentButton(document: document),
                                             if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
                                               IconButton(
                                                 icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

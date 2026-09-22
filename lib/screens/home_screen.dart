@@ -475,20 +475,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_outlined),
-            tooltip: 'Search all documents',
-            onPressed: () async {
-              final doc = await showSearch<Document?>(
-                context: context,
-                delegate: _DocumentSearchDelegate(
-                  documents: documents,
-                  getFolderName: _getFolderName,
-                ),
-              );
-              if (doc != null && mounted) _navigateToDocumentFolder(doc);
-            },
-          ),
           if (documents.any((d) => d.status == 'Urgent'))
             Stack(
               alignment: Alignment.center,
@@ -680,6 +666,8 @@ body: Container(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildHeaderCard(),
+                    const SizedBox(height: AppTheme.gap),
+                    _buildSearchBar(),
                     const SizedBox(height: AppTheme.gapLg),
                     _buildTodayActivitiesSection(),
                     const SizedBox(height: AppTheme.gapXl),
@@ -810,6 +798,45 @@ Positioned(
             _buildStat('$urgentCount', 'urgent', AppTheme.danger),
           ],
         ],
+      ),
+    );
+  }
+
+  /// Search entry point. A real field would duplicate the delegate's own
+  /// input, so this is a tap target styled like one that opens it — the search
+  /// sits under the title where it is reachable, rather than behind an icon.
+  Widget _buildSearchBar() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: AppTheme.br,
+        onTap: () async {
+          final doc = await showSearch<Document?>(
+            context: context,
+            delegate: _DocumentSearchDelegate(
+              documents: documents,
+              getFolderName: _getFolderName,
+            ),
+          );
+          if (doc != null && mounted) _navigateToDocumentFolder(doc);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.gap, vertical: 11),
+          decoration: AppTheme.card(radius: AppTheme.br),
+          child: const Row(
+            children: [
+              Icon(Icons.search, size: 18, color: AppTheme.textMuted),
+              SizedBox(width: AppTheme.gapSm),
+              Expanded(
+                child: Text(
+                  'Search all documents',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1917,12 +1944,22 @@ class _DocumentSearchDelegate extends SearchDelegate<Document?> {
   @override
   Widget buildSuggestions(BuildContext context) => _buildList(context);
 
+  /// Most recent activity first, matching how the folder screens order their
+  /// lists — so an empty query reads as "recent documents" rather than
+  /// whatever order the cache happened to return.
+  static DateTime _recency(Document d) => d.history.isNotEmpty
+      ? d.history.last.timestamp
+      : (d.createdAt ?? DateTime(1900));
+
   List<Document> get _filtered {
     final base = urgentOnly
         ? documents.where((d) => d.status == 'Urgent').toList()
         : List<Document>.from(documents);
-    if (query.trim().isEmpty) return base;
-    return base.where((d) => documentMatchesQuery(d, query)).toList();
+    final results = query.trim().isEmpty
+        ? base
+        : base.where((d) => documentMatchesQuery(d, query)).toList();
+    results.sort((a, b) => _recency(b).compareTo(_recency(a)));
+    return results;
   }
 
   Widget _buildList(BuildContext context) {
@@ -1930,7 +1967,7 @@ class _DocumentSearchDelegate extends SearchDelegate<Document?> {
     if (results.isEmpty) {
       return Center(
         child: Text(
-          query.isEmpty ? 'Type to search documents' : 'No documents found',
+          query.isEmpty ? 'No documents yet' : 'No documents found',
           style: const TextStyle(color: Colors.grey),
         ),
       );

@@ -36,6 +36,7 @@ import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../services/supabase_service.dart';
 import '../utils/document_filters.dart';
+import '../widgets/change_folder_button.dart';
 
 class IncomingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -2277,7 +2278,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
                                         ],
                                       ),
                                       const Spacer(),
-                                        AddAttachmentButton(document: doc),
+                                        ChangeFolderButton(document: doc, onChanged: () { _refreshDocuments(); widget.onRefresh?.call(); }), AddAttachmentButton(document: doc),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
