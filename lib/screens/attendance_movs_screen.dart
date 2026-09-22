@@ -24,10 +24,10 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
-import '../widgets/view_in_cabinet_button.dart';
 import '../widgets/add_attachment_button.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/change_folder_button.dart';
+import '../widgets/filed_in_row.dart';
 
 class AttendanceMovsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -617,28 +617,7 @@ class _AttendanceMovsScreenState
                                       document.person,
                                     ),
                                     const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(child: _buildDetailRow(Icons.inventory_2_outlined, "Location", [document.cabinetLocation ?? 'Not assigned', if ((document.folderTitle ?? '').isNotEmpty) document.folderTitle!].join(' | '))),
-                                        ViewInCabinetButton(document: document),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, size: 18),
-                                          onPressed: () => _showLocationUpdateDialog(index),
-                                          tooltip: "Update Location",
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(child: _buildDetailRow(Icons.person_pin_outlined, "Held by", [document.heldBy ?? 'Not specified', if ((document.heldByFolder ?? '').isNotEmpty) document.heldByFolder!].join(' | '))),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, size: 18),
-                                          onPressed: () => _showHeldByDialog(index),
-                                          tooltip: "Update Holder",
-                                        ),
-                                      ],
-                                    ),
+                                    FiledInRow(document: document, onEditLocation: () => _showLocationUpdateDialog(index), onEditHolder: () => _showHeldByDialog(index)),
                                     const SizedBox(height: 8),
                                     _buildDetailRow(
                                       Icons.access_time,
