@@ -11,7 +11,6 @@ import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../utils/document_search.dart';
 import '../services/auth_service.dart';
-import '../services/user_activity_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -23,7 +22,6 @@ import 'delete_history_screen.dart';
 import 'notification_history_screen.dart';
 import 'calendar_screen.dart';
 import 'about_screen.dart';
-import 'user_activity_screen.dart';
 import 'public_repository_screen.dart';
 import 'locational_zoning_screen.dart';
 import 'add_locational_zoning_screen.dart';
@@ -62,20 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDocuments();
     _loadTodayActivities();
     _checkAndRequestNotificationPermission();
-    _logSessionResume();
     _subscribeToDocumentChanges();
-  }
-
-  Future<void> _logSessionResume() async {
-    final username = await AuthService.getUsername();
-    if (username == null || username.isEmpty) return;
-    // Skip if user just logged in (login_screen already logged the session)
-    final recent = await UserActivityService().getLastSessionTime(username);
-    final isJustLoggedIn = recent != null &&
-        DateTime.now().difference(recent).inSeconds < 10;
-    if (!isJustLoggedIn) {
-      await UserActivityService().logAppOpen(username: username, method: 'App reopened');
-    }
   }
 
   void _subscribeToDocumentChanges() {
@@ -402,11 +387,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      UserActivityService().logAction(
-        action: 'Updated document status to $newStatus',
-        screen: 'Documents',
-        details: 'Code: ${documents[index].code}, by: $updatedBy',
-      );
       setState(() {});
     } catch (e) {
     }
@@ -416,11 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final docCode = documents[index].code;
     final success = await confirmAndDeleteRecord(context, documents[index], _documentService);
     if (success) {
-      UserActivityService().logAction(
-        action: 'Deleted document',
-        screen: 'Documents',
-        details: 'Code: $docCode',
-      );
       setState(() {
         documents.removeAt(index);
       });
@@ -521,7 +496,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(builder: (_) => const CabinetScreen()),
                 );
               } else if (value == 'calendar') {
-                UserActivityService().logAction(action: 'Opened screen', screen: 'Calendar');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -529,7 +503,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ).then((_) { if (mounted) _loadTodayActivities(); });
               } else if (value == 'about') {
-                UserActivityService().logAction(action: 'Opened screen', screen: 'About');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -537,7 +510,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               } else if (value == 'delete_history') {
-                UserActivityService().logAction(action: 'Opened screen', screen: 'Delete History');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -545,7 +517,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               } else if (value == 'notification_history') {
-                UserActivityService().logAction(action: 'Opened screen', screen: 'Notification History');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -558,13 +529,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _checkPermissions();
               } else if (value == 'notification_settings') {
                 _showNotificationSettings();
-              } else if (value == 'user_activity') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const UserActivityScreen(),
-                  ),
-                );
               } else if (value == 'repository') {
                 Navigator.push(
                   context,
@@ -615,13 +579,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.settings),
                   title: Text('Notification Settings'),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'user_activity',
-                child: ListTile(
-                  leading: Icon(Icons.people_outline),
-                  title: Text('User Activity'),
                 ),
               ),
               const PopupMenuItem(
@@ -875,9 +832,7 @@ Positioned(
     final reclassCount = countWhere((d) => d.mode == 'Reclassification');
 
     // Pushes [screen] and refreshes today's activities on return.
-    void open(String logName, Widget screen) {
-      UserActivityService()
-          .logAction(action: 'Opened screen', screen: logName);
+    void open(Widget screen) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
           .then((_) {
         if (mounted) _loadTodayActivities();
@@ -892,7 +847,6 @@ Positioned(
         count: incomingCount,
         accent: AppTheme.folderAmber,
         onTap: () => open(
-          'Incoming Documents',
           IncomingDocumentsScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -911,7 +865,6 @@ Positioned(
         count: outgoingCount,
         accent: AppTheme.folderBlue,
         onTap: () => open(
-          'Outgoing Documents',
           OutgoingDocumentsScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -930,7 +883,6 @@ Positioned(
         count: spCount,
         accent: AppTheme.folderIndigo,
         onTap: () => open(
-          'SP Documents',
           SpDocumentsScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -948,7 +900,6 @@ Positioned(
         count: resolutionCount,
         accent: AppTheme.folderViolet,
         onTap: () => open(
-          'Resolutions',
           ResolutionsScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -966,7 +917,6 @@ Positioned(
         count: lzCount,
         accent: AppTheme.folderTeal,
         onTap: () => open(
-          'Locational & Zoning',
           LocalationalZoningScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -984,7 +934,6 @@ Positioned(
         count: reclassCount,
         accent: AppTheme.folderGreen,
         onTap: () => open(
-          'Reclassification',
           ReclassificationScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -1002,7 +951,6 @@ Positioned(
         count: movsCount,
         accent: AppTheme.folderPink,
         onTap: () => open(
-          'Attendance & MOVs',
           AttendanceMovsScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -1020,7 +968,6 @@ Positioned(
         count: cdcCount,
         accent: AppTheme.folderSlate,
         onTap: () => open(
-          'CDC Documents',
           CdcScreen(
             documents: documents,
             transferDocument: _transferDocument,
@@ -1178,7 +1125,6 @@ Positioned(
                 const Spacer(),
                 GestureDetector(
                   onTap: () {
-                    UserActivityService().logAction(action: 'Opened screen', screen: 'Calendar');
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CalendarScreen()),
@@ -1258,7 +1204,6 @@ Positioned(
   Widget _buildActivityCard(Activity activity) {
     return InkWell(
       onTap: () {
-        UserActivityService().logAction(action: 'Viewed activity from home', screen: 'Home');
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1325,7 +1270,6 @@ Positioned(
   Widget _buildDocumentEventCard(Document doc) {
     return InkWell(
       onTap: () {
-        UserActivityService().logAction(action: 'Viewed document event from home', screen: 'Home');
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1458,10 +1402,6 @@ Positioned(
  
 
   void _showForm(BuildContext context, bool incoming) async {
-    UserActivityService().logAction(
-      action: 'Opened Add Document screen',
-      screen: incoming ? 'Incoming Documents' : 'Outgoing Documents',
-    );
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1472,7 +1412,6 @@ Positioned(
   }
 
   void _showResolutionsForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Resolution');
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1483,7 +1422,6 @@ Positioned(
   }
 
   void _showAttendanceMovForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Attendance / MOV');
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1494,7 +1432,6 @@ Positioned(
   }
 
   void _showLocationalZoningForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Locational / Zoning');
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1505,7 +1442,6 @@ Positioned(
   }
 
   void _showCdcForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add CDC Document');
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1516,7 +1452,6 @@ Positioned(
   }
 
   void _showSpDocumentsForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add SP Document');
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -1527,7 +1462,6 @@ Positioned(
   }
 
   void _showReclassificationForm(BuildContext context) async {
-    UserActivityService().logAction(action: 'Opened screen', screen: 'Add Reclassification');
     await Navigator.push(
       context,
       MaterialPageRoute(
