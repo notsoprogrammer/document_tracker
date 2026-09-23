@@ -199,6 +199,10 @@ class _AddAttachmentButtonState extends State<AddAttachmentButton> {
       context,
       '$count attachment(s) uploading — only you can remove them',
     );
+    // Start immediately rather than leaving the files for whichever screen the
+    // user opens next, or the five-minute auto-sync tick. The snackbar says
+    // "uploading", so it had better be true.
+    CachedDocumentService().processPendingUploads();
     widget.onQueued?.call();
   }
 

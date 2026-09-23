@@ -135,6 +135,10 @@ class UploadQueueManager extends ChangeNotifier {
         } catch (e) {
         }
       }
+      // Tell the banner straight away. Without this the queue grew silently
+      // and nothing appeared until some later event happened to notify —
+      // so adding an attachment looked like it had done nothing at all.
+      notifyListeners();
     } else {
     }
   }
@@ -167,6 +171,7 @@ class UploadQueueManager extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
       });
       // Note: Web images with bytes are NOT persisted to SQLite
+      notifyListeners();
     } else {
     }
   }
