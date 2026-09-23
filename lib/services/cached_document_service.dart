@@ -547,13 +547,17 @@ class CachedDocumentService {
   /// only exist in one device's cache. A path that cannot be read here is
   /// therefore not necessarily dead — the device that captured it may still be
   /// waiting to upload it — so these are skipped, never deleted.
-  Future<bool> _isReadableHere(String localPath, String documentCode) async {
+  Future<bool> _isReadableHere(String localPath, String documentCode,
+      {List<int>? bytes}) async {
     if (localPath.isEmpty) return false;
     if (kIsWeb) {
       // A browser cannot open a filesystem path, and a blob URL does not
-      // survive a reload. Only a web capture whose bytes are still cached can
-      // be uploaded from here.
-      if (!localPath.startsWith('web_image_')) return false;
+      // survive a reload. What it can upload is a pick whose bytes are still
+      // held in memory — so the test is whether those bytes are in hand, not
+      // what the pick happens to be named. Keying on a 'web_image_' prefix
+      // threw away 'web_file_' picks, which are perfectly uploadable.
+      if (localPath.startsWith('blob:')) return false;
+      if (bytes != null) return true;
       return UploadQueueManager().getBytesForFile(documentCode, localPath) !=
           null;
     }
@@ -581,7 +585,10 @@ class CachedDocumentService {
           item['filePath']?.toString() ??
           '';
       final code = item['documentCode']?.toString() ?? '';
-      if (await _isReadableHere(path, code)) continue;
+      if (await _isReadableHere(path, code,
+          bytes: item['bytes'] as List<int>?)) {
+        continue;
+      }
       queueManager.removeFromQueue(code, item['filePath']);
       UploadQueueManager.log('purge: not readable on this device — $path');
       dropped++;
@@ -804,17 +811,18 @@ class CachedDocumentService {
           // blob URL that did not survive a reload. Retrying cannot help —
           // without this it failed three times over with the bare
           // "Unsupported operation: _Namespace" thrown by dart:io on web.
+          // Check if this is a web file with bytes (fall back to persistent cache)
+          final bytes = (upload['bytes'] as List<int>?) ??
+              queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
+
           if (!await _isReadableHere(
-              upload['localPath']?.toString() ?? '', docCode)) {
+              upload['localPath']?.toString() ?? '', docCode,
+              bytes: bytes)) {
             UploadQueueManager.log(
                 '  [$shortPath] SKIP — not readable on this device');
             queueManager.removeFromQueue(docCode, upload['filePath']);
             continue;
           }
-
-          // Check if this is a web file with bytes (fall back to persistent cache)
-          final bytes = (upload['bytes'] as List<int>?) ??
-              queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
           if (kIsWeb && bytes != null) {
             // Web file with bytes. Compression now happens inside
             // GoogleDriveService for every platform, so just hand over the bytes.
