@@ -48,11 +48,22 @@ class SupabaseService {
     }
   }
 
-  /// Columns that describe a file's location in one device's own storage.
-  /// They mean nothing anywhere else, so they must never leave the device:
-  /// synced to Supabase, every other phone and the browser received paths they
-  /// could not read and tried to upload them.
-  static const _deviceLocalColumns = ['local_image_paths', 'local_file_paths'];
+  /// Columns that describe one device's own state. They mean nothing anywhere
+  /// else, so they must never leave the device.
+  ///
+  /// `local_*_paths`: synced, every other phone and the browser received file
+  /// paths they could not read and tried to upload them.
+  ///
+  /// `needs_sync`: set while a document is waiting to reach Supabase. Sending
+  /// it meant the flag was stored server-side still true, came back down on
+  /// the next fetch, and made every device believe the document was unsynced
+  /// forever — so each one kept re-inserting an already-present row and got
+  /// 409 Conflict.
+  static const _deviceLocalColumns = [
+    'local_image_paths',
+    'local_file_paths',
+    'needs_sync',
+  ];
 
   Map<String, dynamic> _withoutDeviceLocal(Map<String, dynamic> data) {
     final copy = Map<String, dynamic>.from(data);

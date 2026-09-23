@@ -699,6 +699,9 @@ class SQLiteDatabaseService {
           // here would wipe this device's pending uploads on every sync.
           row['local_image_paths'] = prior['local_image_paths'] ?? '[]';
           row['local_file_paths'] = prior['local_file_paths'] ?? '[]';
+          // Likewise: whether this device still owes Supabase a write is this
+          // device's business, and the remote row no longer carries it.
+          row['needs_sync'] = prior['needs_sync'] ?? 0;
         } else {
           row['created_at'] = now;
         }

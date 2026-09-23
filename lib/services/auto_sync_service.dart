@@ -100,7 +100,16 @@ class AutoSyncService {
 
       for (final doc in unsyncedDocuments) {
         try {
-          await supabaseService.createDocument(doc);
+          // Insert only when the row is genuinely absent. This used to insert
+          // unconditionally — every other sync path already checks — so a
+          // document that had in fact reached Supabase was re-inserted and
+          // came back 409 Conflict, blocking the rest of the queue.
+          final existing = await supabaseService.fetchDocumentByCode(doc.code);
+          if (existing != null) {
+            await supabaseService.updateDocument(doc.code, doc.toJson());
+          } else {
+            await supabaseService.createDocument(doc);
+          }
           await SQLiteDatabaseService().updateDocument(doc.code, {'needs_sync': 0});
           successCount++;
         } catch (e) {
