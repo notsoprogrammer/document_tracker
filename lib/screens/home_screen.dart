@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/document.dart';
 import '../models/activity.dart';
 import '../services/cached_document_service.dart';
@@ -10,7 +11,6 @@ import '../widgets/sync_banner.dart';
 import '../utils/delete_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../utils/document_search.dart';
-import '../services/auth_service.dart';
 import 'add_document_screen.dart';
 import 'incoming_documents_screen.dart';
 import 'outgoing_documents_screen.dart';
@@ -37,6 +37,7 @@ import 'cabinet_screen.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/folder_card.dart';
 import '../theme/app_theme.dart';
+import '../widgets/update_available_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +62,21 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTodayActivities();
     _checkAndRequestNotificationPermission();
     _subscribeToDocumentChanges();
+    _checkForUpdate();
+  }
+
+  /// Offers the published APK when this build is behind the release recorded
+  /// in Supabase. Deferred past the first frame so it never delays startup,
+  /// and silent when offline or when the check fails.
+  Future<void> _checkForUpdate() async {
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    await UpdateAvailableDialog.showIfAvailable(
+      context,
+      installedVersion: info.version,
+    );
   }
 
   void _subscribeToDocumentChanges() {
@@ -393,7 +409,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteDocument(int index) async {
-    final docCode = documents[index].code;
     final success = await confirmAndDeleteRecord(context, documents[index], _documentService);
     if (success) {
       setState(() {

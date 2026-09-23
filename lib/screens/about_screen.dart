@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/document_types.dart';
+import '../services/app_version_service.dart';
+import '../widgets/update_available_dialog.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -413,42 +415,45 @@ class _AboutScreenState extends State<AboutScreen> {
     });
   }
 
+  /// Fallback link, used only when the app_version row cannot be read.
+  static const _fallbackApkUrl =
+      "https://drive.google.com/uc?export=download&id=1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6";
+
   void _updateApp() async {
-    const url = "https://drive.google.com/uc?export=download&id=1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6";
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Update App"),
-          content: const Text("You will be redirected to download the latest APK version. Please install it manually after download."),
+    // Ask Supabase which release is current rather than trusting a link
+    // compiled into this build — that link pointed at whatever was on Drive
+    // when the build was made, so it could never announce a newer release.
+    final release = await AppVersionService().checkForUpdate(forceRefresh: true);
+    if (!mounted) return;
+
+    if (release == null) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("You're up to date"),
+          content: Text("Version $_appVersion is the latest release."),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                if (await canLaunchUrl(Uri.parse(url))) {
-                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                } else {
-                  // Fallback to view link if direct download fails
-                  const fallbackUrl = "https://drive.google.com/file/d/1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6/view?usp=drive_link";
-                  if (await canLaunchUrl(Uri.parse(fallbackUrl))) {
-                    await launchUrl(Uri.parse(fallbackUrl), mode: LaunchMode.externalApplication);
-                  }
-                }
-              },
-              child: const Text("Download"),
+              child: const Text('OK'),
             ),
           ],
-        );
-      },
+        ),
+      );
+      return;
+    }
+
+    UpdateAvailableDialog.showIfAvailable(
+      context,
+      installedVersion: _appVersion,
     );
   }
 
   void _openDownloadLink() async {
-    const url = "https://drive.google.com/file/d/1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6/view?usp=drive_link";
+    final release = await AppVersionService().fetchLatest();
+    final url = (release != null && release.apkUrl.isNotEmpty)
+        ? release.apkUrl
+        : _fallbackApkUrl;
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
