@@ -415,10 +415,6 @@ class _AboutScreenState extends State<AboutScreen> {
     });
   }
 
-  /// Fallback link, used only when the app_version row cannot be read.
-  static const _fallbackApkUrl =
-      "https://drive.google.com/uc?export=download&id=1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6";
-
   void _updateApp() async {
     // Ask Supabase which release is current rather than trusting a link
     // compiled into this build — that link pointed at whatever was on Drive
@@ -453,7 +449,7 @@ class _AboutScreenState extends State<AboutScreen> {
     final release = await AppVersionService().fetchLatest();
     final url = (release != null && release.apkUrl.isNotEmpty)
         ? release.apkUrl
-        : _fallbackApkUrl;
+        : AppRelease.fallbackApkUrl;
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }

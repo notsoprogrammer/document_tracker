@@ -21,13 +21,29 @@ class AppRelease {
     this.mandatory = false,
   });
 
-  factory AppRelease.fromJson(Map<String, dynamic> json) => AppRelease(
-        version: json['version']?.toString() ?? '',
-        buildNumber: int.tryParse(json['build_number']?.toString() ?? '') ?? 0,
-        apkUrl: json['apk_url']?.toString() ?? '',
-        releaseNotes: json['release_notes']?.toString(),
-        mandatory: json['mandatory'] == true,
-      );
+  /// Builds a release from the `app_config` key/value rows.
+  ///
+  /// Only `latest_version` is required. `apk_download_url` falls back to the
+  /// Drive link the About screen shipped with, so a missing key cannot silently
+  /// suppress the prompt; the rest are optional.
+  static AppRelease? fromConfig(Map<String, String> config) {
+    final version = config['latest_version']?.trim() ?? '';
+    if (version.isEmpty) return null;
+
+    return AppRelease(
+      version: version,
+      buildNumber: int.tryParse(config['latest_build_number']?.trim() ?? '') ?? 0,
+      apkUrl: (config['apk_download_url']?.trim().isNotEmpty ?? false)
+          ? config['apk_download_url']!.trim()
+          : fallbackApkUrl,
+      releaseNotes: config['release_notes'],
+      mandatory: (config['update_mandatory'] ?? '').toLowerCase() == 'true',
+    );
+  }
+
+  /// Used when `apk_download_url` is not set.
+  static const String fallbackApkUrl =
+      'https://drive.google.com/uc?export=download&id=1WfT-M5Knp4VgkHkUYBWXXk0zqM8DIQX6';
 }
 
 /// Checks whether a newer APK has been published.
@@ -44,7 +60,10 @@ class AppVersionService {
   factory AppVersionService() => _instance;
   AppVersionService._internal();
 
-  static const String _table = 'app_version';
+  /// The key/value table the app has always used for this. It predates this
+  /// service — an earlier update checker read the same two keys — so pointing
+  /// at a new table would have meant migrating data for no reason.
+  static const String _table = 'app_config';
 
   AppRelease? _cached;
 
@@ -53,13 +72,13 @@ class AppVersionService {
   Future<AppRelease?> fetchLatest({bool forceRefresh = false}) async {
     if (_cached != null && !forceRefresh) return _cached;
     try {
-      final rows = await Supabase.instance.client
-          .from(_table)
-          .select()
-          .order('build_number', ascending: false)
-          .limit(1);
-      if (rows.isEmpty) return null;
-      return _cached = AppRelease.fromJson(Map<String, dynamic>.from(rows.first));
+      final rows =
+          await Supabase.instance.client.from(_table).select('key, value');
+      final config = <String, String>{
+        for (final row in (rows as List))
+          if (row['key'] != null) '${row['key']}': '${row['value'] ?? ''}',
+      };
+      return _cached = AppRelease.fromConfig(config);
     } catch (e) {
       debugPrint('AppVersionService: could not read $_table: $e');
       return null;
@@ -75,7 +94,7 @@ class AppVersionService {
     if (kIsWeb) return null;
 
     final latest = await fetchLatest(forceRefresh: forceRefresh);
-    if (latest == null || latest.apkUrl.isEmpty) return null;
+    if (latest == null) return null;
 
     final info = await PackageInfo.fromPlatform();
     final installedBuild = int.tryParse(info.buildNumber) ?? 0;
