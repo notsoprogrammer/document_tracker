@@ -622,7 +622,10 @@ body: Container(
   child: Stack(
     children: [
       RefreshIndicator(
-        onRefresh: _loadDocuments,
+        onRefresh: () async {
+          CachedDocumentService.invalidateCache();
+          await _loadDocuments();
+        },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Center(

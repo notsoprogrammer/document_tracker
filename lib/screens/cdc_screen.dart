@@ -475,7 +475,7 @@ class _CdcScreenState extends State<CdcScreen> {
           ),
         ),
         body: RefreshIndicator(
-          onRefresh: () async { if (widget.onRefresh != null) widget.onRefresh!(); },
+          onRefresh: () async { CachedDocumentService.invalidateCache(); if (widget.onRefresh != null) widget.onRefresh!(); },
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

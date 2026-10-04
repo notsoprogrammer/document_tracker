@@ -428,7 +428,7 @@ class _ReclassificationScreenState extends State<ReclassificationScreen> {
           ),
         ),
         body: RefreshIndicator(
-          onRefresh: () async { if (widget.onRefresh != null) widget.onRefresh!(); },
+          onRefresh: () async { CachedDocumentService.invalidateCache(); if (widget.onRefresh != null) widget.onRefresh!(); },
           child: Container(
             decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Theme.of(context).colorScheme.surface, Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3)])),
             child: _isLoading

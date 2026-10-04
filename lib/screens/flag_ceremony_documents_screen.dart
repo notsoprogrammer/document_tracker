@@ -352,6 +352,7 @@ class _FlagCeremonyDocumentsScreenState
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          CachedDocumentService.invalidateCache();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }

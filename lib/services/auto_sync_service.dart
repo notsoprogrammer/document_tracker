@@ -1,17 +1,19 @@
-﻿import 'package:flutter/foundation.dart';
-import '../models/document.dart';
+﻿import '../models/document.dart';
 import 'cached_document_service.dart';
 import 'sqlite_database_service.dart';
 import 'supabase_service.dart';
 import 'connectivity_service.dart';
 import 'upload_queue_manager.dart';
-import '../utils/date_time_utils.dart';
 
 /// Auto-sync service to handle unsynced documents periodically and when online
 class AutoSyncService {
   static bool _isInitialized = false;
   static bool _isRunning = false;
-  static const Duration _syncInterval = Duration(minutes: 5);
+  /// How often to pull in other devices' changes. Five minutes meant twelve
+  /// full-table reads an hour per device, which is what exhausted the Supabase
+  /// Disk IO budget. Edits still appear immediately on the device making them,
+  /// and a pull-to-refresh fetches on demand.
+  static const Duration _syncInterval = Duration(minutes: 20);
 
   /// Initialize the auto-sync service
   static Future<void> initialize() async {
@@ -153,47 +155,12 @@ class AutoSyncService {
   /// Pull documents from Supabase and merge with local database
   static Future<void> _pullFromSupabase() async {
     try {
-      final supabaseService = SupabaseService();
-      final remoteDocuments = await supabaseService.fetchDocuments();
-      final localDocuments = await SQLiteDatabaseService().fetchDocuments();
-
-      // Create a map of local documents by code for quick lookup
-      final localDocMap = {for (var doc in localDocuments) doc.code: doc};
-
-      int addedCount = 0;
-      int updatedCount = 0;
-
-      for (final remoteDoc in remoteDocuments) {
-        if (localDocMap.containsKey(remoteDoc.code)) {
-          // Document exists locally - check if remote is newer
-          // final localDoc = localDocMap[remoteDoc.code]!;
-
-          // For now, we'll update local documents with remote data if they exist
-          
-          await SQLiteDatabaseService().updateDocument(remoteDoc.code, {
-            'title': remoteDoc.title,
-            'type': remoteDoc.type,
-            'from_or_to': remoteDoc.fromOrTo,
-            'mode': remoteDoc.mode,
-            'addressed_to': remoteDoc.assignedTo,
-            'remarks': remoteDoc.remarks,
-            'person': remoteDoc.person,
-            'incoming': remoteDoc.incoming,
-            'status': remoteDoc.status,
-            'image_urls': remoteDoc.imageUrls,
-            'file_urls': remoteDoc.fileUrls,
-            'updated_at': getPhilippineTime().toIso8601String(),
-            'needs_sync': 0, // Mark as synced
-          });
-          updatedCount++;
-        } else {
-          // Document doesn't exist locally - add it
-          await SQLiteDatabaseService().createDocument(remoteDoc);
-          await SQLiteDatabaseService().updateDocument(remoteDoc.code, {'needs_sync': 0});
-          addedCount++;
-        }
-      }
-
+      // This used to run its own full `select('*, history_entries(*)')` and
+      // then rewrite every local row one at a time — a second complete read of
+      // both tables every cycle, on top of whatever the screens were doing.
+      // CachedDocumentService does the same pull through syncRemoteDocuments,
+      // which writes only the rows that actually changed.
+      await CachedDocumentService().fetchDocuments(force: true);
     } catch (e) {
     }
   }

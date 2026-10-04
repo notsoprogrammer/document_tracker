@@ -1569,6 +1569,7 @@ Widget _buildUploadStatusIndicator(Document doc) {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          CachedDocumentService.invalidateCache();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }

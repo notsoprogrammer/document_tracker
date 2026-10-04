@@ -17,6 +17,29 @@ class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
   final SupabaseService _remoteDb = SupabaseService();
 
+  // ----------------------------------------------------------------- cache
+  // Every list screen calls fetchDocuments() when it opens, and each call was
+  // a `select('*, history_entries(*)')` — the whole documents table joined to
+  // the whole history table. Opening four folders in a row read it four times.
+  // These three fields collapse that into one read per minute per device,
+  // which is what the Supabase Disk IO budget was going on.
+  static List<Document>? _documentsCache;
+  static DateTime? _cachedAt;
+  static Future<List<Document>>? _inFlight;
+  static const Duration _cacheTtl = Duration(seconds: 60);
+
+  /// Drops the cache so the next read goes to the server. Called after every
+  /// write, so a change is never hidden behind a stale cache.
+  static void invalidateCache() {
+    _documentsCache = null;
+    _cachedAt = null;
+  }
+
+  bool get _cacheIsFresh =>
+      _documentsCache != null &&
+      _cachedAt != null &&
+      DateTime.now().difference(_cachedAt!) < _cacheTtl;
+
   Future<bool> get isOnline async {
     return await ConnectivityService().isOnline;
   }
@@ -30,7 +53,32 @@ class CachedDocumentService {
     }
   }
 
-  Future<List<Document>> fetchDocuments() async {
+  /// The document set, from cache when it was read moments ago.
+  ///
+  /// [force] skips the cache — used by pull-to-refresh, where the user has
+  /// explicitly asked for fresh data.
+  Future<List<Document>> fetchDocuments({bool force = false}) async {
+    if (!force && _cacheIsFresh) {
+      // A copy: callers sort and remove from the list they are given.
+      return List<Document>.from(_documentsCache!);
+    }
+    // Screens often load together; let them share one request rather than
+    // firing several identical ones.
+    if (_inFlight != null) return List<Document>.from(await _inFlight!);
+
+    final request = _fetchDocumentsUncached();
+    _inFlight = request;
+    try {
+      final documents = await request;
+      _documentsCache = documents;
+      _cachedAt = DateTime.now();
+      return List<Document>.from(documents);
+    } finally {
+      _inFlight = null;
+    }
+  }
+
+  Future<List<Document>> _fetchDocumentsUncached() async {
     try {
       // Ensure database schema is up to date
       await _ensureDatabaseSchema();
@@ -91,6 +139,7 @@ class CachedDocumentService {
   }
 
   Future<Document> createDocument(Document document) async {
+    invalidateCache();
     try {
       // Always save locally first
       await _localDb.createDocument(document);
@@ -159,6 +208,7 @@ class CachedDocumentService {
   }
 
   Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
+    invalidateCache();
     try {
       // Update locally first. Pass a copy: the SQLite layer jsonEncodes list
       // and map columns (remarks_list, attachments, …) in place, and the
@@ -198,6 +248,7 @@ class CachedDocumentService {
   }
 
   Future<void> deleteDocument(String documentCode) async {
+    invalidateCache();
     try {
       // Get the document details before deleting for logging
       final localDocs = await _localDb.fetchDocuments();
@@ -320,6 +371,7 @@ class CachedDocumentService {
   }
 
   Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
+    invalidateCache();
     try {
       // Prevent duplicate "Files Uploaded" history entries
       if (entry.action == 'Files Uploaded') {

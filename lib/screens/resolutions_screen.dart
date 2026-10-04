@@ -476,6 +476,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
         ),
         body: RefreshIndicator(
           onRefresh: () async {
+            CachedDocumentService.invalidateCache();
             if (widget.onRefresh != null) widget.onRefresh!();
           },
           child: Container(

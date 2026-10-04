@@ -517,6 +517,7 @@ class _LocalationalZoningScreenState extends State<LocalationalZoningScreen> {
         ),
         body: RefreshIndicator(
           onRefresh: () async {
+            CachedDocumentService.invalidateCache();
             if (widget.onRefresh != null) widget.onRefresh!();
           },
           child: Container(

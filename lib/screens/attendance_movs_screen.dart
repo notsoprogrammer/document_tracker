@@ -465,6 +465,7 @@ class _AttendanceMovsScreenState
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          CachedDocumentService.invalidateCache();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }
