@@ -42,7 +42,9 @@ class ImageDownloadService {
     final hasPermission = await _requestPermission();
 
     if (!hasPermission) {
-      throw Exception('Photos permission required');
+      throw Exception(
+          'Storage permission is needed to save the image. Allow it in '
+          'Settings > Apps > FileTrack Hub > Permissions.');
     }
 
     final tempDir = await getTemporaryDirectory();
@@ -65,24 +67,30 @@ class ImageDownloadService {
 
   /// 🔐 PERMISSION HANDLER
   static Future<bool> _requestPermission() async {
-  if (!Platform.isAndroid) {
-    final status = await Permission.photos.request();
-    return status.isGranted || status.isLimited;
-  }
+    if (!Platform.isAndroid) {
+      final status = await Permission.photos.request();
+      return status.isGranted || status.isLimited;
+    }
 
-  final deviceInfo = DeviceInfoPlugin();
-  final androidInfo = await deviceInfo.androidInfo;
-  final sdkInt = androidInfo.version.sdkInt;
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
 
-  if (sdkInt >= 33) {
-    // Android 13+
-    final status = await Permission.photos.request();
-    return status.isGranted || status.isLimited;
-  } else {
-    // Android 12 and below
+    // Android 10 (API 29) and up save through MediaStore, which needs no
+    // permission at all — the app writes its own new image rather than reading
+    // the user's library.
+    //
+    // Asking anyway was what broke downloading. On 13+ this requested
+    // READ_MEDIA_IMAGES, which AndroidManifest.xml deliberately strips with
+    // tools:node="remove" (the app uses the system Photo Picker instead). A
+    // permission the app does not declare can never be granted, so the request
+    // failed instantly, no prompt ever appeared, and the user saw only
+    // "Photos permission required".
+    if (sdkInt >= 29) return true;
+
+    // Android 9 and below genuinely need WRITE_EXTERNAL_STORAGE, which the
+    // manifest declares with maxSdkVersion="29".
     final status = await Permission.storage.request();
     return status.isGranted;
   }
-}
 
 }
