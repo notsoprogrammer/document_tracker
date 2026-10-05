@@ -7,9 +7,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- Self-update via APK download was removed for Play Store distribution;
-         strip the permission the open_file plugin injects. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+    <!-- The app downloads its own APK updates and opens the system installer,
+         because it is distributed directly rather than through Play. Without
+         this the installer cannot be launched from inside the app. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- image_picker uses the Android Photo Picker on 13+; no broad media access needed.
          Strip READ_MEDIA_IMAGES if any plugin injects it. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
@@ -77,6 +78,19 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Android 11+ hides other apps unless they are declared here. Without
+             this, url_launcher's canLaunchUrl() returns false for every web
+             link even though opening it would work, so the update download,
+             the About download link and every document reference link did
+             nothing at all when tapped. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
         </intent>
     </queries>
 </manifest>

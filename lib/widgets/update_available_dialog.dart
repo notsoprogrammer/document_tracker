@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/app_version_service.dart';
 
-/// Offers the published release and sends the user to the APK.
+/// Offers the published release, downloads it, and opens the installer.
 ///
-/// Android installs it through the browser's downloader, so this only opens
-/// the link — the user still confirms the install themselves.
-class UpdateAvailableDialog extends StatelessWidget {
+/// The download happens here rather than in the browser so the progress is
+/// visible and Android's install screen opens on its own — the user never has
+/// to go looking for a downloaded file.
+class UpdateAvailableDialog extends StatefulWidget {
   final AppRelease release;
   final String installedVersion;
 
@@ -38,20 +38,50 @@ class UpdateAvailableDialog extends StatelessWidget {
     return true;
   }
 
-  Future<void> _download(BuildContext context) async {
-    final uri = Uri.parse(release.apkUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  @override
+  State<UpdateAvailableDialog> createState() => _UpdateAvailableDialogState();
+}
+
+class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
+  bool _downloading = false;
+  double _progress = 0;
+  String? _error;
+
+  Future<void> _download() async {
+    setState(() {
+      _downloading = true;
+      _progress = 0;
+      _error = null;
+    });
+
+    try {
+      await AppVersionService().downloadAndInstall(
+        widget.release.apkUrl,
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
+      );
+      // The installer is now in front of the user; this dialog has done its job.
+      if (mounted && !widget.release.mandatory) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _downloading = false;
+        _error = e.toString().replaceAll('Exception: ', '');
+      });
     }
-    if (context.mounted && !release.mandatory) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final release = widget.release;
     final notes = release.releaseNotes?.trim() ?? '';
+    final percent = (_progress * 100).clamp(0, 100).toStringAsFixed(0);
 
     return PopScope(
-      canPop: !release.mandatory,
+      // Neither a mandatory update nor a download in progress should be
+      // dismissed by the back button.
+      canPop: !release.mandatory && !_downloading,
       child: AlertDialog(
         title: Text(
             release.mandatory ? 'Update required' : 'A new version is available'),
@@ -60,7 +90,7 @@ class UpdateAvailableDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You have $installedVersion. Version ${release.version} is now available.',
+              'You have ${widget.installedVersion}. Version ${release.version} is now available.',
               style: const TextStyle(fontSize: 13.5),
             ),
             if (notes.isNotEmpty) ...[
@@ -70,22 +100,41 @@ class UpdateAvailableDialog extends StatelessWidget {
               const SizedBox(height: 4),
               Text(notes, style: const TextStyle(fontSize: 13)),
             ],
-            const SizedBox(height: 12),
-            const Text(
-              'The download opens in your browser. Open it when it finishes to install.',
-              style: TextStyle(fontSize: 11.5, color: Colors.black54),
-            ),
+            if (_downloading) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: _progress > 0 ? _progress : null,
+                minHeight: 6,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _progress > 0 ? 'Downloading… $percent%' : 'Starting download…',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Android will ask once for permission to install apps from '
+                'FileTrack Hub. Allow it, then tap Install.',
+                style: TextStyle(fontSize: 11.5, color: Colors.black54),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!,
+                  style: TextStyle(fontSize: 12, color: Colors.red[700])),
+            ],
           ],
         ),
         actions: [
-          if (!release.mandatory)
+          if (!release.mandatory && !_downloading)
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Later'),
             ),
           ElevatedButton(
-            onPressed: () => _download(context),
-            child: const Text('Download'),
+            onPressed: _downloading ? null : _download,
+            child: Text(_error != null ? 'Try again' : 'Download'),
           ),
         ],
       ),

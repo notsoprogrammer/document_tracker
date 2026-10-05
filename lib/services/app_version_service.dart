@@ -1,5 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// The release currently published, as recorded in Supabase.
@@ -103,6 +106,46 @@ class AppVersionService {
       return latest.buildNumber > installedBuild ? latest : null;
     }
     return _isNewerVersion(latest.version, info.version) ? latest : null;
+  }
+
+  /// Downloads the APK and hands it to the system installer.
+  ///
+  /// Doing this in-app rather than sending the user to the browser means the
+  /// progress is visible here and Android's install screen opens by itself —
+  /// the user does not have to find the downloaded file. The one-time
+  /// "allow unknown apps" prompt then names this app instead of Chrome.
+  Future<void> downloadAndInstall(
+    String url, {
+    void Function(double progress)? onProgress,
+  }) async {
+    final dir = await getTemporaryDirectory();
+    final savePath = '${dir.path}/update.apk';
+
+    final response = await Dio().download(
+      url,
+      savePath,
+      onReceiveProgress: (received, total) {
+        if (total > 0) onProgress?.call(received / total);
+      },
+      options: Options(followRedirects: true),
+    );
+
+    // A link that is not a direct download — Google Drive serves an HTML
+    // "can't scan this file for viruses" page for anything over ~25 MB —
+    // would otherwise be saved as update.apk and fail in the installer with
+    // nothing explaining why.
+    final contentType = response.headers.value('content-type') ?? '';
+    final looksLikeHtml = contentType.contains('text/html');
+    if (looksLikeHtml) {
+      throw Exception(
+          'The download link returned a web page instead of the app file. '
+          'It needs to be a direct download link.');
+    }
+
+    final result = await OpenFile.open(savePath);
+    if (result.type != ResultType.done) {
+      throw Exception(result.message);
+    }
   }
 
   /// Compares dotted version names ("2.9.0" > "2.8.3"), padding the shorter

@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,8 +19,12 @@ class ImageDownloadService {
     final normalizedFileId =
         GoogleDriveService.normalizeFileId(imageUrl);
 
-    final downloadUrl =
-        'https://drive.google.com/uc?id=$normalizedFileId&export=download';
+    // Fetch through the same proxy the viewer uses, NOT drive.google.com
+    // directly. Attachments are uploaded by a service account and are not
+    // shared publicly, so 'uc?export=download' returns Google's sign-in page
+    // instead of the file — which the old code happily wrote to a .jpg and
+    // handed to the gallery saver, so the download silently did nothing.
+    final downloadUrl = GoogleDriveService.generateProxyUrl(normalizedFileId);
 
     if (kIsWeb) {
       await _handleWebDownload(downloadUrl);
@@ -47,22 +51,34 @@ class ImageDownloadService {
           'Settings > Apps > FileTrack Hub > Permissions.');
     }
 
-    final tempDir = await getTemporaryDirectory();
-    final fileName =
-        'doc_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final tempPath = '${tempDir.path}/$fileName';
+    final response = await Dio().get<List<int>>(
+      url,
+      options: Options(
+        responseType: ResponseType.bytes,
+        followRedirects: true,
+        // Read the body on an error status too, so the check below can report
+        // what came back rather than throwing something opaque.
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
 
-    // Download file
-    await Dio().download(url, tempPath);
+    if (response.statusCode != 200 || response.data == null) {
+      throw Exception(
+          'Could not download the image (server said ${response.statusCode}).');
+    }
 
-    // Save to gallery
-    final bytes = await File(tempPath).readAsBytes();
-    await FlutterImageGallerySaver.saveImage(bytes);
+    // Anything that is not an image means the request was answered by an error
+    // or sign-in page. Saving those bytes would produce a broken file and look
+    // like nothing happened at all.
+    final contentType = response.headers.value('content-type') ?? '';
+    if (!contentType.startsWith('image/')) {
+      throw Exception(
+          'The file could not be read from Drive. It may have been moved or '
+          'deleted.');
+    }
 
-    // Cleanup
-    try {
-      await File(tempPath).delete();
-    } catch (_) {}
+    await FlutterImageGallerySaver.saveImage(
+        Uint8List.fromList(response.data!));
   }
 
   /// 🔐 PERMISSION HANDLER
