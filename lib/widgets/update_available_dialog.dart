@@ -47,11 +47,17 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
   double _progress = 0;
   String? _error;
 
+  /// Set when the download succeeded but Android would not open the installer
+  /// without "install unknown apps". The fix is a settings screen, not a
+  /// retry, so the dialog offers that instead.
+  bool _needsInstallPermission = false;
+
   Future<void> _download() async {
     setState(() {
       _downloading = true;
       _progress = 0;
       _error = null;
+      _needsInstallPermission = false;
     });
 
     try {
@@ -63,12 +69,33 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
       );
       // The installer is now in front of the user; this dialog has done its job.
       if (mounted && !widget.release.mandatory) Navigator.of(context).pop();
+    } on InstallPermissionException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _downloading = false;
+        _needsInstallPermission = true;
+        _error = e.toString();
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _downloading = false;
         _error = e.toString().replaceAll('Exception: ', '');
       });
+    }
+  }
+
+  /// Sends the user to Android's "install unknown apps" screen, then — if they
+  /// granted it — carries straight on rather than making them start again.
+  Future<void> _grantInstallPermission() async {
+    final granted = await AppVersionService().requestInstallPermission();
+    if (!mounted) return;
+    if (granted) {
+      await _download();
+    } else {
+      setState(() => _error =
+          'Permission is still off. Turn on "Allow from this source" to '
+          'install the update.');
     }
   }
 
@@ -124,6 +151,14 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
               Text(_error!,
                   style: TextStyle(fontSize: 12, color: Colors.red[700])),
             ],
+            if (_needsInstallPermission) ...[
+              const SizedBox(height: 4),
+              const Text(
+                'Android will open its settings. Turn on "Allow from this '
+                'source", then come back.',
+                style: TextStyle(fontSize: 11.5, color: Colors.black54),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -132,10 +167,16 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Later'),
             ),
-          ElevatedButton(
-            onPressed: _downloading ? null : _download,
-            child: Text(_error != null ? 'Try again' : 'Download'),
-          ),
+          if (_needsInstallPermission)
+            ElevatedButton(
+              onPressed: _downloading ? null : _grantInstallPermission,
+              child: const Text('Open settings'),
+            )
+          else
+            ElevatedButton(
+              onPressed: _downloading ? null : _download,
+              child: Text(_error != null ? 'Try again' : 'Download'),
+            ),
         ],
       ),
     );

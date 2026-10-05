@@ -1,9 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Thrown when Android will not let the app open the installer because
+/// "install unknown apps" has not been granted to it yet.
+class InstallPermissionException implements Exception {
+  const InstallPermissionException();
+  @override
+  String toString() =>
+      'FileTrack Hub needs permission to install apps before the update can '
+      'be opened.';
+}
 
 /// The release currently published, as recorded in Supabase.
 class AppRelease {
@@ -142,10 +153,27 @@ class AppVersionService {
           'It needs to be a direct download link.');
     }
 
+    // Android refuses to open an APK unless this app is allowed to install
+    // one. Check before handing over, so the failure is a clear prompt rather
+    // than an installer that declines for no stated reason.
+    if (!await Permission.requestInstallPackages.isGranted) {
+      throw const InstallPermissionException();
+    }
+
     final result = await OpenFile.open(savePath);
+    if (result.type == ResultType.permissionDenied) {
+      throw const InstallPermissionException();
+    }
     if (result.type != ResultType.done) {
       throw Exception(result.message);
     }
+  }
+
+  /// Opens Android's "install unknown apps" screen for this app. Returns
+  /// whether permission was granted by the time the user came back.
+  Future<bool> requestInstallPermission() async {
+    final status = await Permission.requestInstallPackages.request();
+    return status.isGranted;
   }
 
   /// Compares dotted version names ("2.9.0" > "2.8.3"), padding the shorter
