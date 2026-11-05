@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/document.dart';
 import '../services/cached_document_service.dart';
-import '../services/upload_queue_manager.dart';
+import '../services/google_drive_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
@@ -20,12 +20,20 @@ int? documentYear(Document doc) {
   return int.tryParse(parts[2].trim());
 }
 
+enum _UploadState { idle, uploading, done, failed }
+
 class _BulkItem {
   final String fileName; // original name, with extension
   final String path; // local path (or web key)
   final int size;
   final TextEditingController numberController; // reso/ordinance number (defaults to file name)
   String? spType; // SP Resolution / SP Ordinance (SP Documents only)
+
+  _UploadState state = _UploadState.idle;
+  String? error;
+  // Kept after a successful Drive upload so a retry never uploads the file twice
+  String? uploadedUrl;
+  String? uploadedFileName;
 
   _BulkItem({required this.fileName, required this.path, required this.size, required String number, this.spType})
       : numberController = TextEditingController(text: number);
@@ -240,10 +248,9 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
   String _codeFor(_BulkItem item) {
     final number = item.numberController.text.trim().replaceAll(RegExp(r'\s+'), '-');
     if (!_isSp) return 'RES-$number';
+    // Bulk codes carry no date suffix — the file name is the identifier
     final prefix = typeMapping[item.spType] ?? 'SPRES';
-    final d = _selectedDate!;
-    final dateStr = '${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}${d.year.toString().substring(2)}';
-    return '$prefix-$number-$dateStr';
+    return '$prefix-$number';
   }
 
   /// Returns a problem description for the item, or null if it can be saved.
@@ -281,55 +288,101 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
       return;
     }
 
+    // Files are uploaded here, before leaving the screen, rather than handed to
+    // the background queue — so every record has its file when the list opens.
+    if (!await CachedDocumentService().isOnline) {
+      if (mounted) SnackbarUtils.showErrorSnackBar(context, 'Bulk upload needs an internet connection');
+      return;
+    }
+    if (!mounted) return;
+
     setState(() {
       _isSaving = true;
       _savedCount = 0;
     });
     final navigator = Navigator.of(context);
     final dateStr = '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}';
+    final folder = _isSp ? DriveFolder.spDocuments : DriveFolder.resolutions;
     final failed = <_BulkItem>[];
+    int pendingSync = 0;
 
     for (final item in List<_BulkItem>.from(_items)) {
       final code = _codeFor(item);
       final number = item.numberController.text.trim();
       final type = _isSp ? item.spType! : typeText;
-      final webBytes = _webFileBytes[item.path];
-      UploadQueueManager().addToQueue(documentCode: code, filePath: item.path, isImage: item.isImage, localPath: item.path, bytes: webBytes);
-      final doc = Document(
-        code: code,
-        title: number,
-        description: _isSp ? null : number,
-        type: type,
-        fromOrTo: dateStr,
-        mode: _mode,
-        assignedTo: _person,
-        filePath: null,
-        remarks: remarksController.text.trim(),
-        person: _person,
-        incoming: false,
-        status: 'Completed',
-        imageUrls: [],
-        fileUrls: [],
-        localImagePaths: item.isImage ? [item.path] : [],
-        localFilePaths: item.isImage ? [] : [item.path],
-        category: type,
-        createdAt: getPhilippineTime(),
-      );
+      setState(() {
+        item.state = _UploadState.uploading;
+        item.error = null;
+      });
       try {
-        await CachedDocumentService().createDocument(doc);
+        if (item.uploadedUrl == null) {
+          // Same naming the background queue uses
+          final baseName = '${code}_${DateTime.now().millisecondsSinceEpoch}';
+          final fileName = '$baseName.${item.extension}';
+          final String? url;
+          if (kIsWeb) {
+            url = await GoogleDriveService.uploadFileFromBytes(_webFileBytes[item.path]!, fileName, folder: folder);
+          } else if (item.isImage) {
+            url = await GoogleDriveService.uploadImageToDrive(File(item.path), baseName, folder: folder);
+          } else {
+            url = await GoogleDriveService.uploadFileToDrive(File(item.path), fileName, folder: folder);
+          }
+          if (url == null) throw Exception('Drive returned no link');
+          item.uploadedUrl = url;
+          item.uploadedFileName = fileName;
+        }
+        final url = item.uploadedUrl!;
+        final doc = Document(
+          code: code,
+          title: number,
+          description: _isSp ? null : number,
+          type: type,
+          fromOrTo: dateStr,
+          mode: _mode,
+          assignedTo: _person,
+          filePath: null,
+          remarks: remarksController.text.trim(),
+          person: _person,
+          incoming: false,
+          status: 'Completed',
+          imageUrls: item.isImage ? [url] : [],
+          fileUrls: item.isImage ? [] : [url],
+          fileNames: [item.uploadedFileName!],
+          attachmentUploaders: {Document.attachmentKey(url): _person},
+          localImagePaths: [],
+          localFilePaths: [],
+          category: type,
+          createdAt: getPhilippineTime(),
+        );
+        final saved = await CachedDocumentService().createDocument(doc);
+        if (saved.needsSync) pendingSync++;
         _existingCodes.add(code);
-        if (mounted) setState(() => _savedCount++);
-      } catch (_) {
-        UploadQueueManager().removeFromQueue(code, item.path);
+        if (mounted) {
+          setState(() {
+            item.state = _UploadState.done;
+            _savedCount++;
+          });
+        }
+      } catch (e) {
         failed.add(item);
+        if (mounted) {
+          setState(() {
+            item.state = _UploadState.failed;
+            item.error = e.toString().replaceFirst('Exception: ', '');
+          });
+        }
       }
     }
 
-    CachedDocumentService().processPendingUploads();
     if (!mounted) return;
 
     if (failed.isEmpty) {
-      SnackbarUtils.showSuccessSnackBar(context, '$_savedCount record(s) saved — uploading files in background');
+      SnackbarUtils.showSuccessSnackBar(
+        context,
+        pendingSync == 0
+            ? '$_savedCount record(s) uploaded'
+            : '$_savedCount record(s) uploaded — $pendingSync will finish syncing when the connection improves',
+      );
       navigator.pop(true);
       return;
     }
@@ -341,7 +394,7 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
       }
       _isSaving = false;
     });
-    SnackbarUtils.showErrorSnackBar(context, '${failed.length} file(s) failed to save. Saved: $_savedCount');
+    SnackbarUtils.showErrorSnackBar(context, '${failed.length} file(s) failed to upload. Uploaded: $_savedCount. Tap Save to retry.');
   }
 
   Future<bool> _confirmExit() async {
@@ -471,6 +524,12 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
           Icon(isPdf ? Icons.picture_as_pdf : Icons.image_outlined, size: 18, color: isPdf ? Colors.red.shade400 : Colors.blue.shade400),
           const SizedBox(width: 6),
           Expanded(child: Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey.shade700))),
+          if (item.state == _UploadState.uploading)
+            const Padding(padding: EdgeInsets.only(right: 6), child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)))
+          else if (item.state == _UploadState.done)
+            const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.check_circle, size: 16, color: Colors.green))
+          else if (item.state == _UploadState.failed)
+            const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.error, size: 16, color: Colors.red)),
           Text(_formatSize(item.size), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
@@ -510,6 +569,14 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
             ),
           ],
         ]),
+        if (item.state == _UploadState.failed && item.error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              item.uploadedUrl != null ? 'File is in Drive but the record failed to save: ${item.error}' : 'Upload failed: ${item.error}',
+              style: const TextStyle(fontSize: 12, color: Colors.red),
+            ),
+          ),
       ]),
     );
   }
@@ -594,7 +661,12 @@ class _BulkUploadScreenState extends State<BulkUploadScreen> {
                   ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                       const SizedBox(width: 12),
-                      Text('Saving $_savedCount / ${_items.length}...'),
+                      Flexible(
+                        child: Text(
+                          'Uploading ${(_items.where((i) => i.state == _UploadState.done || i.state == _UploadState.failed).length + 1).clamp(1, _items.length)} of ${_items.length} — keep this screen open',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ])
                   : Text(
                       _items.isEmpty ? 'Save Records' : 'Save ${_items.length} Record(s) to ${_selectedYear ?? ''}',

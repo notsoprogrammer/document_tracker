@@ -11,6 +11,8 @@ class UploadQueueManager extends ChangeNotifier {
   final List<Map<String, dynamic>> _uploadQueue = [];
   // Persistent bytes cache for web files — survives queue-item status changes
   final Map<String, List<int>> _webBytesCache = {};
+  // Files that reached Drive this session, so recovery never queues them again
+  final Set<String> _completedKeys = {};
   bool _isProcessing = false;
   bool _isInitialized = false;
 
@@ -180,6 +182,10 @@ class UploadQueueManager extends ChangeNotifier {
   List<int>? getBytesForFile(String documentCode, String filePath) {
     return _webBytesCache['$documentCode:$filePath'];
   }
+
+  /// Whether this file was uploaded to Drive earlier in this session.
+  bool wasCompleted(String documentCode, String filePath) =>
+      _completedKeys.contains('$documentCode:$filePath');
 
   /// Re-key all queue entries from [oldCode] to [newCode] (e.g. when '-' placeholder is replaced by the real code)
   void updateDocumentCode(String oldCode, String newCode) async {
@@ -401,6 +407,7 @@ class UploadQueueManager extends ChangeNotifier {
       _uploadQueue[index]['status'] = 'completed';
       _uploadQueue.removeAt(index);
       _webBytesCache.remove('$documentCode:$filePath');
+      _completedKeys.add('$documentCode:$filePath');
 
       // Remove from SQLite persistence
       if (!kIsWeb) {

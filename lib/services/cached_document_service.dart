@@ -669,6 +669,8 @@ class CachedDocumentService {
           ...doc.localFilePaths.map((p) => (path: p, isImage: false)),
         ]) {
           if (queuedPaths.contains(entry.path)) continue;
+          // Already in Drive; the path is just a leftover on the row.
+          if (queueManager.wasCompleted(doc.code, entry.path)) continue;
           // Paths reach this device through the synced document row, so most
           // of them belong to somebody else's camera cache. Queueing one here
           // only produces failures the owning device will handle correctly.
@@ -706,9 +708,6 @@ class CachedDocumentService {
 
     final queueManager = UploadQueueManager();
 
-    // Recover any local paths in documents that are not yet in the queue
-    await _recoverStalledUploads();
-
     // Prevent concurrent processing
     if (!queueManager.startProcessing()) {
       UploadQueueManager.log('processPendingUploads: skipped — already processing');
@@ -716,6 +715,11 @@ class CachedDocumentService {
     }
 
     try {
+      // Recover any local paths in documents that are not yet in the queue.
+      // Inside the lock: run alongside a pass that is mid-upload, it could
+      // re-queue a file that pass had just finished.
+      await _recoverStalledUploads();
+
       // Reclaim anything the app abandoned mid-request — otherwise it sits in
       // 'uploading' forever and is never picked up again.
       queueManager.reclaimStuckUploads();
@@ -854,71 +858,80 @@ class CachedDocumentService {
             folder = DriveFolder.outgoing;
           }
 
-          String? driveUrl;
-          String uploadedFileName;
+          // Set when an earlier attempt got the file into Drive but failed to
+          // update the record. Retrying only the record update avoids putting
+          // a second copy of the file in Drive.
+          String? driveUrl = upload['uploadedUrl'] as String?;
+          String uploadedFileName = upload['uploadedFileName'] as String? ?? '';
 
-          UploadQueueManager.log('  [$shortPath] uploading to folder:${folder.name} isImage:$isImage');
+          if (driveUrl != null) {
+            UploadQueueManager.log('  [$shortPath] already in Drive — retrying record update only');
+          } else {
+            UploadQueueManager.log('  [$shortPath] uploading to folder:${folder.name} isImage:$isImage');
 
-          // Nothing this device can read: another device's cache path, or a
-          // blob URL that did not survive a reload. Retrying cannot help —
-          // without this it failed three times over with the bare
-          // "Unsupported operation: _Namespace" thrown by dart:io on web.
-          // Check if this is a web file with bytes (fall back to persistent cache)
-          final bytes = (upload['bytes'] as List<int>?) ??
-              queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
+            // Nothing this device can read: another device's cache path, or a
+            // blob URL that did not survive a reload. Retrying cannot help —
+            // without this it failed three times over with the bare
+            // "Unsupported operation: _Namespace" thrown by dart:io on web.
+            // Check if this is a web file with bytes (fall back to persistent cache)
+            final bytes = (upload['bytes'] as List<int>?) ??
+                queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
 
-          if (!await _isReadableHere(
-              upload['localPath']?.toString() ?? '', docCode,
-              bytes: bytes)) {
-            UploadQueueManager.log(
-                '  [$shortPath] SKIP — not readable on this device');
-            queueManager.removeFromQueue(docCode, upload['filePath']);
-            continue;
-          }
-          if (kIsWeb && bytes != null) {
-            // Web file with bytes. Compression now happens inside
-            // GoogleDriveService for every platform, so just hand over the bytes.
-            final extension = upload['localPath'].split('.').last.toLowerCase();
-            final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-
-            driveUrl = await GoogleDriveService.uploadFileFromBytes(
-              bytes,
-              docFileName,
-              folder: folder,
-            );
-            uploadedFileName = docFileName;
-          } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
-            // Regular file - use existing methods (only for non-web or non-web-prefixed files)
-            final file = File(upload['localPath']);
-            if (isImage) {
-              // For images, use the existing uploadImageToDrive method
-              driveUrl = await GoogleDriveService.uploadImageToDrive(
-                file,
-                fileName,
-                folder: folder,
-              );
-              // For images, the uploaded filename is fileName + extension
-              final extension = upload['localPath'].split('.').last.toLowerCase();
-              uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-            } else {
-              // For documents, use uploadFileToDrive method which handles file extensions properly
-              final file = File(upload['localPath']);
+            if (!await _isReadableHere(
+                upload['localPath']?.toString() ?? '', docCode,
+                bytes: bytes)) {
+              UploadQueueManager.log(
+                  '  [$shortPath] SKIP — not readable on this device');
+              queueManager.removeFromQueue(docCode, upload['filePath']);
+              continue;
+            }
+            if (kIsWeb && bytes != null) {
+              // Web file with bytes. Compression now happens inside
+              // GoogleDriveService for every platform, so just hand over the bytes.
               final extension = upload['localPath'].split('.').last.toLowerCase();
               final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
-              driveUrl = await GoogleDriveService.uploadFileToDrive(
-                file,
+
+              driveUrl = await GoogleDriveService.uploadFileFromBytes(
+                bytes,
                 docFileName,
                 folder: folder,
               );
               uploadedFileName = docFileName;
+            } else if (!kIsWeb || !upload['localPath'].startsWith('web_')) {
+              // Regular file - use existing methods (only for non-web or non-web-prefixed files)
+              final file = File(upload['localPath']);
+              if (isImage) {
+                // For images, use the existing uploadImageToDrive method
+                driveUrl = await GoogleDriveService.uploadImageToDrive(
+                  file,
+                  fileName,
+                  folder: folder,
+                );
+                // For images, the uploaded filename is fileName + extension
+                final extension = upload['localPath'].split('.').last.toLowerCase();
+                uploadedFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+              } else {
+                // For documents, use uploadFileToDrive method which handles file extensions properly
+                final file = File(upload['localPath']);
+                final extension = upload['localPath'].split('.').last.toLowerCase();
+                final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
+                driveUrl = await GoogleDriveService.uploadFileToDrive(
+                  file,
+                  docFileName,
+                  folder: folder,
+                );
+                uploadedFileName = docFileName;
+              }
+            } else {
+              UploadQueueManager.log('  [$shortPath] FAIL — web file with no bytes');
+              queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
+              continue;
             }
-          } else {
-            UploadQueueManager.log('  [$shortPath] FAIL — web file with no bytes');
-            queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
-            continue;
           }
 
           if (driveUrl != null) {
+            upload['uploadedUrl'] = driveUrl;
+            upload['uploadedFileName'] = uploadedFileName;
             UploadQueueManager.log('  [$shortPath] uploaded OK → $driveUrl');
             // Update document with the uploaded URL
             final documentCode = upload['documentCode'];
