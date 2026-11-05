@@ -18,6 +18,7 @@ import '../services/cached_document_service.dart';
 import '../services/auth_service.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
+import 'bulk_upload_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
@@ -49,6 +50,11 @@ class ResolutionsScreen extends StatefulWidget {
 
 class _ResolutionsScreenState extends State<ResolutionsScreen> {
   late List<Document> _filteredDocuments;
+  int? _selectedYear; // year folder; null = all years
+
+  List<int> get _yearFolders => _filteredDocuments.map(documentYear).whereType<int>().toSet().toList()..sort((a, b) => b.compareTo(a));
+
+  List<Document> get _visibleDocuments => _selectedYear == null ? _filteredDocuments : _filteredDocuments.where((d) => documentYear(d) == _selectedYear).toList();
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -282,6 +288,15 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
+            final choice = await _chooseAddMode(context);
+            if (choice == null || !mounted) return;
+            if (choice == 'bulk') {
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => BulkUploadScreen(target: BulkUploadTarget.resolutions, initialYear: _selectedYear)));
+              await _refreshDocuments();
+              if (widget.onRefresh != null) widget.onRefresh!();
+              return;
+            }
+
             await Navigator.push(
               context,
               MaterialPageRoute(
@@ -308,7 +323,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
               },
               onFilterTap: () => _showFilterDialog(context, setState),
               hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
-              resultCount: _filteredDocuments.length,
+              resultCount: _visibleDocuments.length,
               totalCount: widget.documents.where((d) => d.mode == 'Resolutions').length,
               hintText: 'Search by code, title, category...',
             ),
@@ -350,13 +365,14 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                 : Column(
                   children: [
                     UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
+                    _buildYearFolders(),
                     Expanded(
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                        itemCount: _filteredDocuments.length,
+                        itemCount: _visibleDocuments.length,
                         separatorBuilder: (_, _) => const Divider(height: 8, thickness: 1),
                         itemBuilder: (context, index) {
-                          final document = _filteredDocuments[index];
+                          final document = _visibleDocuments[index];
 
                           return Container(
                             color: document.needsSync ? Colors.yellow[100] : null,
@@ -524,7 +540,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                                                       CachedDocumentService(),
                                                     );
                                                     if (deleted && mounted) {
-                                                      setState(() => _filteredDocuments.removeAt(index));
+                                                      setState(() => _filteredDocuments.remove(document));
                                                       if (widget.onRefresh != null) widget.onRefresh!();
                                                     }
                                                   },
@@ -801,6 +817,44 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _chooseAddMode(BuildContext context) => showModalBottomSheet<String>(
+    context: context,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(leading: const Icon(Icons.note_add_outlined), title: const Text('Add Single Record'), onTap: () => Navigator.pop(context, 'single')),
+      ListTile(leading: const Icon(Icons.drive_folder_upload_outlined), title: const Text('Bulk Upload Files'), subtitle: const Text('File names are used as the number'), onTap: () => Navigator.pop(context, 'bulk')),
+    ])),
+  );
+
+  Widget _buildYearFolders() {
+    final years = _yearFolders;
+    if (years.isEmpty) return const SizedBox.shrink();
+    const color = _purple;
+    Widget chip(String label, int? year, int count) {
+      final selected = _selectedYear == year;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          avatar: Icon(selected ? Icons.folder_open : Icons.folder, size: 18, color: color),
+          label: Text('$label ($count)'),
+          selected: selected,
+          onSelected: (_) => setState(() { _selectedYear = year; _expandedTiles.clear(); }),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        children: [
+          chip('All', null, _filteredDocuments.length),
+          ...years.map((y) => chip('$y', y, _filteredDocuments.where((d) => documentYear(d) == y).length)),
         ],
       ),
     );

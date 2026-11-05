@@ -19,6 +19,7 @@ import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
+import 'bulk_upload_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
@@ -50,6 +51,11 @@ class SpDocumentsScreen extends StatefulWidget {
 
 class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
   late List<Document> _filteredDocuments;
+  int? _selectedYear; // year folder; null = all years
+
+  List<int> get _yearFolders => _filteredDocuments.map(documentYear).whereType<int>().toSet().toList()..sort((a, b) => b.compareTo(a));
+
+  List<Document> get _visibleDocuments => _selectedYear == null ? _filteredDocuments : _filteredDocuments.where((d) => documentYear(d) == _selectedYear).toList();
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -236,7 +242,16 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
     return ConnectivityBanner(
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
-          onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddSpDocumentsScreen())); await _refreshDocuments(); if (widget.onRefresh != null) widget.onRefresh!(); },
+          onPressed: () async {
+            final choice = await _chooseAddMode(context);
+            if (choice == null || !mounted) return;
+            if (choice == 'bulk') {
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => BulkUploadScreen(target: BulkUploadTarget.spDocuments, initialYear: _selectedYear)));
+              await _refreshDocuments();
+              if (widget.onRefresh != null) widget.onRefresh!();
+              return;
+            }
+ await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddSpDocumentsScreen())); await _refreshDocuments(); if (widget.onRefresh != null) widget.onRefresh!(); },
           backgroundColor: const Color(0xFF5C6BC0),
           child: const Icon(Icons.add),
         ),
@@ -254,7 +269,7 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
               },
               onFilterTap: () => _showFilterDialog(context, setState),
               hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
-              resultCount: _filteredDocuments.length,
+              resultCount: _visibleDocuments.length,
               totalCount: widget.documents.where((d) => d.mode == 'SP Documents').length,
             ),
           ),
@@ -270,13 +285,14 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                 : Column(
                     children: [
                       UploadStatusBanner(onAllUploadsComplete: widget.onRefresh),
+                      _buildYearFolders(),
                       Expanded(
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                          itemCount: _filteredDocuments.length,
+                          itemCount: _visibleDocuments.length,
                           separatorBuilder: (_, __) => const Divider(height: 8, thickness: 1),
                           itemBuilder: (context, index) {
-                            final document = _filteredDocuments[index];
+                            final document = _visibleDocuments[index];
                             return Container(
                               color: document.needsSync ? Colors.yellow[100] : null,
                               child: ExpansionTile(
@@ -342,7 +358,7 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
                                       const SizedBox(height: 16),
                                       Row(children: [Wrap(spacing: 2, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
                                         if (_username == document.person) ElevatedButton(onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EditDocumentScreen(document: document))).then((_) { if (widget.onRefresh != null) widget.onRefresh!(); }); }, style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 78, 127, 218), foregroundColor: Colors.white, minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.edit, size: 18)),
-                                        if (_username == document.person) ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 218, 87, 78), foregroundColor: Colors.white, minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), onPressed: () async { final deleted = await confirmAndDeleteRecord(context, document, CachedDocumentService()); if (deleted && mounted) { setState(() => _filteredDocuments.removeAt(index)); if (widget.onRefresh != null) widget.onRefresh!(); } }, child: const Icon(Icons.delete, size: 18)),
+                                        if (_username == document.person) ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 218, 87, 78), foregroundColor: Colors.white, minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), onPressed: () async { final deleted = await confirmAndDeleteRecord(context, document, CachedDocumentService()); if (deleted && mounted) { setState(() => _filteredDocuments.remove(document)); if (widget.onRefresh != null) widget.onRefresh!(); } }, child: const Icon(Icons.delete, size: 18)),
                                         if (document.imageUrls.isNotEmpty || document.localImagePaths.isNotEmpty) ElevatedButton(onPressed: () => _showImageDialog(context, document.imageUrls.isNotEmpty ? document.imageUrls : document.localImagePaths, documentCode: document.code), style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.image, size: 18)),
                                         if (document.filePath != null || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () { final allFiles = <String>[]; if (document.filePath != null) allFiles.add(document.filePath!); allFiles.addAll(document.fileUrls); if (allFiles.length == 1) _viewFile(allFiles[0], title: document.title ?? document.type, documentCode: document.code); else _showFileDialog(context, document); }, style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.attach_file, size: 18)),
                                         if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty) ElevatedButton(onPressed: () => _shareDocument(document), style: ElevatedButton.styleFrom(minimumSize: const Size(40, 36), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Icon(Icons.share, size: 18)),
@@ -438,6 +454,44 @@ class _SpDocumentsScreenState extends State<SpDocumentsScreen> {
     if (document.filePath != null) { allFiles.add(document.filePath!); allNames.add(document.fileName ?? document.filePath!.split('/').last.split('\\').last); }
     for (int i = 0; i < document.fileUrls.length; i++) { allFiles.add(document.fileUrls[i]); allNames.add(i < document.fileNames.length ? document.fileNames[i] : document.fileUrls[i].split('/').last.split('\\').last); }
     showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Select File to View'), content: SizedBox(width: double.maxFinite, child: ListView.builder(shrinkWrap: true, itemCount: allFiles.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.attach_file), title: Text(allNames[index]), onTap: () { Navigator.pop(context); _viewFile(allFiles[index], title: document.title ?? document.type, documentCode: document.code); }))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))]));
+  }
+
+  Future<String?> _chooseAddMode(BuildContext context) => showModalBottomSheet<String>(
+    context: context,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(leading: const Icon(Icons.note_add_outlined), title: const Text('Add Single Record'), onTap: () => Navigator.pop(context, 'single')),
+      ListTile(leading: const Icon(Icons.drive_folder_upload_outlined), title: const Text('Bulk Upload Files'), subtitle: const Text('File names are used as the number'), onTap: () => Navigator.pop(context, 'bulk')),
+    ])),
+  );
+
+  Widget _buildYearFolders() {
+    final years = _yearFolders;
+    if (years.isEmpty) return const SizedBox.shrink();
+    const color = const Color(0xFF5C6BC0);
+    Widget chip(String label, int? year, int count) {
+      final selected = _selectedYear == year;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          avatar: Icon(selected ? Icons.folder_open : Icons.folder, size: 18, color: color),
+          label: Text('$label ($count)'),
+          selected: selected,
+          onSelected: (_) => setState(() { _selectedYear = year; _expandedTiles.clear(); }),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        children: [
+          chip('All', null, _filteredDocuments.length),
+          ...years.map((y) => chip('$y', y, _filteredDocuments.where((d) => documentYear(d) == y).length)),
+        ],
+      ),
+    );
   }
 
   void _showFilterDialog(BuildContext context, StateSetter setState) {
