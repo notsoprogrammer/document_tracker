@@ -117,10 +117,6 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
               ? 'All uploads completed'
               : 'Preparing uploads...';
     });
-    if (_isSaving && pending.isEmpty && uploading.isEmpty) {
-      _isSaving = false;
-      if (mounted) Navigator.pop(context);
-    }
   }
 
   Future<bool> _onWillPop() async {
@@ -197,7 +193,7 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -253,7 +249,7 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
       setState(() => _isPickingImage = false);
       if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showErrorSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytes = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -345,23 +341,10 @@ class _EditFlagCeremonyScreenState extends State<EditFlagCeremonyScreen> {
         'local_file_paths': _selectedDocumentPaths,
       };
 
-      await CachedDocumentService().updateDocument(widget.document.code, updates);
-      await CachedDocumentService().processPendingUploads();
-      await Future.delayed(const Duration(seconds: 2));
-
-      final queueManager = UploadQueueManager();
-      final pending = queueManager.getPendingUploads(widget.document.code);
-      final uploading = queueManager.getAllItems()
-          .where((i) => i['documentCode'] == widget.document.code && i['status'] == 'uploading')
-          .toList();
-
-      if (pending.isNotEmpty || uploading.isNotEmpty) {
-        SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait.');
-        if (mounted) setState(() => _isSaving = false);
-        return;
-      }
-
-      await CachedDocumentService().syncSpecificDocument(widget.document.code);
+      final svc = CachedDocumentService();
+      await svc.updateDocument(widget.document.code, updates);
+      svc.processPendingUploads();
+      svc.syncSpecificDocument(widget.document.code);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       SnackbarUtils.showErrorSnackBar(context, 'Failed to update record: $e');

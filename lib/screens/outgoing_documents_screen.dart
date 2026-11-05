@@ -17,6 +17,7 @@ import '../services/upload_queue_manager.dart';
 import '../widgets/upload_status_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/cabinet_service.dart';
 import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/date_time_utils.dart';
@@ -27,7 +28,14 @@ import 'add_document_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
+import '../widgets/skeleton_loader.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
 import '../widgets/document_filter_dialog.dart';
+import '../widgets/add_attachment_button.dart';
+import '../utils/document_filters.dart';
+import '../widgets/change_folder_button.dart';
+import '../widgets/filed_in_row.dart';
 
 class OutgoingDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -59,13 +67,11 @@ class OutgoingDocumentsScreen extends StatefulWidget {
 }
 
 class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
-  static const _ownScreenModes = {
-    'Flag Ceremony', 'Office Function MOVs',
-    'Locational & Zoning', 'SP Documents', 'Reclassification', 'CDC Documents',
-    'Resolutions',
-  };
-
   late List<Document> _filteredDocuments;
+  /// Authoritative document list for this screen. Seeded from the parent,
+  /// then owned and refreshed locally so the screen never depends on whether
+  /// the parent had finished loading when it was pushed.
+  late List<Document> _allDocuments;
   bool _isLoading = true;
   late UploadQueueManager _uploadQueueManager;
   final List<String> cpdcoStaff = [
@@ -136,8 +142,11 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
   void initState() {
     super.initState();
     _searchController.text = _searchQuery;
-    _filteredDocuments = widget.documents
-        .where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode))
+    // Seed from the parent's snapshot so cached data renders instantly, then
+    // _performInitialLoad() replaces it with the authoritative list.
+    _allDocuments = List<Document>.from(widget.documents);
+    _filteredDocuments = _allDocuments
+        .where((doc) => isOutgoingDocument(doc))
         .toList();
     _filteredDocuments.sort((a, b) {
       final aDate = a.history.isNotEmpty ? a.history.last.timestamp : (a.createdAt ?? DateTime(1900));
@@ -153,15 +162,9 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     }
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
-    // Simulate loading for better UX - keep it longer to show the indicator
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      _triggerPendingUploads();
-    });
+    // Only show the skeleton if the parent gave us nothing to render.
+    _isLoading = _filteredDocuments.isEmpty;
+    _performInitialLoad();
     _loadUsername();
     _subscribeToDocumentChanges();
   }
@@ -229,15 +232,16 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
       setState(() {
         // Clear expanded tiles when list updates to avoid index issues
         _expandedTiles.clear();
-        _updateFilteredDocuments();
+        _allDocuments = List<Document>.from(widget.documents);
       });
+      _updateFilteredDocuments();
     }
   }
 
   void _updateFilteredDocuments() {
     setState(() {
       _filteredDocuments = searchAndFilterDocuments(
-        widget.documents.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
+        _allDocuments.where((doc) => isOutgoingDocument(doc)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -246,13 +250,67 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     });
   }
 
+  /// Fetch the real list. The parent passes a snapshot of its own state, which
+  /// is still empty if the user opened this screen before the home screen
+  /// finished loading — that's what produced "0 documents" on a folder that
+  /// actually had some. Clearing the flag is tied to the fetch, not a timer.
+  Future<void> _performInitialLoad() async {
+    try {
+      await _refreshDocuments();
+    } catch (e) {
+      // Fall back to whatever the parent handed us.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    _triggerPendingUploads();
+  }
+
+  /// Persist an updated notes thread for [doc] and refresh so the change
+  /// shows immediately.
+  /// Swap [next] in wherever the old revision of that document is held.
+  void _replaceDocument(Document next) {
+    for (var i = 0; i < _allDocuments.length; i++) {
+      if (_allDocuments[i].code == next.code) _allDocuments[i] = next;
+    }
+    for (var i = 0; i < _filteredDocuments.length; i++) {
+      if (_filteredDocuments[i].code == next.code) _filteredDocuments[i] = next;
+    }
+  }
+
+  /// Persist a notes thread.
+  ///
+  /// Applied to the in-memory document first so the new remark appears
+  /// instantly, then written through. Re-fetching every document just to show
+  /// one new remark meant wiping and rebuilding the whole local cache — slow
+  /// enough that the remark looked like it hadn't saved.
+  Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    final previous = doc;
+    setState(() => _replaceDocument(doc.copyWith(remarksList: updated)));
+
+    try {
+      await CachedDocumentService().updateDocument(
+        doc.code,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      widget.onRefresh?.call();
+    } catch (e) {
+      debugPrint('NotesThread save failed for ${doc.code}: $e');
+      if (mounted) {
+        // Put the old thread back so the UI never claims a save that failed.
+        setState(() => _replaceDocument(previous));
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark: $e');
+      }
+    }
+  }
+
   Future<void> _refreshDocuments() async {
     final allDocs = await CachedDocumentService().fetchDocuments();
     if (!mounted) return;
     setState(() {
       _expandedTiles.clear();
+      _allDocuments = allDocs;
       _filteredDocuments = searchAndFilterDocuments(
-        allDocs.where((doc) => (doc.flowStage == 'outgoing' || doc.flowStage == 'circulated') && !_ownScreenModes.contains(doc.mode)).toList(),
+        allDocs.where((doc) => isOutgoingDocument(doc)).toList(),
         searchQuery: _searchQuery,
         startDate: _startDate,
         endDate: _endDate,
@@ -374,6 +432,130 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     )..layout(maxWidth: maxWidth);
     return textPainter.didExceedMaxLines;
   }
+  Future<void> _showLocationUpdateDialog(int idx) async {
+    final doc = _filteredDocuments[idx];
+    final cabinetNames = await CabinetService().fetchCabinetNames();
+    if (!mounted) return;
+    String? selected = doc.cabinetLocation;
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Update Location"),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              cabinetNames.isEmpty
+                  ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+                  : DropdownButtonFormField<String>(
+                      key: ValueKey(selected),
+                      initialValue: selected,
+                      decoration: InputDecoration(
+                        labelText: "Cabinet Location",
+                        prefixIcon: const Icon(Icons.inventory_2_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                        ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                      ],
+                      onChanged: (v) => setDialogState(() => selected = v),
+                    ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: folderController,
+                decoration: InputDecoration(
+                  labelText: "Folder / Details",
+                  prefixIcon: const Icon(Icons.folder_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected, 'folder_title': folderValue});
+                if (mounted) setState(() {
+                  _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected);
+                  _filteredDocuments[idx].folderTitle = folderValue;
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHeldByDialog(int idx) async {
+    if (!mounted) return;
+    final doc = _filteredDocuments[idx];
+    final heldByController = TextEditingController(text: doc.heldBy ?? '');
+    final folderController = TextEditingController(text: doc.heldByFolder ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.person_pin_outlined, color: Theme.of(ctx).colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text("Update Holder & Folder"),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: heldByController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Held by",
+                prefixIcon: const Icon(Icons.person_pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "Enter person's name",
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: folderController,
+              decoration: InputDecoration(
+                labelText: "Folder / Details",
+                prefixIcon: const Icon(Icons.folder_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
+              final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'held_by_folder': folderValue});
+              if (mounted) setState(() {
+                _filteredDocuments[idx].heldBy = heldByValue;
+                _filteredDocuments[idx].heldByFolder = folderValue;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showImageDialog(BuildContext context, Document document) {
     if (_username != null && _username!.isNotEmpty) {
       AttachmentViewService.recordView(
@@ -666,7 +848,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
     String? selectedStatus;
     final updatedByController = TextEditingController();
     final officeController = TextEditingController(
-      text: widget.documents[index].fromOrTo,
+      text: _allDocuments[index].fromOrTo,
     );
     final forwardedToController = TextEditingController();
     final notesController = TextEditingController();
@@ -978,27 +1160,19 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
             onFilterTap: () => _showFilterDialog(context),
             hasActiveFilter: _startDate != null || _endDate != null || _specificDate != null,
             resultCount: _filteredDocuments.length,
-            totalCount: widget.documents.where((d) => (d.flowStage == 'outgoing' || d.flowStage == 'circulated') && !_ownScreenModes.contains(d.mode)).length,
+            totalCount: _allDocuments.where(isOutgoingDocument).length,
           ),
         ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          CachedDocumentService.invalidateCache();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }
         },
         child: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading documents...', style: TextStyle(fontSize: 16)),
-                  ],
-                ),
-              )
+            ? const DocumentListSkeleton()
             : _filteredDocuments.isEmpty
             ? Center(
                 child: Column(
@@ -1040,7 +1214,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                     separatorBuilder: (_, __) => const Divider(height: 8, thickness: 1),
                     itemBuilder: (context, index) {
                       final doc = _filteredDocuments[index];
-                      final originalIndex = widget.documents.indexOf(doc);
+                      final originalIndex = _allDocuments.indexOf(doc);
                 return Container(
                   color: doc.needsSync ? Colors.yellow[100] : null,
                   child: ExpansionTile(
@@ -1173,20 +1347,20 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                                   onDocumentMoved: () async {
                                                     if (_username != null && _username!.isNotEmpty) {
                                                       // Move the document to incoming
-                                                      widget.documents[originalIndex].flowStage = 'incoming';
+                                                      _allDocuments[originalIndex].flowStage = 'incoming';
                                                        _updateFilteredDocuments();
                                                       final documentService = CachedDocumentService();
-                                                      await documentService.updateDocument(widget.documents[originalIndex].code, {'flow_stage': widget.documents[originalIndex].flowStage});
+                                                      await documentService.updateDocument(_allDocuments[originalIndex].code, {'flow_stage': _allDocuments[originalIndex].flowStage});
                                                       // Add history entry before sync
                                                       final historyEntry = HistoryEntry(
                                                         action: 'Moved to Incoming',
                                                         person: _username!,
                                                         timestamp: getPhilippineTime(),
                                                       );
-                                                      await documentService.addHistoryEntry(widget.documents[originalIndex].code, historyEntry);
+                                                      await documentService.addHistoryEntry(_allDocuments[originalIndex].code, historyEntry);
                                                       // Update local document history for immediate UI update
-                                                      widget.documents[originalIndex].history.add(historyEntry);
-                                                      await CachedDocumentService().updateDocument(widget.documents[originalIndex].code, {'needs_sync': true});
+                                                      _allDocuments[originalIndex].history.add(historyEntry);
+                                                      await CachedDocumentService().updateDocument(_allDocuments[originalIndex].code, {'needs_sync': true});
                                                       // Automatically sync all documents (after history is added)
                                                       await widget.syncAllDocuments();
                                                       // Force UI refresh to show updated history
@@ -1225,7 +1399,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   const SizedBox(height: 8),
                                   _buildDetailRow(Icons.person, "To", doc.fromOrTo),
                                   const SizedBox(height: 8),
-                                  _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                  FiledInRow(document: doc, onEditLocation: () => _showLocationUpdateDialog(index), onEditHolder: () => _showHeldByDialog(index)),
                                   const SizedBox(height: 8),
                                   _buildDetailRow(
                                     Icons.assignment_ind,
@@ -1257,44 +1431,13 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                   ],
 
                                   const SizedBox(height: 8),
-                                  if (doc.remarksList.isNotEmpty) ...[
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.comment, size: 20, color: Theme.of(context).colorScheme.primary),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                "Remarks",
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              ...doc.remarksList.map((remark) => Padding(
-                                                padding: const EdgeInsets.only(bottom: 4),
-                                                child: Text(
-                                                  remark,
-                                                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                                                ),
-                                              )),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ] else ...[
-                                    _buildDetailRow(
-                                      Icons.comment,
-                                      "Remarks",
-                                      doc.remarks,
-                                    ),
-                                  ],
+                                  // Append-only notes thread: anyone can add a
+                                  // remark without editing someone else's.
+                                  NotesThread(
+                                    notes: doc.remarksList,
+                                    currentUsername: _username,
+                                    onChanged: (updated) => _saveNotes(doc, updated),
+                                  ),
                                   if (doc.referenceLink != null && doc.referenceLink!.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       GestureDetector(
@@ -1646,6 +1789,7 @@ class _OutgoingDocumentsScreenState extends State<OutgoingDocumentsScreen> {
                                         ],
                                       ),
                                       const Spacer(),
+                                        ChangeFolderButton(document: doc, onChanged: () { _refreshDocuments(); widget.onRefresh?.call(); }), AddAttachmentButton(document: doc),
                                       if (doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

@@ -48,11 +48,40 @@ class SupabaseService {
     }
   }
 
+  /// Columns that describe one device's own state. They mean nothing anywhere
+  /// else, so they must never leave the device.
+  ///
+  /// `local_*_paths`: synced, every other phone and the browser received file
+  /// paths they could not read and tried to upload them.
+  ///
+  /// `needs_sync`: set while a document is waiting to reach Supabase. Sending
+  /// it meant the flag was stored server-side still true, came back down on
+  /// the next fetch, and made every device believe the document was unsynced
+  /// forever — so each one kept re-inserting an already-present row and got
+  /// 409 Conflict.
+  static const _deviceLocalColumns = [
+    'local_image_paths',
+    'local_file_paths',
+    'needs_sync',
+  ];
+
+  Map<String, dynamic> _withoutDeviceLocal(Map<String, dynamic> data) {
+    final copy = Map<String, dynamic>.from(data);
+    for (final column in _deviceLocalColumns) {
+      copy.remove(column);
+    }
+    return copy;
+  }
+
   Future<Document> createDocument(Document document) async {
     final docData = document.toJson();
     docData.remove('history');
 
-    final response = await _client.from('documents').insert(docData).select().single();
+    final response = await _client
+        .from('documents')
+        .insert(_withoutDeviceLocal(docData))
+        .select()
+        .single();
 
     // Create initial history entry in history_entries table (skip for flag ceremony)
     if (document.history.isNotEmpty && document.mode != 'Flag Ceremony') {
@@ -79,7 +108,10 @@ class SupabaseService {
     final isComplianceUpdate = updates.containsKey('compliance_deadline') || updates.containsKey('compliance_assignee');
 
     // Update the document
-    await _client.from('documents').update(updates).eq('code', documentCode);
+    await _client
+        .from('documents')
+        .update(_withoutDeviceLocal(updates))
+        .eq('code', documentCode);
 
     // If compliance fields updated and status is For Compliance, update notifications
     if (isComplianceUpdate && currentDoc.status == 'For Compliance') {

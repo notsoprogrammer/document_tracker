@@ -84,6 +84,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
   @override
   void initState() {
     super.initState();
+    selectedDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode();
     _setupUploadListener();
     _loadUsername();
@@ -186,7 +187,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -252,7 +253,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
         return;
       }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) {
         if (!mounted) return;
         setState(() => _isPickingImage = false);
@@ -597,6 +598,7 @@ class _AddFlagCeremonyScreenState extends State<AddFlagCeremonyScreen> {
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                               errorText: _showValidationErrors && selectedDate == null ? "Ceremony date is required" : null,
+                              helperText: 'Auto-set to today – tap to change if needed',
                               suffixIcon: const Icon(Icons.calendar_today),
                             ),
                             child: Text(

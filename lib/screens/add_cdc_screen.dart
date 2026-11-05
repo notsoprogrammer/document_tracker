@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddCdcScreen extends StatefulWidget {
   const AddCdcScreen({super.key});
@@ -36,6 +37,9 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
+  final folderTitleController = TextEditingController();
 
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
@@ -51,6 +55,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
   int _completedUploads = 0;
   String _uploadStatus = '';
 
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -117,6 +122,9 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
     referenceLinkController.dispose();
     remarksController.dispose();
     personController.dispose();
+    heldByController.dispose();
+    heldByFolderController.dispose();
+    folderTitleController.dispose();
     super.dispose();
   }
 
@@ -182,7 +190,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
     final int count = _selectedImagePaths.where(_isImage).length;
     if (count >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
     final rawBytes = await image.readAsBytes();
     final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -212,7 +220,7 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
       setState(() => _isPickingImage = false);
       if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytes = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -668,6 +676,52 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: folderTitleController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Folder / Details (optional)',
+                            hintText: 'e.g. Blue folder, Top drawer, Binder 2024',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Held by (optional)',
+                            hintText: 'Person currently holding this document',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                       ],
                     ),
@@ -697,6 +751,10 @@ class _AddCdcScreenState extends State<AddCdcScreen> {
                         remarks: remarks,
                         person: person,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
+                        folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                        heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

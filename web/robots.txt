@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+Allow: /privacy.html
+
+Sitemap: https://docu-tracker-ac4ea.web.app/sitemap.xml

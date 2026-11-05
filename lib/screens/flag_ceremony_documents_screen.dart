@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../widgets/scrollable_image_viewer.dart';
 import '../models/document.dart';
+import '../utils/document_search.dart';
 import '../services/upload_queue_manager.dart';
 import '../widgets/upload_status_banner.dart';
 import '../utils/snackbar_utils.dart';
@@ -21,6 +22,7 @@ import './edit_flag_ceremony_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../services/auth_service.dart';
 import '../services/attachment_view_service.dart';
+import '../widgets/skeleton_loader.dart';
 
 class FlagCeremonyDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -183,15 +185,10 @@ class _FlagCeremonyDocumentsScreenState
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _subscribeToDocumentChanges();
-    // Simulate loading for better UX
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      _triggerPendingUploads();
-    });
+    // Load from the authoritative store rather than trusting the snapshot
+    // the parent passed in — that list may still be empty if the user opened
+    // this screen before the home screen finished loading.
+    _performInitialLoad();
   }
 
   void _onUploadChanged() {
@@ -246,14 +243,7 @@ class _FlagCeremonyDocumentsScreenState
         if (doc.mode != 'Flag Ceremony') return false;
 
         // Search filter
-        bool matchesSearch =
-            _searchQuery.isEmpty ||
-            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.status.toLowerCase().contains(_searchQuery.toLowerCase());
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
 
         // Date filter
         bool matchesDate = true;
@@ -273,20 +263,26 @@ class _FlagCeremonyDocumentsScreenState
     });
   }
 
+  /// Initial load. Clears the loading flag only once real data has arrived
+  /// (or the fetch failed), never on a fixed timer.
+  Future<void> _performInitialLoad() async {
+    try {
+      await _refreshDocuments();
+    } catch (e) {
+      // Keep whatever the parent handed us rather than showing an empty list.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    _triggerPendingUploads();
+  }
+
   Future<void> _refreshDocuments() async {
     final allDocs = await CachedDocumentService().fetchDocuments();
     if (!mounted) return;
     setState(() {
       _filteredDocuments = allDocs.where((doc) {
         if (doc.mode != 'Flag Ceremony') return false;
-        bool matchesSearch =
-            _searchQuery.isEmpty ||
-            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.status.toLowerCase().contains(_searchQuery.toLowerCase());
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
           final docDate = _parseDate(doc.fromOrTo);
@@ -356,6 +352,7 @@ class _FlagCeremonyDocumentsScreenState
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          CachedDocumentService.invalidateCache();
           if (widget.onRefresh != null) {
             widget.onRefresh!();
           }
@@ -372,19 +369,7 @@ class _FlagCeremonyDocumentsScreenState
             ),
           ),
           child: _isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Loading documents...',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                )
+              ? const DocumentListSkeleton()
               : _filteredDocuments.isEmpty
               ? const Center(
                   child: Text(

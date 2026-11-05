@@ -131,14 +131,6 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
           ? 'All uploads completed'
           : 'Preparing uploads...';
     });
-
-    // If all uploads are done and we were saving, pop the screen
-    if (_isSaving && pendingUploads.isEmpty && uploadingUploads.isEmpty) {
-      _isSaving = false;
-      if (mounted) {
-        Navigator.pop(context, null); // Document was updated
-      }
-    }
   }
 
   Future<ImageSource?> _chooseWebScanSource() {
@@ -192,7 +184,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
     }
     setState(() => _isPickingImage = true);
 
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -252,7 +244,7 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
       final int currentImageCount = _selectedImagePaths.where(_isImage).length;
       if (currentImageCount >= 20) { SnackbarUtils.showErrorSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytes = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -705,11 +697,25 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                         String fileName = index < _currentFileNames.length ? _currentFileNames[index] : 'Image ${index + 1}';
                                         String imageUrl = _currentImageUrls[index];
                                         String proxyUrl = GoogleDriveService.generateProxyUrl(imageUrl.contains('drive.google.com/uc?id=') ? Uri.parse(imageUrl).queryParameters['id'] ?? imageUrl : imageUrl);
+                                        final owner = widget.document.attachmentOwner(imageUrl);
+                                        final isMine = widget.document.canModifyAttachment(imageUrl, _currentUsername);
                                         return Column(
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(8.0),
                                               child: Text(fileName, style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(isMine ? Icons.person_outline : Icons.lock_outline,
+                                                    size: 12, color: Colors.grey[600]),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  isMine ? 'Added by you' : 'Added by $owner',
+                                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                                ),
+                                              ],
                                             ),
                                             Expanded(
                                               child: InteractiveViewer(
@@ -734,6 +740,15 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                         onPressed: () async {
                                           final currentIndex = pageController.page?.round() ?? 0;
                                           final fileName = currentIndex < _currentFileNames.length ? _currentFileNames[currentIndex] : 'Image ${currentIndex + 1}';
+                                          // Only the uploader may remove their own attachment
+                                          final url = _currentImageUrls[currentIndex];
+                                          if (!widget.document.canModifyAttachment(url, _currentUsername)) {
+                                            SnackbarUtils.showErrorSnackBar(
+                                              context,
+                                              'Only ${widget.document.attachmentOwner(url)} can remove this attachment',
+                                            );
+                                            return;
+                                          }
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (context) => AlertDialog(
@@ -746,7 +761,6 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                                             ),
                                           );
                                           if (confirm == true) {
-                                            final url = _currentImageUrls[currentIndex];
                                             setState(() {
                                               _currentImageUrls.removeAt(currentIndex);
                                               if (currentIndex < _currentFileNames.length) _currentFileNames.removeAt(currentIndex);
@@ -808,11 +822,23 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
                               itemBuilder: (context, index) {
                                 final url = _currentFileUrls[index];
                                 final fileName = (_currentFileNames.length > _currentImageUrls.length + index) ? _currentFileNames[_currentImageUrls.length + index] : 'Document ${index + 1}';
+                                final owner = widget.document.attachmentOwner(url);
+                                final isMine = widget.document.canModifyAttachment(url, _currentUsername);
                                 return ListTile(
                                   leading: Icon(Icons.attach_file),
                                   title: Text(fileName),
+                                  subtitle: Text(
+                                    isMine ? 'Added by you' : 'Added by $owner',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  ),
                                   onTap: () => _viewExistingFile(context, url),
-                                  trailing: IconButton(
+                                  // Only the uploader gets a remove button
+                                  trailing: !isMine
+                                      ? Tooltip(
+                                          message: 'Only $owner can remove this attachment',
+                                          child: Icon(Icons.lock_outline, size: 18, color: Colors.grey[400]),
+                                        )
+                                      : IconButton(
                                     icon: Icon(Icons.remove),
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
@@ -1117,52 +1143,25 @@ class _EditDocumentScreenState extends State<EditDocumentScreen> {
 
                       setState(() => _isSaving = true);
                       try {
-                        // Update document
-                        await CachedDocumentService().updateDocument(widget.document.code, updates);
-
-                        // Process pending uploads (files were already queued when selected)
                         final documentService = CachedDocumentService();
-                        await documentService.processPendingUploads();
+                        await documentService.updateDocument(widget.document.code, updates);
+                        documentService.processPendingUploads();
 
-                        // Wait a bit for uploads to complete and check status
-                        await Future.delayed(const Duration(seconds: 2));
-
-                        // Check if there are still any pending uploads for this document
-                        final queueManager = UploadQueueManager();
-                        final pendingUploads = queueManager.getPendingUploads(widget.document.code);
-                        final uploadingUploads = queueManager.getAllItems().where((item) =>
-                          item['documentCode'] == widget.document.code && item['status'] == 'uploading'
-                        ).toList();
-
-                        if (pendingUploads.isNotEmpty || uploadingUploads.isNotEmpty) {
-                          SnackbarUtils.showInfoSnackBar(context, 'Some files are still uploading. Please wait a moment.');
-                          return;
-                        }
-
-                        // Fetch the updated document to get the Google Drive file names
-                        final allDocs = await documentService.fetchDocuments();
-                        final updatedDoc = allDocs.firstWhere((doc) => doc.code == widget.document.code);
-                        final newAttachmentCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
-                        // Safety check to prevent negative start index
-                        final startIndex = updatedDoc.fileNames.length - newAttachmentCount;
-                        final googleDriveFileNames = startIndex >= 0 ? updatedDoc.fileNames.sublist(startIndex) : [];
-
-                        // Add history entry for edit
                         final username = await AuthService.getUsername();
                         if (username != null) {
+                          final newFileCount = _selectedImagePaths.length + _selectedDocumentPaths.length;
                           await documentService.addHistoryEntry(
                             widget.document.code,
                             HistoryEntry(
                               action: 'Document edited',
                               person: username,
                               timestamp: DateTime.now(),
-                              notes: googleDriveFileNames.isNotEmpty ? 'Added ${googleDriveFileNames.length} attachment(s): ${googleDriveFileNames.join(', ')}' : null,
+                              notes: newFileCount > 0 ? 'Added $newFileCount attachment(s)' : null,
                             ),
                           );
                         }
 
-                        // Sync the document
-                        await documentService.syncSpecificDocument(widget.document.code);
+                        documentService.syncSpecificDocument(widget.document.code);
 
                         if (mounted) {
                           Navigator.pop(context);

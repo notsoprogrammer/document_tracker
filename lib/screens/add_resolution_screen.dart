@@ -14,6 +14,7 @@ import '../services/upload_queue_manager.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddResolutionScreen extends StatefulWidget {
   const AddResolutionScreen({super.key});
@@ -30,6 +31,9 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
+  final folderTitleController = TextEditingController();
 
   DateTime? selectedDate;
   String _typeValue = '';
@@ -45,6 +49,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
   bool _isPickingFile = false;
   bool _isMergingPdf = false;
 
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -90,6 +95,9 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
     referenceLinkController.dispose();
     remarksController.dispose();
     personController.dispose();
+    heldByController.dispose();
+    heldByFolderController.dispose();
+    folderTitleController.dispose();
     super.dispose();
   }
 
@@ -180,7 +188,7 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -720,6 +728,52 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: folderTitleController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Folder / Details (optional)',
+                            hintText: 'e.g. Blue folder, Top drawer, Binder 2024',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Held by (optional)',
+                            hintText: 'Person currently holding this document',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -768,6 +822,10 @@ class _AddResolutionScreenState extends State<AddResolutionScreen> {
                             remarks: remarksController.text,
                             person: personController.text,
                             incoming: false,
+                            cabinetLocation: _selectedCabinet,
+                            folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                            heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                            heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                             status: 'Completed',
                             imageUrls: [],
                             fileUrls: [],

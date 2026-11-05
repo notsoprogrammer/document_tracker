@@ -5,7 +5,10 @@ import '../models/document.dart';
 import '../utils/search_filter_utils.dart';
 import '../services/upload_queue_manager.dart';
 import '../services/cached_document_service.dart';
+import '../services/cabinet_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/skeleton_loader.dart';
+import '../widgets/filed_in_row.dart';
 
 class CirculatedDocumentsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -212,6 +215,130 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
     return const SizedBox.shrink();
   }
 
+  Future<void> _showLocationUpdateDialog(int idx) async {
+    final doc = _filteredDocuments[idx];
+    final cabinetNames = await CabinetService().fetchCabinetNames();
+    if (!mounted) return;
+    String? selected = doc.cabinetLocation;
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Update Location"),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              cabinetNames.isEmpty
+                  ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+                  : DropdownButtonFormField<String>(
+                      key: ValueKey(selected),
+                      initialValue: selected,
+                      decoration: InputDecoration(
+                        labelText: "Cabinet Location",
+                        prefixIcon: const Icon(Icons.inventory_2_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                        ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                      ],
+                      onChanged: (v) => setDialogState(() => selected = v),
+                    ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: folderController,
+                decoration: InputDecoration(
+                  labelText: "Folder / Details",
+                  prefixIcon: const Icon(Icons.folder_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected, 'folder_title': folderValue});
+                if (mounted) setState(() {
+                  _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected);
+                  _filteredDocuments[idx].folderTitle = folderValue;
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHeldByDialog(int idx) async {
+    if (!mounted) return;
+    final doc = _filteredDocuments[idx];
+    final heldByController = TextEditingController(text: doc.heldBy ?? '');
+    final folderController = TextEditingController(text: doc.heldByFolder ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.person_pin_outlined, color: Theme.of(ctx).colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text("Update Holder & Folder"),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: heldByController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Held by",
+                prefixIcon: const Icon(Icons.person_pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "Enter person's name",
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: folderController,
+              decoration: InputDecoration(
+                labelText: "Folder / Details",
+                prefixIcon: const Icon(Icons.folder_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
+              final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'held_by_folder': folderValue});
+              if (mounted) setState(() {
+                _filteredDocuments[idx].heldBy = heldByValue;
+                _filteredDocuments[idx].heldByFolder = folderValue;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +377,7 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
         title: const Text("Circulated Documents"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const DocumentListSkeleton()
           : Column(
               children: [
                 Padding(
@@ -297,7 +424,7 @@ class _CirculatedDocumentsScreenState extends State<CirculatedDocumentsScreen> {
                                         const SizedBox(height: 8),
                                         _buildDetailRow(Icons.person, "From", doc.fromOrTo),
                                         const SizedBox(height: 8),
-                                        _buildDetailRow(Icons.send, "Mode", doc.mode),
+                                        FiledInRow(document: doc, onEditLocation: () => _showLocationUpdateDialog(index), onEditHolder: () => _showHeldByDialog(index)),
                                         const SizedBox(height: 8),
                                         _buildDetailRow(Icons.assignment_ind, "Assigned To", doc.assignedTo),
                                         const SizedBox(height: 8),

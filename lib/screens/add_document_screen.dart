@@ -17,6 +17,8 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../constants/document_types.dart';
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
+import '../widgets/cabinet_location_picker.dart';
 import 'package:intl/intl.dart';
 
 class AddDocumentScreen extends StatefulWidget {
@@ -48,6 +50,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final remarksController = TextEditingController();
   final referenceLinkController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
+  final folderTitleController = TextEditingController();
   
 
   // File handling
@@ -79,6 +84,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   // Outgoing multi-select assignees
   List<String> _selectedAssignees = [];
   List<String> _availableUsers = [];
+
+  String? _selectedCabinet;
 
   // Validation flags
   bool _showValidationErrors = false;
@@ -174,13 +181,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     "Annual Budget",
     "Barangay – AIP",
     "Barangay – GAD",
+    "Barangay Development Plan",
     "Cash Advance",
-    "CDC – Attendance",
-    "CDC – Minutes",
-    "CDC – Resolution",
     "Certificate/Attendance",
     "Clean-up Drives",
-    "CLUP Zoning Reclassification",
     "CSOs",
     "Dept. Heads Meeting",
     "DTR",
@@ -189,6 +193,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     "L&D/IDP/DNA",
     "Liquidation/Reimbursement",
     "Locational Clearance",
+    "Minutes",
     "Man. Com",
     "Monthly Accomplishment Report",
     "Monthly Staff Meeting",
@@ -206,6 +211,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   @override
   void initState() {
     super.initState();
+    selectedReceivingDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode(widget.incoming, null);
     _setupUploadListener();
     _loadUsername();
@@ -522,7 +528,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     }
     setState(() => _isPickingImage = true);
 
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -597,7 +603,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         return;
       }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) {
         if (!mounted) return;
         setState(() => _isPickingImage = false);
@@ -1151,15 +1157,27 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                                       : const Color(0xFF6D94C5),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  selectedReceivingDate != null
-                                      ? "Set Receiving Date: ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
-                                      : "Set Receiving Date",
-                                  style: TextStyle(
-                                    color: _showValidationErrors && selectedReceivingDate == null
-                                        ? Colors.red
-                                        : const Color(0xFF6D94C5),
-                                    fontWeight: FontWeight.w600,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        selectedReceivingDate != null
+                                            ? "Receiving Date: ${DateFormat('MM/dd/yy hh:mm a').format(selectedReceivingDate!)}"
+                                            : "Set Receiving Date",
+                                        style: TextStyle(
+                                          color: _showValidationErrors && selectedReceivingDate == null
+                                              ? Colors.red
+                                              : const Color(0xFF6D94C5),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Tap to change if needed',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -1747,6 +1765,52 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: folderTitleController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Folder / Details (optional)",
+                            hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Held by (optional)",
+                            hintText: "Person currently holding this document",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -1806,6 +1870,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                         calendarDeadlineEnd: selectedCalendarEndDate,
                         calendarAdded: selectedCalendarDate != null,
                         receivingDate: selectedReceivingDate,
+                        cabinetLocation: _selectedCabinet,
+                        folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                        heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         referenceLink: referenceLinkController.text.trim().isNotEmpty ? referenceLinkController.text.trim() : null,
                         history: widget.incoming ? [
                           HistoryEntry(
@@ -1822,6 +1890,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                       try {
                         await CachedDocumentService().createDocument(doc);
                         CachedDocumentService().processPendingUploads();
+                        // Schedule a 1-hour-before reminder if this document has a calendar deadline.
+                        NotificationService().scheduleDocumentReminder(doc);
                         final notifyAssignees = _selectedAssignees.where((a) => a != 'N/A').toList();
                         if (widget.incoming && notifyAssignees.isNotEmpty) {
                           try {

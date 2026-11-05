@@ -9,12 +9,14 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../widgets/scrollable_image_viewer.dart';
 import '../models/document.dart';
+import '../utils/document_search.dart';
 import '../services/upload_queue_manager.dart';
 import '../widgets/upload_status_banner.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/connectivity_banner.dart';
 import '../utils/delete_utils.dart';
 import '../services/cached_document_service.dart';
+import '../services/cabinet_service.dart';
 import '../services/auth_service.dart';
 import '../services/google_drive_service.dart';
 import 'edit_document_screen.dart';
@@ -23,6 +25,12 @@ import 'pdf_viewer_screen.dart';
 import '../services/attachment_view_service.dart';
 import '../widgets/document_search_bar.dart';
 import '../widgets/document_filter_dialog.dart';
+import '../widgets/add_attachment_button.dart';
+import '../widgets/skeleton_loader.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
+import '../widgets/change_folder_button.dart';
+import '../widgets/filed_in_row.dart';
 
 class ResolutionsScreen extends StatefulWidget {
   final List<Document> documents;
@@ -97,6 +105,130 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
       default:
         return const Icon(Icons.description_outlined, color: Color(0xFF4988C4), size: 20);
     }
+  }
+
+  Future<void> _showLocationUpdateDialog(int idx) async {
+    final doc = _filteredDocuments[idx];
+    final cabinetNames = await CabinetService().fetchCabinetNames();
+    if (!mounted) return;
+    String? selected = doc.cabinetLocation;
+    final folderController = TextEditingController(text: doc.folderTitle ?? '');
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(children: [
+            Icon(Icons.inventory_2_outlined, color: Theme.of(ctx).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text("Update Location"),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              cabinetNames.isEmpty
+                  ? const Text("No cabinets found. Add cabinets from the Cabinet Library first.")
+                  : DropdownButtonFormField<String>(
+                      key: ValueKey(selected),
+                      initialValue: selected,
+                      decoration: InputDecoration(
+                        labelText: "Cabinet Location",
+                        prefixIcon: const Icon(Icons.inventory_2_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text("Not assigned")),
+                        ...cabinetNames.map((n) => DropdownMenuItem(value: n, child: Text(n))),
+                      ],
+                      onChanged: (v) => setDialogState(() => selected = v),
+                    ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: folderController,
+                decoration: InputDecoration(
+                  labelText: "Folder / Details",
+                  prefixIcon: const Icon(Icons.folder_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+                await CachedDocumentService().updateDocument(doc.code, {'cabinet_location': selected, 'folder_title': folderValue});
+                if (mounted) setState(() {
+                  _filteredDocuments[idx] = doc.copyWith(cabinetLocation: selected);
+                  _filteredDocuments[idx].folderTitle = folderValue;
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHeldByDialog(int idx) async {
+    if (!mounted) return;
+    final doc = _filteredDocuments[idx];
+    final heldByController = TextEditingController(text: doc.heldBy ?? '');
+    final folderController = TextEditingController(text: doc.heldByFolder ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Icon(Icons.person_pin_outlined, color: Theme.of(ctx).colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text("Update Holder & Folder"),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: heldByController,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Held by",
+                prefixIcon: const Icon(Icons.person_pin_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "Enter person's name",
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: folderController,
+              decoration: InputDecoration(
+                labelText: "Folder / Details",
+                prefixIcon: const Icon(Icons.folder_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: "e.g. Blue folder, Top drawer, Binder 2024",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final heldByValue = heldByController.text.trim().isEmpty ? null : heldByController.text.trim();
+              final folderValue = folderController.text.trim().isEmpty ? null : folderController.text.trim();
+              await CachedDocumentService().updateDocument(doc.code, {'held_by': heldByValue, 'held_by_folder': folderValue});
+              if (mounted) setState(() {
+                _filteredDocuments[idx].heldBy = heldByValue;
+                _filteredDocuments[idx].heldByFolder = folderValue;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -190,10 +322,10 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
     _uploadQueueManager = UploadQueueManager();
     _uploadQueueManager.addListener(_onUploadChanged);
     _loadUsername();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _isLoading = false);
-      _triggerPendingUploads();
-    });
+    // Load from the authoritative store rather than trusting the snapshot
+    // the parent passed in — that list may still be empty if the user opened
+    // this screen before the home screen finished loading.
+    _performInitialLoad();
   }
 
   void _onUploadChanged() => setState(() {});
@@ -221,17 +353,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
       _filteredDocuments = widget.documents.where((doc) {
         if (doc.mode != 'Resolutions') return false;
 
-        bool matchesSearch =
-            _searchQuery.isEmpty ||
-            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            (doc.title?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
 
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
@@ -246,23 +368,61 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
     });
   }
 
+  /// Initial load. Clears the loading flag only once real data has arrived
+  /// (or the fetch failed), never on a fixed timer.
+  Future<void> _performInitialLoad() async {
+    try {
+      await _refreshDocuments();
+    } catch (e) {
+      // Keep whatever the parent handed us rather than showing an empty list.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    _triggerPendingUploads();
+  }
+
+  /// Persist an updated notes thread for [doc] and refresh so the change
+  /// shows immediately.
+  /// Swap [next] in wherever the old revision of that document is held.
+  void _replaceDocument(Document next) {
+    for (var i = 0; i < _filteredDocuments.length; i++) {
+      if (_filteredDocuments[i].code == next.code) _filteredDocuments[i] = next;
+    }
+  }
+
+  /// Persist a notes thread.
+  ///
+  /// Applied to the in-memory document first so the new remark appears
+  /// instantly, then written through. Re-fetching every document just to show
+  /// one new remark meant wiping and rebuilding the whole local cache — slow
+  /// enough that the remark looked like it hadn't saved.
+  Future<void> _saveNotes(Document doc, List<Note> updated) async {
+    final previous = doc;
+    setState(() => _replaceDocument(doc.copyWith(remarksList: updated)));
+
+    try {
+      await CachedDocumentService().updateDocument(
+        doc.code,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+      widget.onRefresh?.call();
+    } catch (e) {
+      debugPrint('NotesThread save failed for ${doc.code}: $e');
+      if (mounted) {
+        // Put the old thread back so the UI never claims a save that failed.
+        setState(() => _replaceDocument(previous));
+        SnackbarUtils.showErrorSnackBar(context, 'Could not save remark: $e');
+      }
+    }
+  }
+
   Future<void> _refreshDocuments() async {
     final allDocs = await CachedDocumentService().fetchDocuments();
     if (!mounted) return;
     setState(() {
       _filteredDocuments = allDocs.where((doc) {
         if (doc.mode != 'Resolutions') return false;
-        bool matchesSearch =
-            _searchQuery.isEmpty ||
-            doc.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.type.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.remarks.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.person.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            doc.fromOrTo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            (doc.title?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            (doc.referenceLink?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        bool matchesSearch = documentMatchesQuery(doc, _searchQuery);
         bool matchesDate = true;
         if (_startDate != null || _endDate != null) {
           final docDate = _parseDate(doc.fromOrTo);
@@ -331,6 +491,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
         ),
         body: RefreshIndicator(
           onRefresh: () async {
+            CachedDocumentService.invalidateCache();
             if (widget.onRefresh != null) widget.onRefresh!();
           },
           child: Container(
@@ -345,16 +506,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
               ),
             ),
             child: _isLoading
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Loading resolutions...', style: TextStyle(fontSize: 16)),
-                      ],
-                    ),
-                  )
+                ? const DocumentListSkeleton()
                 : _filteredDocuments.isEmpty
                 ? const Center(
                     child: Text(
@@ -457,6 +609,8 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                                       const SizedBox(height: 8),
                                       _buildDetailRow(Icons.person, "Recorded by", document.person),
                                       const SizedBox(height: 8),
+                                      FiledInRow(document: document, onEditLocation: () => _showLocationUpdateDialog(index), onEditHolder: () => _showHeldByDialog(index)),
+                                      const SizedBox(height: 8),
                                       _buildDetailRow(
                                         Icons.access_time,
                                         "Timestamp",
@@ -487,10 +641,12 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                                           ),
                                         ),
                                       ],
-                                      if (document.remarks.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        _buildDetailRow(Icons.comment, "Remarks", document.remarks),
-                                      ],
+                                                                            const SizedBox(height: 8),
+                                      NotesThread(
+                                        notes: document.remarksList,
+                                        currentUsername: _username,
+                                        onChanged: (updated) => _saveNotes(document, updated),
+                                      ),
                                       const SizedBox(height: 16),
                                       Row(
                                         children: [
@@ -600,6 +756,7 @@ class _ResolutionsScreenState extends State<ResolutionsScreen> {
                                             ],
                                           ),
                                           const Spacer(),
+                                            ChangeFolderButton(document: document, onChanged: () { _refreshDocuments(); widget.onRefresh?.call(); }), AddAttachmentButton(document: document),
                                           if (document.imageUrls.isNotEmpty || document.fileUrls.isNotEmpty)
                                             IconButton(
                                               icon: const Icon(Icons.remove_red_eye_outlined, size: 20),

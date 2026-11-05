@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 class AddAttendanceMovScreen extends StatefulWidget {
   const AddAttendanceMovScreen({super.key});
 
@@ -33,6 +34,9 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
+  final folderTitleController = TextEditingController();
 
   // File handling
   List<String> _selectedImagePaths = [];
@@ -60,6 +64,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   }
 
   // Validation flags
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -85,6 +90,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
   @override
   void initState() {
     super.initState();
+    selectedDate = DateTime.now().toUtc().add(const Duration(hours: 8));
     codeController.text = _generateCode();
     _setupUploadListener();
     _loadUsername();
@@ -186,7 +192,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
       return;
     }
     setState(() => _isPickingImage = true);
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) {
       if (!mounted) return;
       setState(() => _isPickingImage = false);
@@ -252,7 +258,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
         return;
       }
       setState(() => _isPickingImage = true);
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) {
         if (!mounted) return;
         setState(() => _isPickingImage = false);
@@ -354,9 +360,13 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
     final nowUtc = DateTime.now().toUtc();
     final phTime = nowUtc.add(const Duration(hours: 8)); // force UTC+8
 
-    final year = phTime.year;
-    final month = phTime.month.toString().padLeft(2, '0');
-    final day = phTime.day.toString().padLeft(2, '0');
+    // For FL/FR, use activity date for the date portion so the code reflects when the event happened
+    final bool isFlagCeremony = selectedType == 'Flag Raising' || selectedType == 'Flag Lowering';
+    final dateSource = (isFlagCeremony && selectedDate != null) ? selectedDate! : phTime;
+
+    final year = dateSource.year;
+    final month = dateSource.month.toString().padLeft(2, '0');
+    final day = dateSource.day.toString().padLeft(2, '0');
     final hour = phTime.hour.toString().padLeft(2, '0');
     final minute = phTime.minute.toString().padLeft(2, '0');
     final second = phTime.second.toString().padLeft(2, '0');
@@ -646,6 +656,7 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surface,
                               errorText: _showValidationErrors && selectedDate == null ? "Date is required" : null,
+                              helperText: 'Auto-set to today – tap to change if needed',
                               suffixIcon: const Icon(Icons.calendar_today),
                             ),
                             child: Text(
@@ -1042,6 +1053,52 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
+                        CabinetLocationPicker(
+                          initialValue: _selectedCabinet,
+                          enabled: !_isSaving,
+                          onChanged: (v) => setState(() => _selectedCabinet = v),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: folderTitleController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Folder / Details (optional)',
+                            hintText: 'e.g. Blue folder, Top drawer, Binder 2024',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Held by (optional)',
+                            hintText: 'Person currently holding this document',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: heldByFolderController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: "Holder's Folder / Details (optional)",
+                            hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: remarksController,
                           enabled: !_isSaving,
@@ -1086,6 +1143,10 @@ class _AddAttendanceMovScreenState extends State<AddAttendanceMovScreen> {
                         remarks: remarks,
                         person: person,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
+                        folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                        heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

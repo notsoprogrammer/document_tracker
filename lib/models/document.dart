@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../utils/date_time_utils.dart';
+import 'note.dart';
 
 class HistoryEntry {
   final String action;
@@ -70,7 +71,17 @@ class Document {
   final String? fileName; // Original file name for display
   final DateTime? receivingDate; // Date and time when document was received
   String flowStage; // 'incoming', 'outgoing', 'circulated'
-  final List<String> remarksList; // List of sequential remarks
+  /// Append-only notes thread. Anyone may add a note; only its author may
+  /// edit or delete it. Supersedes the single free-text [remarks] field, which
+  /// is migrated in as the first note when this list is empty.
+  final List<Note> remarksList;
+  final String? cabinetLocation; // Cabinet where the physical document is stored
+  String? heldBy; // Person who currently holds the physical document
+  String? heldByFolder; // Folder/details specific to the person holding the document
+  String? folderTitle; // Folder name / details for physical filing location (cabinet sub-location)
+  /// Who uploaded each attachment, keyed by Drive file id.
+  /// Attachments with no entry predate this tracking and belong to [person].
+  Map<String, String> attachmentUploaders;
 
   Document({
     required this.code,
@@ -106,8 +117,14 @@ class Document {
     this.receivingDate,
    String? flowStage,
    bool addInitialHistory = true,
-   List<String>? remarksList,
-  }) : flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
+   List<Note>? remarksList,
+   this.cabinetLocation,
+   this.heldBy,
+   this.heldByFolder,
+   this.folderTitle,
+   Map<String, String>? attachmentUploaders,
+  }) : attachmentUploaders = attachmentUploaders ?? {},
+       flowStage = flowStage ?? (incoming ? 'incoming' : 'outgoing'),
        history = history ?? [],
        imageUrls = imageUrls ?? [],
        fileUrls = fileUrls ?? [],
@@ -377,21 +394,28 @@ class Document {
       }
     }
 
-    // Parse remarks_list if present
-    List<String> remarksList = [];
-    if (json['remarks_list'] != null) {
-      if (json['remarks_list'] is List) {
-        remarksList = List<String>.from(json['remarks_list']);
-      } else if (json['remarks_list'] is String) {
-        // Handle case where remarks_list is stored as JSON string
-        try {
-          final decoded = jsonDecode(json['remarks_list']);
-          if (decoded is List) {
-            remarksList = List<String>.from(decoded);
-          }
-        } catch (e) {
-          // If parsing fails, ignore
+    // Parse remarks_list. Note.parseList accepts every format this column has
+    // held (JSON string, list of plain strings, list of note objects) and folds
+    // the legacy single `remarks` field in as the first note when empty.
+    final List<Note> remarksList = Note.parseList(
+      json['remarks_list'],
+      legacyRemarks: json['remarks']?.toString(),
+      legacyDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
+    );
+
+    // Uploader map arrives as JSONB from Supabase, or a JSON string from SQLite
+    Map<String, String> attachmentUploaders = {};
+    final rawUploaders = json['attachment_uploaders'];
+    if (rawUploaders != null) {
+      try {
+        final decoded = rawUploaders is String ? jsonDecode(rawUploaders) : rawUploaders;
+        if (decoded is Map) {
+          attachmentUploaders = decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
         }
+      } catch (e) {
+        // Ignore malformed data — attachments fall back to the document owner
       }
     }
 
@@ -430,8 +454,33 @@ class Document {
       flowStage: json['flow_stage'] ?? (json['incoming'] == 1 || json['incoming'] == true ? 'incoming' : 'outgoing'),
       addInitialHistory: false,
       remarksList: remarksList,
+      cabinetLocation: json['cabinet_location'],
+      heldBy: json['held_by'],
+      heldByFolder: json['held_by_folder'],
+      folderTitle: json['folder_title'],
+      attachmentUploaders: attachmentUploaders,
     );
   }
+
+  /// Normalises a Drive URL or raw id to the key used in [attachmentUploaders].
+  static String attachmentKey(String urlOrId) {
+    final match = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(urlOrId);
+    if (match != null) return match.group(1)!;
+    if (urlOrId.contains('id=')) {
+      final id = Uri.tryParse(urlOrId)?.queryParameters['id'];
+      if (id != null && id.isNotEmpty) return id;
+    }
+    return urlOrId;
+  }
+
+  /// Who uploaded this attachment. Attachments added before uploader tracking
+  /// have no entry and belong to the document's original inputter.
+  String attachmentOwner(String urlOrId) =>
+      attachmentUploaders[attachmentKey(urlOrId)] ?? person;
+
+  /// Only the uploader may edit or remove their own attachment.
+  bool canModifyAttachment(String urlOrId, String? username) =>
+      username != null && username.isNotEmpty && attachmentOwner(urlOrId) == username;
 
   Map<String, dynamic> toJson() {
     // Generate default title for flag ceremony documents if title is null
@@ -477,7 +526,12 @@ class Document {
       'file_name': fileName,
       'receiving_date': receivingDate?.toIso8601String(),
       'flow_stage': flowStage,
-      'remarks_list': remarksList,
+      'remarks_list': Note.listToJson(remarksList),
+      'cabinet_location': cabinetLocation,
+      'held_by': heldBy,
+      'held_by_folder': heldByFolder,
+      'folder_title': folderTitle,
+      'attachment_uploaders': attachmentUploaders,
     };
   }
 
@@ -514,7 +568,12 @@ class Document {
     String? fileName,
     DateTime? receivingDate,
     String? flowStage,
-    List<String>? remarksList,
+    List<Note>? remarksList,
+    String? cabinetLocation,
+    String? heldBy,
+    String? heldByFolder,
+    String? folderTitle,
+    Map<String, String>? attachmentUploaders,
   }) {
     return Document(
       code: code ?? this.code,
@@ -550,6 +609,11 @@ class Document {
       receivingDate: receivingDate ?? this.receivingDate,
       flowStage: flowStage ?? this.flowStage,
       remarksList: remarksList ?? this.remarksList,
+      cabinetLocation: cabinetLocation ?? this.cabinetLocation,
+      heldBy: heldBy ?? this.heldBy,
+      heldByFolder: heldByFolder ?? this.heldByFolder,
+      folderTitle: folderTitle ?? this.folderTitle,
+      attachmentUploaders: attachmentUploaders ?? this.attachmentUploaders,
     );
   }
 }

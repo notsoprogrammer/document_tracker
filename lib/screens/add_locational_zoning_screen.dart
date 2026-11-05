@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/date_time_utils.dart';
 import '../constants/document_types.dart';
+import '../widgets/cabinet_location_picker.dart';
 
 class AddLocationalZoningScreen extends StatefulWidget {
   const AddLocationalZoningScreen({super.key});
@@ -36,6 +37,9 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
   final referenceLinkController = TextEditingController();
   final remarksController = TextEditingController();
   final personController = TextEditingController();
+  final heldByController = TextEditingController();
+  final heldByFolderController = TextEditingController();
+  final folderTitleController = TextEditingController();
 
   List<String> _selectedImagePaths = [];
   List<String> _selectedDocumentPaths = [];
@@ -50,6 +54,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
   int _totalUploads = 0;
   int _completedUploads = 0;
   String _uploadStatus = '';
+  String? _selectedCabinet;
   bool _showValidationErrors = false;
   bool _isSaving = false;
 
@@ -153,7 +158,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
     if (source == null || !mounted) return;
     if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
     setState(() => _isPickingImage = true);
-    final image = await _picker.pickImage(source: source);
+    final image = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
     if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
     final rawBytes = await image.readAsBytes();
     final scannedBytes = kIsWeb ? rawBytes : (await DocumentScannerService.processImage(rawBytes) ?? rawBytes);
@@ -184,7 +189,7 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
       setState(() => _isPickingImage = false);
       if (_selectedImagePaths.where(_isImage).length >= 20) { SnackbarUtils.showWarningSnackBar(context, 'Maximum 20 images allowed'); return; }
       setState(() => _isPickingImage = true);
-      final image = await _picker.pickImage(source: ImageSource.camera);
+      final image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1920, maxHeight: 1920);
       if (image == null) { if (!mounted) return; setState(() => _isPickingImage = false); SnackbarUtils.showErrorSnackBar(context, 'No image captured'); return; }
       final rawBytesFallback = await image.readAsBytes();
       final scannedBytes = kIsWeb ? rawBytesFallback : (await DocumentScannerService.processImage(rawBytesFallback) ?? rawBytesFallback);
@@ -451,6 +456,52 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
+                    CabinetLocationPicker(
+                      initialValue: _selectedCabinet,
+                      enabled: !_isSaving,
+                      onChanged: (v) => setState(() => _selectedCabinet = v),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: folderTitleController,
+                      enabled: !_isSaving,
+                      decoration: InputDecoration(
+                        labelText: 'Folder / Details (optional)',
+                        hintText: 'e.g. Blue folder, Top drawer, Binder 2024',
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: heldByController,
+                      enabled: !_isSaving,
+                      decoration: InputDecoration(
+                        labelText: 'Held by (optional)',
+                        hintText: 'Person currently holding this document',
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        prefixIcon: const Icon(Icons.person_pin_outlined, size: 20),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: heldByFolderController,
+                      enabled: !_isSaving,
+                      decoration: InputDecoration(
+                        labelText: "Holder's Folder / Details (optional)",
+                        hintText: "e.g. Maria's blue binder, On desk, Drawer 2",
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        prefixIcon: const Icon(Icons.folder_outlined, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(controller: remarksController, enabled: !_isSaving, decoration: InputDecoration(labelText: "Remarks", border: const OutlineInputBorder(), filled: true, fillColor: Theme.of(context).colorScheme.surface), maxLines: 3),
                   ])),
                 ),
@@ -472,6 +523,10 @@ class _AddLocationalZoningScreenState extends State<AddLocationalZoningScreen> {
                         remarks: remarksController.text,
                         person: personController.text,
                         incoming: false,
+                        cabinetLocation: _selectedCabinet,
+                        folderTitle: folderTitleController.text.trim().isNotEmpty ? folderTitleController.text.trim() : null,
+                        heldBy: heldByController.text.trim().isNotEmpty ? heldByController.text.trim() : null,
+                        heldByFolder: heldByFolderController.text.trim().isNotEmpty ? heldByFolderController.text.trim() : null,
                         status: 'Completed',
                         imageUrls: _uploadedImageUrls,
                         fileUrls: _uploadedDocumentUrls,

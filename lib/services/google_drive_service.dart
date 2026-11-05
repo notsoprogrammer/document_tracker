@@ -5,8 +5,20 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import '../config/supabase_config.dart';
+import 'upload_queue_manager.dart';
+
+/// Thrown when the server rejects a payload outright (too large, malformed).
+/// These must never be retried — the same bytes will fail every time.
+class PermanentUploadException implements Exception {
+  final String message;
+  PermanentUploadException(this.message);
+  @override
+  String toString() => 'PermanentUploadException: $message';
+}
 
 /// Result class for image operations
 class ImageSaveResult {
@@ -142,18 +154,15 @@ class GoogleDriveService {
     String fileNameOrUniqueId, {
     DriveFolder folder = DriveFolder.incoming,
   }) async {
-    try {
-      // Build file name if you currently do so elsewhere, keep it; otherwise:
-      final fileName = fileNameOrUniqueId.endsWith('.jpg')
-          ? fileNameOrUniqueId
-          : 'doc_${fileNameOrUniqueId}.jpg';
+    // Build file name if you currently do so elsewhere, keep it; otherwise:
+    final fileName = fileNameOrUniqueId.endsWith('.jpg')
+        ? fileNameOrUniqueId
+        : 'doc_${fileNameOrUniqueId}.jpg';
 
-      // Read file bytes and upload via Supabase
-      final bytes = await imageFile.readAsBytes();
-      return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
-    } catch (e) {
-      return null;
-    }
+    // Read file bytes and upload via Supabase. Errors propagate so the queue
+    // can tell a retryable failure from a permanent one.
+    final bytes = await imageFile.readAsBytes();
+    return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
   }
 
   /// Make a file in Google Drive public
@@ -249,13 +258,10 @@ class GoogleDriveService {
     String fileName, {
     DriveFolder folder = DriveFolder.incoming,
   }) async {
-    try {
-      // Read file bytes and upload via Supabase
-      final bytes = await file.readAsBytes();
-      return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
-    } catch (e) {
-      return null;
-    }
+    // Read file bytes and upload via Supabase. Errors propagate so the queue
+    // can tell a retryable failure from a permanent one.
+    final bytes = await file.readAsBytes();
+    return await _uploadFileFromBytesViaSupabase(bytes, fileName, folder: folder);
   }
 
   /// Upload multiple files and return list of public URLs
@@ -397,6 +403,184 @@ class GoogleDriveService {
     }
   }
 
+  /// Hard ceiling for any single attachment. Matches the 50MB limit the add/edit
+  /// screens enforce at pick time, so the UI never accepts a file the transport
+  /// can't carry.
+  static const int maxUploadBytes = 50 * 1024 * 1024;
+
+  /// Files at or below this go inline through the edge function as base64.
+  /// Anything larger uses a Drive resumable session so the bytes bypass
+  /// Supabase entirely.
+  static const int inlineUploadThreshold = 4 * 1024 * 1024;
+
+  /// Resumable chunk size. Google requires every chunk except the last to be a
+  /// multiple of 256KB; 5MB is 20 such blocks and keeps retries cheap on a
+  /// flaky office connection.
+  static const int _resumableChunkSize = 5 * 1024 * 1024;
+
+  /// Downscale/re-encode an image so it comfortably fits the edge function's
+  /// request budget. Safety net for images that bypassed capture-time
+  /// compression (older queued files, file-picker imports, web camera bytes).
+  /// Returns the original bytes unchanged if it isn't a compressible image or
+  /// if anything goes wrong — compression must never block an upload.
+  static List<int> compressImageBytes(List<int> bytes, String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png'].contains(extension)) return bytes;
+    if (bytes.length <= 300 * 1024) return bytes;
+
+    try {
+      final decoded = img.decodeImage(Uint8List.fromList(bytes));
+      if (decoded == null) return bytes;
+
+      const maxDim = 1920;
+      final img.Image resized;
+      if (decoded.width >= decoded.height && decoded.width > maxDim) {
+        resized = img.copyResize(decoded, width: maxDim);
+      } else if (decoded.height > decoded.width && decoded.height > maxDim) {
+        resized = img.copyResize(decoded, height: maxDim);
+      } else {
+        resized = decoded;
+      }
+
+      final out = img.encodeJpg(resized, quality: 80);
+      // Only take the result if it actually helped.
+      if (out.length < bytes.length) {
+        UploadQueueManager.log(
+            'compress: $fileName ${(bytes.length / 1024).round()}KB -> ${(out.length / 1024).round()}KB');
+        return out;
+      }
+      return bytes;
+    } catch (e) {
+      UploadQueueManager.log('compress: skipped for $fileName ($e)');
+      return bytes;
+    }
+  }
+
+  /// Ask the edge function for a Drive resumable upload session URL.
+  static Future<String> _createResumableSession(
+      String fileName, String folderId, String mimeType) async {
+    final response = await http.post(
+      Uri.parse(_supabaseFunctionUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
+      },
+      body: jsonEncode({
+        'action': 'create_upload_session',
+        'fileName': fileName,
+        'folderId': folderId,
+        'mimeType': mimeType,
+      }),
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode >= 400 && response.statusCode < 500) {
+      throw PermanentUploadException(
+          'Could not start upload (HTTP ${response.statusCode}): ${response.body}');
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Could not start upload (HTTP ${response.statusCode})');
+    }
+
+    final result = jsonDecode(response.body);
+    final sessionUrl = result['sessionUrl'] as String?;
+    if (result['success'] != true || sessionUrl == null) {
+      throw Exception('Upload session rejected: ${result['error'] ?? 'unknown'}');
+    }
+    return sessionUrl;
+  }
+
+  /// Grant public read on a file uploaded via a resumable session.
+  static Future<void> _finalizeResumableUpload(String fileId) async {
+    final response = await http.post(
+      Uri.parse(_supabaseFunctionUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
+      },
+      body: jsonEncode({'action': 'finalize', 'fileId': fileId}),
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode != 200) {
+      // The file IS in Drive at this point — only the public permission
+      // failed. Log it rather than failing the upload and causing a duplicate.
+      UploadQueueManager.log(
+          'finalize warning for $fileId: HTTP ${response.statusCode} ${response.body}');
+    }
+  }
+
+  /// Upload large files straight to Google Drive in chunks using a resumable
+  /// session. The bytes never touch Supabase, so there's no base64 inflation
+  /// and no edge request-body ceiling — and a dropped connection only costs
+  /// the current chunk, not the whole file.
+  static Future<String?> _uploadViaResumableSession(
+    List<int> bytes,
+    String fileName,
+    String folderId,
+    String mimeType,
+  ) async {
+    final total = bytes.length;
+    final sessionUrl = await _createResumableSession(fileName, folderId, mimeType);
+
+    UploadQueueManager.log(
+        'resumable start $fileName ${(total / 1024 / 1024).toStringAsFixed(1)}MB '
+        'in ${(total / _resumableChunkSize).ceil()} chunk(s)');
+
+    final client = http.Client();
+    try {
+      int offset = 0;
+      while (offset < total) {
+        final end = (offset + _resumableChunkSize) > total
+            ? total
+            : offset + _resumableChunkSize;
+        final chunk = bytes.sublist(offset, end);
+
+        final request = http.Request('PUT', Uri.parse(sessionUrl))
+          ..bodyBytes = Uint8List.fromList(chunk)
+          ..headers['Content-Type'] = mimeType
+          ..headers['Content-Range'] = 'bytes $offset-${end - 1}/$total';
+
+        final streamed = await client
+            .send(request)
+            .timeout(const Duration(seconds: 120));
+        final response = await http.Response.fromStream(streamed);
+
+        // 308 Resume Incomplete — Google acknowledges the chunk and tells us,
+        // via the Range header, exactly how much it actually stored.
+        if (response.statusCode == 308) {
+          final range = response.headers['range'];
+          if (range != null && range.contains('-')) {
+            offset = int.parse(range.split('-').last) + 1;
+          } else {
+            offset = end;
+          }
+          continue;
+        }
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final result = jsonDecode(response.body);
+          final fileId = result['id'] as String?;
+          if (fileId == null) {
+            throw Exception('Drive returned no file id');
+          }
+          await _finalizeResumableUpload(fileId);
+          UploadQueueManager.log('resumable done $fileName -> $fileId');
+          return fileId;
+        }
+
+        if (response.statusCode >= 400 && response.statusCode < 500) {
+          throw PermanentUploadException(
+              'Drive rejected upload (HTTP ${response.statusCode}): ${response.body}');
+        }
+
+        throw Exception('Chunk upload failed (HTTP ${response.statusCode})');
+      }
+
+      throw Exception('Upload ended without Drive confirming the file');
+    } finally {
+      client.close();
+    }
+  }
+
   /// Upload file from bytes via Supabase function (for web builds)
   static Future<String?> _uploadFileFromBytesViaSupabase(List<int> bytes, String fileName, {DriveFolder folder = DriveFolder.incoming}) async {
     try {
@@ -423,8 +607,30 @@ class GoogleDriveService {
                                               ? _resolutionsFolderId
                                               : _incomingFolderId;
 
+      // Safety net: shrink anything that slipped past capture-time compression
+      final uploadBytes = compressImageBytes(bytes, fileName);
+
+      // Fail fast rather than burning three retries on bytes the server
+      // will always reject.
+      if (uploadBytes.length > maxUploadBytes) {
+        throw PermanentUploadException(
+            'File too large: ${(uploadBytes.length / 1024 / 1024).toStringAsFixed(1)}MB '
+            '(max ${(maxUploadBytes / 1024 / 1024).round()}MB)');
+      }
+
+      // Anything substantial goes straight to Drive in chunks instead of being
+      // base64'd through the edge function.
+      if (uploadBytes.length > inlineUploadThreshold) {
+        return await _uploadViaResumableSession(
+          uploadBytes,
+          fileName,
+          targetFolderId,
+          _getMimeType(fileName),
+        );
+      }
+
       // Convert bytes to base64
-      final base64Data = base64Encode(bytes);
+      final base64Data = base64Encode(uploadBytes);
 
       // Prepare request payload
       final payload = {
@@ -434,7 +640,15 @@ class GoogleDriveService {
         'mimeType': _getMimeType(fileName),
       };
 
-      // Make request to Supabase function (45s timeout to handle large images)
+      // The timeout has to cover BOTH legs: phone -> Supabase, then
+      // Supabase -> Google Drive. Scale it with payload size (assume a
+      // pessimistic ~50KB/s floor) instead of using one fixed value.
+      final timeoutSecs =
+          (30 + (base64Data.length / 1024 / 50).ceil()).clamp(45, 180);
+
+      UploadQueueManager.log(
+          'POST $fileName ${(uploadBytes.length / 1024).round()}KB timeout:${timeoutSecs}s');
+
       final response = await http.post(
         Uri.parse(_supabaseFunctionUrl),
         headers: {
@@ -442,20 +656,29 @@ class GoogleDriveService {
           'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}',
         },
         body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 45));
+      ).timeout(Duration(seconds: timeoutSecs));
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
         if (result['success'] == true) {
           return result['fileId'];
-        } else {
-          return null;
         }
-      } else {
-        return null;
+        throw Exception('Upload rejected: ${result['error'] ?? 'unknown error'}');
       }
+
+      // 4xx means this payload will never be accepted — don't retry it.
+      if (response.statusCode >= 400 && response.statusCode < 500) {
+        throw PermanentUploadException(
+            'Server rejected upload (HTTP ${response.statusCode}): ${response.body}');
+      }
+
+      // 5xx / anything else is transient — let the caller retry.
+      throw Exception('Upload failed (HTTP ${response.statusCode})');
+    } on PermanentUploadException {
+      rethrow;
     } catch (e) {
-      return null;
+      UploadQueueManager.log('upload error for $fileName: $e');
+      rethrow;
     }
   }
 

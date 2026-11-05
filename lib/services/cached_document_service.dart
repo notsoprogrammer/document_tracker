@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 import 'sqlite_database_service_mobile.dart' if (dart.library.html) 'sqlite_database_service_web.dart';
 import 'supabase_service.dart';
+import 'cabinet_service.dart';
 import 'google_drive_service.dart';
 import 'upload_queue_manager.dart';
 import 'connectivity_service.dart';
@@ -16,6 +16,29 @@ import '../services/attachment_view_service.dart';
 class CachedDocumentService {
   final SQLiteDatabaseService _localDb = SQLiteDatabaseService();
   final SupabaseService _remoteDb = SupabaseService();
+
+  // ----------------------------------------------------------------- cache
+  // Every list screen calls fetchDocuments() when it opens, and each call was
+  // a `select('*, history_entries(*)')` — the whole documents table joined to
+  // the whole history table. Opening four folders in a row read it four times.
+  // These three fields collapse that into one read per minute per device,
+  // which is what the Supabase Disk IO budget was going on.
+  static List<Document>? _documentsCache;
+  static DateTime? _cachedAt;
+  static Future<List<Document>>? _inFlight;
+  static const Duration _cacheTtl = Duration(seconds: 60);
+
+  /// Drops the cache so the next read goes to the server. Called after every
+  /// write, so a change is never hidden behind a stale cache.
+  static void invalidateCache() {
+    _documentsCache = null;
+    _cachedAt = null;
+  }
+
+  bool get _cacheIsFresh =>
+      _documentsCache != null &&
+      _cachedAt != null &&
+      DateTime.now().difference(_cachedAt!) < _cacheTtl;
 
   Future<bool> get isOnline async {
     return await ConnectivityService().isOnline;
@@ -30,7 +53,32 @@ class CachedDocumentService {
     }
   }
 
-  Future<List<Document>> fetchDocuments() async {
+  /// The document set, from cache when it was read moments ago.
+  ///
+  /// [force] skips the cache — used by pull-to-refresh, where the user has
+  /// explicitly asked for fresh data.
+  Future<List<Document>> fetchDocuments({bool force = false}) async {
+    if (!force && _cacheIsFresh) {
+      // A copy: callers sort and remove from the list they are given.
+      return List<Document>.from(_documentsCache!);
+    }
+    // Screens often load together; let them share one request rather than
+    // firing several identical ones.
+    if (_inFlight != null) return List<Document>.from(await _inFlight!);
+
+    final request = _fetchDocumentsUncached();
+    _inFlight = request;
+    try {
+      final documents = await request;
+      _documentsCache = documents;
+      _cachedAt = DateTime.now();
+      return List<Document>.from(documents);
+    } finally {
+      _inFlight = null;
+    }
+  }
+
+  Future<List<Document>> _fetchDocumentsUncached() async {
     try {
       // Ensure database schema is up to date
       await _ensureDatabaseSchema();
@@ -69,11 +117,12 @@ class CachedDocumentService {
             }
           }
 
-          // Update local cache with merged data
-          await _localDb.clearAllData();
-          for (var doc in mergedDocuments) {
-            await _localDb.createDocument(doc);
-          }
+          // Update local cache with the remote set. Only rows that actually
+          // changed are written, and the cache is never emptied in between —
+          // wiping it first meant any read landing mid-sync saw no documents.
+          // Local-only rows (offline creations, pending deletions) are kept by
+          // syncRemoteDocuments itself, so only the remote set goes in here.
+          await _localDb.syncRemoteDocuments(remoteDocuments);
 
           return mergedDocuments;
         } catch (e) {
@@ -90,9 +139,13 @@ class CachedDocumentService {
   }
 
   Future<Document> createDocument(Document document) async {
+    invalidateCache();
     try {
       // Always save locally first
       await _localDb.createDocument(document);
+
+      // Mirror the cabinet assignment into the Cabinet Library
+      await _syncCabinetLink(document);
 
       // Queue files for upload if they exist
       await _queueFilesForUpload(document);
@@ -133,10 +186,53 @@ class CachedDocumentService {
     }
   }
 
-  Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
+  /// Keeps the Cabinet Library in sync with a document's cabinet assignment.
+  /// Never throws — a cabinet sync failure must not block saving the document.
+  Future<void> _syncCabinetLink(Document document) async {
     try {
-      // Update locally first
-      await _localDb.updateDocument(documentCode, updates);
+      if (!await isOnline) return;
+      final cabinet = document.cabinetLocation?.trim();
+      if (cabinet == null || cabinet.isEmpty) {
+        await CabinetService().unlinkDocument(document.code);
+      } else {
+        await CabinetService().linkDocument(
+          cabinetName: cabinet,
+          documentCode: document.code,
+          documentTitle: document.title,
+          folderTitle: document.folderTitle,
+        );
+      }
+    } catch (e) {
+      // Cabinet link is best-effort
+    }
+  }
+
+  Future<void> updateDocument(String documentCode, Map<String, dynamic> updates) async {
+    invalidateCache();
+    try {
+      // Update locally first. Pass a copy: the SQLite layer jsonEncodes list
+      // and map columns (remarks_list, attachments, …) in place, and the
+      // remote call below needs the original decoded values — otherwise
+      // Supabase stores a JSON string where its jsonb columns expect an array.
+      await _localDb.updateDocument(
+          documentCode, Map<String, dynamic>.from(updates));
+
+      // Re-sync the Cabinet Library when the filing location or title changed
+      if (updates.containsKey('cabinet_location') ||
+          updates.containsKey('folder_title') ||
+          updates.containsKey('title')) {
+        try {
+          final localDocs = await _localDb.fetchDocuments();
+          for (final doc in localDocs) {
+            if (doc.code == documentCode) {
+              await _syncCabinetLink(doc);
+              break;
+            }
+          }
+        } catch (e) {
+          // Cabinet link is best-effort
+        }
+      }
 
       // If online, sync to remote
       if (await isOnline) {
@@ -152,6 +248,7 @@ class CachedDocumentService {
   }
 
   Future<void> deleteDocument(String documentCode) async {
+    invalidateCache();
     try {
       // Get the document details before deleting for logging
       final localDocs = await _localDb.fetchDocuments();
@@ -178,6 +275,9 @@ class CachedDocumentService {
 
           // Delete from remote first
           await _remoteDb.deleteDocument(documentCode);
+
+          // Drop its Cabinet Library entry, if any
+          await CabinetService().unlinkDocument(documentCode);
 
           // Clean up attachment view records for this document
           await AttachmentViewService.deleteAllViews(documentCode);
@@ -271,6 +371,7 @@ class CachedDocumentService {
   }
 
   Future<void> addHistoryEntry(String documentCode, HistoryEntry entry, {String? personnel}) async {
+    invalidateCache();
     try {
       // Prevent duplicate "Files Uploaded" history entries
       if (entry.action == 'Files Uploaded') {
@@ -303,14 +404,10 @@ class CachedDocumentService {
     try {
       // This is a simplified sync - in a full implementation,
       // you'd track pending changes and sync them properly
-      final localDocs = await _localDb.fetchDocuments();
       final remoteDocs = await _remoteDb.fetchDocuments();
 
-      // For now, just ensure local matches remote
-      await _localDb.clearAllData();
-      for (var doc in remoteDocs) {
-        await _localDb.createDocument(doc);
-      }
+      // Ensure local matches remote, keeping anything that exists only here.
+      await _localDb.syncRemoteDocuments(remoteDocs);
     } catch (e) {
     }
   }
@@ -408,6 +505,9 @@ class CachedDocumentService {
           await _remoteDb.createDocument(doc);
         }
 
+        // Mirror the cabinet assignment now that we're back online
+        await _syncCabinetLink(doc);
+
         // After successful sync, trigger notifications if needed
         if (doc.status == 'For Compliance' && doc.complianceDeadline != null) {
           try {
@@ -492,6 +592,66 @@ class CachedDocumentService {
   /// Re-queue any local paths found in documents that are missing from the upload queue.
   /// This recovers from app restarts where the in-memory queue was lost (web) or items
   /// were cleared without the uploads completing.
+  /// Whether THIS device can read [localPath].
+  ///
+  /// `local_image_paths` is part of the document row, so it syncs through
+  /// Supabase: the browser and every other phone receive paths to files that
+  /// only exist in one device's cache. A path that cannot be read here is
+  /// therefore not necessarily dead — the device that captured it may still be
+  /// waiting to upload it — so these are skipped, never deleted.
+  Future<bool> _isReadableHere(String localPath, String documentCode,
+      {List<int>? bytes}) async {
+    if (localPath.isEmpty) return false;
+    if (kIsWeb) {
+      // A browser cannot open a filesystem path, and a blob URL does not
+      // survive a reload. What it can upload is a pick whose bytes are still
+      // held in memory — so the test is whether those bytes are in hand, not
+      // what the pick happens to be named. Keying on a 'web_image_' prefix
+      // threw away 'web_file_' picks, which are perfectly uploadable.
+      if (localPath.startsWith('blob:')) return false;
+      if (bytes != null) return true;
+      return UploadQueueManager().getBytesForFile(documentCode, localPath) !=
+          null;
+    }
+    try {
+      return await File(localPath).exists();
+    } catch (_) {
+      // An unreadable path is not proof the file is gone; leave it queued.
+      return true;
+    }
+  }
+
+  /// Drops queue items this device cannot upload — another device's local
+  /// paths, or files since cleared from this device's cache. Returns how many
+  /// were removed.
+  ///
+  /// Only the queue is touched. The paths stay on the document, because the
+  /// device that owns them may still upload them; removing them here would
+  /// destroy that device's pending work.
+  Future<int> purgeUnreadableQueueItems() async {
+    final queueManager = UploadQueueManager();
+    int dropped = 0;
+
+    for (final item in queueManager.getAllItems().toList()) {
+      final path = item['localPath']?.toString() ??
+          item['filePath']?.toString() ??
+          '';
+      final code = item['documentCode']?.toString() ?? '';
+      if (await _isReadableHere(path, code,
+          bytes: item['bytes'] as List<int>?)) {
+        continue;
+      }
+      queueManager.removeFromQueue(code, item['filePath']);
+      UploadQueueManager.log('purge: not readable on this device — $path');
+      dropped++;
+    }
+
+    if (dropped > 0) {
+      UploadQueueManager.log('purge: removed $dropped unreadable item(s)');
+    }
+    return dropped;
+  }
+
   Future<void> _recoverStalledUploads() async {
     try {
       final queueManager = UploadQueueManager();
@@ -502,31 +662,35 @@ class CachedDocumentService {
 
       final docs = await _localDb.fetchDocuments();
       int added = 0;
+      int skipped = 0;
       for (final doc in docs) {
-        for (final localPath in doc.localImagePaths) {
-          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
-          if (kIsWeb && (localPath.startsWith('blob:') || localPath.startsWith('web_image_'))) continue;
+        for (final entry in [
+          ...doc.localImagePaths.map((p) => (path: p, isImage: true)),
+          ...doc.localFilePaths.map((p) => (path: p, isImage: false)),
+        ]) {
+          if (queuedPaths.contains(entry.path)) continue;
+          // Paths reach this device through the synced document row, so most
+          // of them belong to somebody else's camera cache. Queueing one here
+          // only produces failures the owning device will handle correctly.
+          if (!await _isReadableHere(entry.path, doc.code)) {
+            skipped++;
+            continue;
+          }
           queueManager.addToQueue(
             documentCode: doc.code,
-            filePath: localPath,
-            isImage: true,
-            localPath: localPath,
-          );
-          added++;
-        }
-        for (final localPath in doc.localFilePaths) {
-          if (localPath.isEmpty || queuedPaths.contains(localPath)) continue;
-          if (kIsWeb && localPath.startsWith('blob:')) continue;
-          queueManager.addToQueue(
-            documentCode: doc.code,
-            filePath: localPath,
-            isImage: false,
-            localPath: localPath,
+            filePath: entry.path,
+            isImage: entry.isImage,
+            localPath: entry.path,
           );
           added++;
         }
       }
+      // Anything already queued that this device cannot read would fail three
+      // times over and come back on the next pass, so clear it out now.
+      final purged = await purgeUnreadableQueueItems();
       if (added > 0) UploadQueueManager.log('recover: re-queued $added stalled item(s)');
+      if (skipped > 0) UploadQueueManager.log('recover: skipped $skipped path(s) not readable on this device');
+      if (purged > 0) UploadQueueManager.log('recover: purged $purged unreadable queue item(s)');
     } catch (e) {
       UploadQueueManager.log('recover ERROR: $e');
       // Never let recovery errors block the upload processing below.
@@ -552,20 +716,46 @@ class CachedDocumentService {
     }
 
     try {
+      // Reclaim anything the app abandoned mid-request — otherwise it sits in
+      // 'uploading' forever and is never picked up again.
+      queueManager.reclaimStuckUploads();
+
       final allItems = queueManager.getAllItems();
       final uploadsToProcess = allItems.where((item) {
+        if (item['permanentlyFailed'] == true) return false;
+        if (!queueManager.isDue(item)) return false; // respect retry backoff
         if (item['status'] == 'pending') return true;
-        if (item['status'] == 'failed') return (item['retryCount'] as int? ?? 0) < 3;
+        if (item['status'] == 'failed') {
+          return (item['retryCount'] as int? ?? 0) < UploadQueueManager.maxRetries;
+        }
         return false;
-      }).toList();
+      }).toList()
+        // Upload in capture order so the resulting URLs land in the same order
+        // the user took the photos.
+        ..sort((a, b) =>
+            (a['sequence'] as int? ?? 0).compareTo(b['sequence'] as int? ?? 0));
 
       UploadQueueManager.log('processPendingUploads: starting — ${uploadsToProcess.length} item(s) to process (queue total: ${allItems.length})');
 
       bool hasCompletedUploads = false;
       final Set<String> documentsWithUploads = {};
+      // Filenames successfully attached this pass, grouped by document, so we
+      // can write ONE history entry per document instead of one per file.
+      final Map<String, List<String>> attachedNamesByDoc = {};
+      // Documents whose ordering must be preserved: once an upload fails we
+      // stop processing that document's remaining files this pass, so a later
+      // file can never overtake an earlier one in the URL list.
+      final Set<String> blockedDocuments = {};
 
       for (final upload in uploadsToProcess) {
         final shortPath = (upload['filePath']?.toString() ?? '').split('/').last.split('\\').last;
+        final docCode = upload['documentCode'] as String;
+
+        if (blockedDocuments.contains(docCode)) {
+          UploadQueueManager.log('  [$shortPath] deferred — earlier file for $docCode still pending (preserving order)');
+          continue;
+        }
+
         try {
           queueManager.updateStatus(
             upload['documentCode'],
@@ -580,8 +770,16 @@ class CachedDocumentService {
           final docs = await _localDb.fetchDocuments();
           final doc = docs.where((d) => d.code == upload['documentCode']).firstOrNull;
           if (doc == null) {
-            UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — deferring');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
+            final deferCount = (upload['deferCount'] as int? ?? 0) + 1;
+            upload['deferCount'] = deferCount;
+            UploadQueueManager.log('  [$shortPath] doc "${upload['documentCode']}" not found in SQLite — defer $deferCount/5');
+            if (deferCount >= 5) {
+              // Document gone permanently; remove the stale queue item
+              queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
+              UploadQueueManager.log('  [$shortPath] giving up — removing from queue');
+            } else {
+              queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'pending');
+            }
             continue;
           }
           DriveFolder folder;
@@ -661,43 +859,30 @@ class CachedDocumentService {
 
           UploadQueueManager.log('  [$shortPath] uploading to folder:${folder.name} isImage:$isImage');
 
-          // Check if this is a web camera image (blob URL that we can't handle)
-          if (kIsWeb && upload['localPath'].startsWith('blob:')) {
-            UploadQueueManager.log('  [$shortPath] SKIP — blob URL has no bytes after page reload');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
-            continue;
-          }
-
+          // Nothing this device can read: another device's cache path, or a
+          // blob URL that did not survive a reload. Retrying cannot help —
+          // without this it failed three times over with the bare
+          // "Unsupported operation: _Namespace" thrown by dart:io on web.
           // Check if this is a web file with bytes (fall back to persistent cache)
           final bytes = (upload['bytes'] as List<int>?) ??
               queueManager.getBytesForFile(upload['documentCode'], upload['filePath']);
+
+          if (!await _isReadableHere(
+              upload['localPath']?.toString() ?? '', docCode,
+              bytes: bytes)) {
+            UploadQueueManager.log(
+                '  [$shortPath] SKIP — not readable on this device');
+            queueManager.removeFromQueue(docCode, upload['filePath']);
+            continue;
+          }
           if (kIsWeb && bytes != null) {
-            // Web file with bytes - compress images before upload to stay within edge function limits
+            // Web file with bytes. Compression now happens inside
+            // GoogleDriveService for every platform, so just hand over the bytes.
             final extension = upload['localPath'].split('.').last.toLowerCase();
             final docFileName = extension.isEmpty ? fileName : '$fileName.$extension';
 
-            List<int> uploadBytes = bytes;
-            if (['jpg', 'jpeg', 'png'].contains(extension) && bytes.length > 300 * 1024) {
-              try {
-                final decoded = img.decodeImage(Uint8List.fromList(bytes));
-                if (decoded != null) {
-                  const maxDim = 1920;
-                  final img.Image resized;
-                  if (decoded.width >= decoded.height && decoded.width > maxDim) {
-                    resized = img.copyResize(decoded, width: maxDim);
-                  } else if (decoded.height > decoded.width && decoded.height > maxDim) {
-                    resized = img.copyResize(decoded, height: maxDim);
-                  } else {
-                    resized = decoded;
-                  }
-                  uploadBytes = img.encodeJpg(resized, quality: 80);
-                }
-              } catch (compressErr) {
-              }
-            }
-
             driveUrl = await GoogleDriveService.uploadFileFromBytes(
-              uploadBytes,
+              bytes,
               docFileName,
               folder: folder,
             );
@@ -729,7 +914,7 @@ class CachedDocumentService {
             }
           } else {
             UploadQueueManager.log('  [$shortPath] FAIL — web file with no bytes');
-            queueManager.updateStatus(upload['documentCode'], upload['filePath'], 'failed', retryCount: 3);
+            queueManager.recordFailure(docCode, upload['filePath'], permanent: true);
             continue;
           }
 
@@ -747,6 +932,14 @@ class CachedDocumentService {
               continue;
             }
 
+            // Credit this attachment to whoever is signed in on this device, so
+            // only they can remove it later
+            final uploader = await AuthService.getUsername();
+            final updatedUploaders = Map<String, String>.from(doc.attachmentUploaders);
+            if (uploader != null && uploader.isNotEmpty) {
+              updatedUploaders[Document.attachmentKey(driveUrl)] = uploader;
+            }
+
             if (isImage) {
               final updatedUrls = [...doc.imageUrls];
               if (!updatedUrls.contains(driveUrl)) {
@@ -758,12 +951,14 @@ class CachedDocumentService {
                 'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
               // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
                 'image_urls': updatedUrls,
                 'local_image_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
             } else {
               final updatedUrls = [...doc.fileUrls];
@@ -776,13 +971,22 @@ class CachedDocumentService {
                 'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
               // Also update remote database
               await _remoteDb.updateDocument(documentCode, {
                 'file_urls': updatedUrls,
                 'local_file_paths': updatedLocalPaths,
                 'file_names': updatedFileNames,
+                'attachment_uploaders': updatedUploaders,
               });
+            }
+
+            // Collect for a single batched history entry per document —
+            // one "Attachments Added" line for the whole set, not one line
+            // per file.
+            if (uploader != null && uploader.isNotEmpty) {
+              (attachedNamesByDoc[documentCode] ??= []).add(uploadedFileName);
             }
 
             // Define cleanup callback
@@ -819,14 +1023,45 @@ class CachedDocumentService {
             throw Exception('Upload returned null URL');
           }
         } catch (e) {
-          final newRetryCount = (upload['retryCount'] as int? ?? 0) + 1;
-          UploadQueueManager.log('  [$shortPath] ERROR (retry $newRetryCount/3): $e');
-          queueManager.updateStatus(
-            upload['documentCode'],
+          // A payload the server will never accept must not be retried —
+          // park it so the user can act on it instead of looping forever.
+          final isPermanent = e is PermanentUploadException;
+          UploadQueueManager.log(
+              '  [$shortPath] ${isPermanent ? 'PERMANENT FAILURE' : 'ERROR'}: $e');
+          queueManager.recordFailure(
+            docCode,
             upload['filePath'],
-            'failed',
-            retryCount: newRetryCount,
+            permanent: isPermanent,
           );
+          // Hold back this document's remaining files so a later capture
+          // can't be attached ahead of an earlier one that still needs a retry.
+          if (!isPermanent) blockedDocuments.add(docCode);
+        }
+      }
+
+      // One history entry per document for the whole batch of attachments,
+      // rather than a separate line for every single file.
+      final uploader = await AuthService.getUsername();
+      if (uploader != null && uploader.isNotEmpty) {
+        for (final entry in attachedNamesByDoc.entries) {
+          final names = entry.value;
+          if (names.isEmpty) continue;
+          try {
+            await addHistoryEntry(
+              entry.key,
+              HistoryEntry(
+                action: names.length == 1 ? 'Attachment Added' : 'Attachments Added',
+                person: uploader,
+                timestamp: DateTime.now(),
+                notes: names.length == 1
+                    ? names.first
+                    : '${names.length} files: ${names.join(', ')}',
+              ),
+            );
+          } catch (e) {
+            // History is best-effort — never block the upload
+            UploadQueueManager.log('history entry failed for ${entry.key}: $e');
+          }
         }
       }
 

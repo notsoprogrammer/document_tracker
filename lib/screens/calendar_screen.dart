@@ -20,6 +20,9 @@ import 'add_activity_screen.dart';
 import '../services/google_drive_service.dart';
 import '../config/supabase_config.dart';
 import 'pdf_viewer_screen.dart';
+import '../widgets/notes_thread.dart';
+import '../models/note.dart';
+import '../services/cached_activity_service.dart';
 
 
 class _RangeInfo {
@@ -50,6 +53,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   List<Document> _calendarDocuments = [];
   List<Activity> _calendarActivities = [];
+  // Documents referenced by activities, keyed by code (null = looked up, not found)
+  final Map<String, Document?> _linkedDocuments = {};
   List<PersonalEvent> _personalEvents = [];
   String? _currentUsername;
 
@@ -103,7 +108,48 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _calendarDocuments = documents;
       });
       _selectedEvents.value = _getEventsForDay(_selectedDay!);
+      // Schedule a 1-hour-before reminder for each document with a calendar deadline.
+      for (final doc in documents) {
+        NotificationService().scheduleDocumentReminder(doc);
+      }
     } catch (e) {
+    }
+  }
+
+  /// Persist an updated notes thread for [activity] and reload so the change
+  /// shows immediately.
+  /// Swap [next] in wherever the old revision of that activity is held.
+  void _replaceActivity(Activity next) {
+    for (var i = 0; i < _calendarActivities.length; i++) {
+      if (_calendarActivities[i].id == next.id) _calendarActivities[i] = next;
+    }
+    _selectedEvents.value = _getEventsForDay(_selectedDay!);
+  }
+
+  /// Persist an activity's notes thread.
+  ///
+  /// Applied in memory first so the remark appears immediately; reloading every
+  /// calendar activity just to render one new note was slow enough that it
+  /// looked like nothing had saved.
+  Future<void> _saveActivityNotes(Activity activity, List<Note> updated) async {
+    if (activity.id == null) return;
+    final previous = activity;
+    setState(() => _replaceActivity(activity.copyWith(remarksList: updated)));
+
+    try {
+      await CachedActivityService().updateActivity(
+        activity.id!,
+        {'remarks_list': Note.listToJson(updated)},
+      );
+    } catch (e) {
+      debugPrint('Activity note save failed for ${activity.id}: $e');
+      if (mounted) {
+        // Put the old thread back so the UI never claims a save that failed.
+        setState(() => _replaceActivity(previous));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save remark: $e')),
+        );
+      }
     }
   }
 
@@ -765,6 +811,118 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ScrollableImageViewer.show(context, imageUrls: imageUrls);
   }
 
+  /// Resolves an activity's "Document Ref" to the actual document so its
+  /// attachments can be shown inline. Checks the already-loaded calendar
+  /// documents first, then the local cache/Supabase. Results are memoised.
+  Future<Document?> _fetchLinkedDocument(String code) async {
+    if (_linkedDocuments.containsKey(code)) return _linkedDocuments[code];
+
+    Document? found;
+    for (final doc in _calendarDocuments) {
+      if (doc.code == code) {
+        found = doc;
+        break;
+      }
+    }
+
+    if (found == null) {
+      try {
+        found = await SupabaseService().fetchDocumentByCode(code);
+      } catch (e) {
+        // Offline or lookup failed — fall back to the local cache
+      }
+    }
+    if (found == null) {
+      try {
+        final cached = await CachedDocumentService().fetchDocuments();
+        for (final doc in cached) {
+          if (doc.code == code) {
+            found = doc;
+            break;
+          }
+        }
+      } catch (e) {
+        // Leave as not found
+      }
+    }
+
+    _linkedDocuments[code] = found;
+    return found;
+  }
+
+  /// Attachment section shown under an activity's Document Ref.
+  Widget _buildLinkedDocumentAttachments(String code) {
+    return FutureBuilder<Document?>(
+      future: _fetchLinkedDocument(code),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                SizedBox(width: 10),
+                Text('Loading attachments...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
+        final doc = snapshot.data;
+        if (doc == null) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Document $code could not be loaded.',
+              style: const TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          );
+        }
+
+        final hasAttachments = doc.imageUrls.isNotEmpty || doc.fileUrls.isNotEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.attachment, size: 18, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    doc.title ?? doc.type,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showDocumentDetails(this.context, doc);
+                  },
+                  child: const Text('Open'),
+                ),
+              ],
+            ),
+            if (!hasAttachments)
+              const Padding(
+                padding: EdgeInsets.only(top: 4, bottom: 8),
+                child: Text(
+                  'No attachments on this document.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic),
+                ),
+              )
+            else ...[
+              const SizedBox(height: 8),
+              ..._buildAttachmentCards(doc),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   // --- Document details ---
 
   void _showDocumentDetails(BuildContext context, Document doc) {
@@ -1065,81 +1223,91 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        // Images
-        if (doc.imageUrls.isNotEmpty) ...[
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () => _showImageViewer(context, doc.imageUrls),
-                    child: CachedNetworkImage(
-                      imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
-                      httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
-                    ),
-                  ),
-                  if (doc.imageUrls.length > 1)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text('Tap to view all images', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
-        // Files
-        if (doc.fileUrls.isNotEmpty) ...[
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  ...doc.fileUrls.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final fileUrl = entry.value;
-                    final fileName = index < doc.fileNames.length ? doc.fileNames[index] : 'Document.pdf';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: InkWell(
-                        onTap: () => _viewFile(fileUrl, title: doc.title ?? doc.type),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.attach_file, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                fileName,
-                                style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ..._buildAttachmentCards(doc),
       ],
     );
+  }
+
+  /// Images + files cards for a document. Shared by the document sheet and the
+  /// linked-document section of the activity sheet.
+  List<Widget> _buildAttachmentCards(Document doc) {
+    return [
+      if (doc.imageUrls.isNotEmpty) ...[
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc.imageUrls.length > 1 ? 'Images (${doc.imageUrls.length})' : 'Images',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _showImageViewer(context, doc.imageUrls),
+                  child: CachedNetworkImage(
+                    imageUrl: GoogleDriveService.generateProxyUrl(GoogleDriveService.normalizeFileId(doc.imageUrls.first)),
+                    httpHeaders: {'Authorization': 'Bearer ${SupabaseConfig.supabaseAnonKey}'},
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Center(child: Text('Failed to load image')),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    doc.imageUrls.length > 1 ? 'Tap to view all images' : 'Tap to view',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+      ],
+      if (doc.fileUrls.isNotEmpty)
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                ...doc.fileUrls.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final fileUrl = entry.value;
+                  final fileName = index < doc.fileNames.length ? doc.fileNames[index] : 'Document.pdf';
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () => _viewFile(fileUrl, title: doc.title ?? doc.type),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.attach_file, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              fileName,
+                              style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+    ];
   }
 
   Widget _buildActivityContent(BuildContext context, Activity activity, {String? currentUsername}) {
@@ -1185,10 +1353,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 _buildDetailRow('People Involved', activity.peopleInvolved),
                 if (activity.location != null && activity.location!.isNotEmpty)
                   _buildDetailRow('Location', activity.location!),
-                if (activity.remarks.isNotEmpty)
-                  _buildDetailRow('Remarks', activity.remarks),
-                if (activity.linkedDocumentCode != null && activity.linkedDocumentCode!.isNotEmpty)
+                // Append-only notes thread: anyone can add a remark without
+                // having to edit whatever someone else already wrote.
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: NotesThread(
+                    notes: activity.remarksList,
+                    currentUsername: currentUsername,
+                    onChanged: (updated) => _saveActivityNotes(activity, updated),
+                  ),
+                ),
+                if (activity.linkedDocumentCode != null && activity.linkedDocumentCode!.isNotEmpty) ...[
                   _buildCopyableRow('Document Ref', activity.linkedDocumentCode!),
+                  _buildLinkedDocumentAttachments(activity.linkedDocumentCode!),
+                ],
               ],
             ),
           ),

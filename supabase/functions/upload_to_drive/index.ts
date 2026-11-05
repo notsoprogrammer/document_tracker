@@ -6,6 +6,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Base64 inflates binary by ~33%, so this caps the real file at ~8MB.
+const MAX_FILE_DATA_CHARS = 11 * 1024 * 1024;
+
+// Google access tokens are valid for an hour. Minting a fresh JWT on every
+// upload added a needless round-trip (and latency) to each request, so cache
+// it across invocations of a warm instance.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(credentials: any, tokenUri: string) {
+  const now = Date.now();
+  // Refresh a minute early to avoid racing the expiry.
+  if (cachedToken && cachedToken.expiresAt > now + 60_000) {
+    return cachedToken.token;
+  }
+
+  const jwt = await createJWT(credentials);
+  const tokenResponse = await fetch(tokenUri || "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+
+  cachedToken = {
+    token: tokenData.access_token,
+    expiresAt: now + (tokenData.expires_in ?? 3600) * 1000,
+  };
+  return cachedToken.token;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -36,24 +73,7 @@ serve(async (req) => {
       universe_domain: "googleapis.com"
     };
 
-    // Create JWT for Google OAuth2
-    const jwt = await createJWT(credentials);
-
-    // Exchange JWT for access token
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt,
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) {
-      throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
-    }
-    const accessToken = tokenData.access_token;
+    const accessToken = await getAccessToken(credentials, tokenUri);
 
     // Parse request body
     const requestBody = await req.json();
@@ -89,9 +109,104 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
+    } else if (action === "create_upload_session") {
+      // Large files never pass through this function. Instead we mint a Drive
+      // resumable upload session and hand the URL back; the client PUTs the
+      // bytes straight to Google in chunks. That avoids base64 inflation,
+      // the edge request-body ceiling, and the memory cost of buffering the
+      // whole file here — and it survives a dropped connection.
+      const { fileName, folderId, mimeType } = requestBody;
+
+      if (!fileName || !folderId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "MISSING_FIELDS" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+        );
+      }
+
+      const sessionResponse = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-Upload-Content-Type": mimeType || "application/octet-stream",
+          },
+          body: JSON.stringify({ name: fileName, parents: [folderId] }),
+        },
+      );
+
+      if (!sessionResponse.ok) {
+        const text = await sessionResponse.text();
+        throw new Error(`Drive resumable init failed: ${text}`);
+      }
+
+      const sessionUrl = sessionResponse.headers.get("Location");
+      if (!sessionUrl) {
+        throw new Error("Drive did not return a resumable session URL");
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, sessionUrl }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    } else if (action === "finalize") {
+      // Called after the client finishes a resumable upload, to grant the
+      // public read permission the app's image URLs rely on.
+      const { fileId } = requestBody;
+
+      if (!fileId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "MISSING_FIELDS" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+        );
+      }
+
+      const permResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "reader", type: "anyone" }),
+        },
+      );
+
+      if (!permResponse.ok) {
+        const text = await permResponse.text();
+        throw new Error(`Drive permission update failed: ${text}`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, fileId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     } else {
-      // Handle file upload (default action)
+      // Handle small-file upload inline (default action)
       const { fileName, fileData, folderId, mimeType } = requestBody;
+
+      if (!fileData || !fileName || !folderId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "MISSING_FIELDS" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+        );
+      }
+
+      // Reject oversized payloads with a clear 4xx so the client parks the
+      // item instead of retrying bytes that can never succeed.
+      if (fileData.length > MAX_FILE_DATA_CHARS) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "FILE_TOO_LARGE",
+            maxBytes: Math.floor(MAX_FILE_DATA_CHARS * 0.75),
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 413 },
+        );
+      }
 
       // Upload to Google Drive
       const driveResponse = await fetch(

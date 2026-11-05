@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'note.dart';
 
 class Activity {
   final int? id;
@@ -7,6 +8,10 @@ class Activity {
   final DateTime? endTime;
   final String peopleInvolved;
   final String remarks;
+  /// Append-only notes thread. Anyone may add a note; only its author may edit
+  /// or delete it. The legacy single [remarks] text is folded in as the first
+  /// note when this list is empty.
+  final List<Note> remarksList;
   final String person;
   final String? location;
   bool needsSync;
@@ -21,13 +26,14 @@ class Activity {
     this.endTime,
     required this.peopleInvolved,
     required this.remarks,
+    List<Note>? remarksList,
     required this.person,
     this.location,
     this.needsSync = false,
     this.createdAt,
     this.extraDates = const [],
     this.linkedDocumentCode,
-  });
+  }) : remarksList = remarksList ?? const [];
 
   factory Activity.fromJson(Map<String, dynamic> json) {
     List<DateTime> extraDates = [];
@@ -47,6 +53,13 @@ class Activity {
       endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
       peopleInvolved: json['people_involved'],
       remarks: json['remarks'],
+      remarksList: Note.parseList(
+        json['remarks_list'],
+        legacyRemarks: json['remarks']?.toString(),
+        legacyDate: json['created_at'] != null
+            ? DateTime.tryParse(json['created_at'].toString())
+            : null,
+      ),
       person: json['person'],
       location: json['location'],
       needsSync: json['needs_sync'] == 1 || json['needs_sync'] == true,
@@ -64,6 +77,7 @@ class Activity {
       'end_time': endTime?.toIso8601String(),
       'people_involved': peopleInvolved,
       'remarks': remarks,
+      'remarks_list': Note.listToJson(remarksList),
       'person': person,
       'location': location,
       'needs_sync': needsSync,
@@ -80,6 +94,7 @@ class Activity {
     DateTime? endTime,
     String? peopleInvolved,
     String? remarks,
+    List<Note>? remarksList,
     String? person,
     String? location,
     bool? needsSync,
@@ -94,6 +109,7 @@ class Activity {
       endTime: endTime ?? this.endTime,
       peopleInvolved: peopleInvolved ?? this.peopleInvolved,
       remarks: remarks ?? this.remarks,
+      remarksList: remarksList ?? this.remarksList,
       person: person ?? this.person,
       location: location ?? this.location,
       needsSync: needsSync ?? this.needsSync,

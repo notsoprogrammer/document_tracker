@@ -1,11 +1,11 @@
 {
-    "name": "document_tracker",
-    "short_name": "document_tracker",
+    "name": "FileTrack Hub",
+    "short_name": "FileTrack Hub",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Internal document tracking and records management for CPDCO staff.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
